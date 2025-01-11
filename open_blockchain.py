@@ -1,24 +1,23 @@
-from flask import Flask, request, jsonify
-from typing import List
+import hashlib
+import time
 
-app = Flask(__name__)
-database: List[str] = []
+class Block:
+    def __init__(self, index: int, data: str, previous_hash: str):
+        self.index = index
+        self.timestamp = time.time()
+        self.data = data
+        self.previous_hash = previous_hash
+        self.nonce = 0
+        self.hash = self.calculate_hash()
 
+    def calculate_hash(self):
+        block_contents = f"{self.index}{self.timestamp}{self.data}{self.previous_hash}{self.nonce}"
+        return hashlib.sha256(block_contents.encode()).hexdigest()
 
-@app.route('/add_entry', methods=['POST'])
-def add_entry():
-    data = request.get_json().get("data")
-    if not data:
-        return jsonify({"error": "No data provided."}), 400
-
-    database.append(data)  # Add the data to our simple list
-    return jsonify({"message": "Data added!", "data": data}), 200
-
-
-@app.route('/get_database', methods=['Get'])
-def get_database():
-    return jsonify({"entries": database, "count": len(database)}), 200
-
-
-if __name__ == "__main__":
-    app.run(port=5000, debug=True)
+# Test: Create a simple test block
+block = Block(1, "Test data", "0")
+print(f"Block Index: {block.index}")
+print(f"Block Data: {block.data}")
+print(f"Block Timestamp: {block.timestamp}")
+print(f"Previous Hash: {block.previous_hash}")
+print(f"Hash: {block.hash}")
