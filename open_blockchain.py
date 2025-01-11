@@ -1,6 +1,5 @@
 import hashlib
 import time
-from typing import LiteralString
 
 
 class Block:
@@ -98,9 +97,24 @@ print("\nValidating the blockchain...")
 blockchain.is_chain_valid()
 
 # Tamper with the blockchain
-print("\nTampering with the blockchain...")
-blockchain.chain[1].data = "Tampered data"
+# Make a copy of the blockchain
+print("\nCopying the blockchain...")
+blockchain_copy: list[Block] = blockchain.chain.copy()
+print("\nTampering with the copied blockchain...")
+blockchain_copy[1].data = "Tampered data"
+
+# Check if the tampered blockchain copy is valid
+print("\nValidating the tampered blockchain...")
+blockchain.is_chain_valid()
+# Delete the tampered blockchain
+del blockchain_copy
+print("\nBlockchain copy deleted.")
+
+# Insert a block in the middle of the original blockchain
+print("\nInserting a block in the middle of the original blockchain...")
+malicious_block = Block(index=1, data="Malicious block", previous_hash="0")
+blockchain.chain.insert(1, malicious_block)
 
 # Check if the tampered blockchain is valid
-print("\nValidating the tampered blockchain...")
+print("\nValidating the blockchain...")
 blockchain.is_chain_valid()
