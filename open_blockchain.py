@@ -13,7 +13,8 @@ class Block:
         self.hash: str = self.calculate_hash()
 
     def calculate_hash(self) -> str:
-        block_contents: str = f"{self.index}{self.timestamp}{self.data}{self.previous_hash}{self.nonce}"
+        block_contents: str = f"{self.index}{self.timestamp}{
+            self.data}{self.previous_hash}{self.nonce}"
         hash_string: str = hashlib.sha256(block_contents.encode()).hexdigest()
         # print(f"Hash: {hash_string}")
         return hash_string
@@ -34,11 +35,38 @@ class Blockchain:
 
     def add_block(self, data: str, difficulty: int = 0) -> None:
         latest_block: Block = self.chain[-1]
-        new_block = Block(len(self.chain), data, latest_block.hash)
+        new_block = Block(
+            index=len(self.chain),
+            data=data,
+            previous_hash=latest_block.hash
+        )
         if difficulty > 0:
             new_block.mine_block(difficulty)
         self.chain.append(new_block)
 
+    def is_chain_valid(self) -> bool:
+        for i in range(1, len(self.chain)):
+            current_block: Block = self.chain[i]
+            calculated_hash = current_block.calculate_hash()
+            print(f"\nCurrent Block Hash: {current_block.hash}")
+            print(f"Calculated Hash: {calculated_hash}")
+            if current_block.hash != calculated_hash:
+                print(f"Block {i} hash does not match calculated hash.")
+                print("The blockchain is not valid.")
+                return False
+            else:
+                print(f"Block {i} hash matches calculated hash.")
+            previous_block: Block = self.chain[i - 1]
+            print(f"Previous Block Hash: {previous_block.hash}")
+            print(f"Current Block Previous Hash: {current_block.previous_hash}")
+            if current_block.previous_hash != previous_block.hash:
+                print(f"Block {i} previous hash does not match previous block's hash.")
+                print("The blockchain is not valid.")
+                return False
+            else:
+                print(f"Block {i} previous hash matches previous block's hash.")
+        print("The blockchain is valid.")
+        return True
 
 # Create a blockchain and add the genesis block
 blockchain = Blockchain()
@@ -64,3 +92,15 @@ print(f"\nMining a block to the blockchain with difficulty {difficulty}...")
 blockchain.add_block("Blockchain mining test data", difficulty=difficulty)
 print(f"Block mined. Hash: {blockchain.chain[2].hash}")
 print(f"Nonce: {blockchain.chain[2].nonce}")
+
+# Check if the blockchain is valid
+print("\nValidating the blockchain...")
+blockchain.is_chain_valid()
+
+# Tamper with the blockchain
+print("\nTampering with the blockchain...")
+blockchain.chain[1].data = "Tampered data"
+
+# Check if the tampered blockchain is valid
+print("\nValidating the tampered blockchain...")
+blockchain.is_chain_valid()
