@@ -1,6 +1,7 @@
 import hashlib
 import time
 
+
 class Block:
     def __init__(self, index: int, data: str, previous_hash: str):
         self.index = index
@@ -11,13 +12,32 @@ class Block:
         self.hash = self.calculate_hash()
 
     def calculate_hash(self):
-        block_contents = f"{self.index}{self.timestamp}{self.data}{self.previous_hash}{self.nonce}"
+        block_contents = f"{self.index}{self.timestamp}{
+            self.data}{self.previous_hash}{self.nonce}"
         return hashlib.sha256(block_contents.encode()).hexdigest()
 
-# Test: Create a simple test block
-block = Block(1, "Test data", "0")
-print(f"Block Index: {block.index}")
-print(f"Block Data: {block.data}")
-print(f"Block Timestamp: {block.timestamp}")
-print(f"Previous Hash: {block.previous_hash}")
-print(f"Hash: {block.hash}")
+
+class Blockchain:
+    def __init__(self):
+        self.chain = [self.create_genesis_block()]
+
+    def create_genesis_block(self):
+        return Block(0, "Genesis Block", "0")
+
+    def add_block(self, data: str):
+        latest_block = self.chain[-1]
+        new_block = Block(len(self.chain), data, latest_block.hash)
+        self.chain.append(new_block)
+
+
+# Create a blockchain and add the genesis block
+blockchain = Blockchain()
+print(f"Genesis Block:")
+print(f"Hash: {blockchain.chain[0].hash}")
+
+# Add a new block
+blockchain.add_block("Block 1 data")
+print("\nNew Block:")
+print(f"Hash: {blockchain.chain[1].hash}")
+
+# print(f"\nBlockchain: {blockchain.chain}")
