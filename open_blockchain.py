@@ -1,5 +1,13 @@
+# region Init
 import hashlib
 import time
+from flask import Flask, request, jsonify, Response
+from typing import Tuple, Dict
+
+app = Flask(__name__)
+# endregion
+
+# region Classes
 
 
 class Block:
@@ -57,64 +65,59 @@ class Blockchain:
                 print(f"Block {i} hash matches calculated hash.")
             previous_block: Block = self.chain[i - 1]
             print(f"Previous Block Hash: {previous_block.hash}")
-            print(f"Current Block Previous Hash: {current_block.previous_hash}")
+            print(f"Current Block Previous Hash: {
+                  current_block.previous_hash}")
             if current_block.previous_hash != previous_block.hash:
-                print(f"Block {i} previous hash does not match previous block's hash.")
+                print(
+                    f"Block {i} previous hash does not match previous block's hash.")
                 print("The blockchain is not valid.")
                 return False
             else:
-                print(f"Block {i} previous hash matches previous block's hash.")
+                print(
+                    f"Block {i} previous hash matches previous block's hash.")
         print("The blockchain is valid.")
         return True
+# endregion
 
-# Create a blockchain and add the genesis block
+
+# region Init blockchain
 blockchain = Blockchain()
-print(f"Genesis Block:")
-print(f"Hash: {blockchain.chain[0].hash}")
+# endregion
 
-# Add a new block without mining
-blockchain.add_block("Block 1 data")
-print("\nNew Block:")
-print(f"Hash: {blockchain.chain[1].hash}")
 
-# Mine a block
-block = Block(index=1, data="Mining test data", previous_hash="0")
-difficulty = 4
-print(f"\nMining block with difficulty {difficulty}...")
-block.mine_block(difficulty=difficulty)
-print(f"Block mined. Hash: {block.hash}")
-print(f"Nonce: {block.nonce}")
+# region API Routes
 
-# A new block to the blockchain with mining
-difficulty = 4
-print(f"\nMining a block to the blockchain with difficulty {difficulty}...")
-blockchain.add_block("Blockchain mining test data", difficulty=difficulty)
-print(f"Block mined. Hash: {blockchain.chain[2].hash}")
-print(f"Nonce: {blockchain.chain[2].nonce}")
 
-# Check if the blockchain is valid
-print("\nValidating the blockchain...")
-blockchain.is_chain_valid()
+@app.route("/add_block", methods=["POST"])
+# API Route: Add a new block to the blockchain
+def add_block() -> Tuple[Response, int]:
+    data: str = request.get_json().get("data")
+    if not data:
+        return jsonify({"message": "Data is required."}), 400
 
-# Tamper with the blockchain
-# Make a copy of the blockchain
-print("\nCopying the blockchain...")
-blockchain_copy: list[Block] = blockchain.chain.copy()
-print("\nTampering with the copied blockchain...")
-blockchain_copy[1].data = "Tampered data"
+    blockchain.add_block(data)
+    return jsonify({"message": "Block added successfully.",
+                    "block": blockchain.chain[-1].__dict__}), 200
 
-# Check if the tampered blockchain copy is valid
-print("\nValidating the tampered blockchain...")
-blockchain.is_chain_valid()
-# Delete the tampered blockchain
-del blockchain_copy
-print("\nBlockchain copy deleted.")
 
-# Insert a block in the middle of the original blockchain
-print("\nInserting a block in the middle of the original blockchain...")
-malicious_block = Block(index=1, data="Malicious block", previous_hash="0")
-blockchain.chain.insert(1, malicious_block)
+@app.route("/get_chain", methods=["GET"])
+# API Route: Get the blockchain
+def get_chain() -> Tuple[Response, int]:
+    chain_data: list[dict[str, str]] = [
+        block.__dict__ for block in blockchain.chain]
+    return jsonify({"length": len(chain_data), "chain": chain_data}), 200
 
-# Check if the tampered blockchain is valid
-print("\nValidating the blockchain...")
-blockchain.is_chain_valid()
+
+@app.route("/validate_chain", methods=["GET"])
+# API Route: Validate the blockchain
+def validate_chain() -> Tuple[Response | Dict[str, str], int]:
+    is_valid: bool = blockchain.is_chain_valid()
+    return jsonify({"message": "The blockchain is valid." if is_valid else
+                    "The blockchain is not valid."}), 200
+# endregion
+
+
+# region Run Flask app
+if __name__ == "__main__":
+    app.run(port=5000, debug=True)
+# endregion
