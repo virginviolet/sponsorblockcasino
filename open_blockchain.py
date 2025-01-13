@@ -1,8 +1,10 @@
 # region Init
 import hashlib
 import time
+import os
+import json
 from flask import Flask, request, jsonify, Response
-from typing import Tuple, Dict
+from typing import Tuple, Dict, List, Any
 
 app = Flask(__name__)
 # endregion
@@ -11,13 +13,13 @@ app = Flask(__name__)
 
 
 class Block:
-    def __init__(self, index: int, data: str, previous_hash: str) -> None:
+    def __init__(self, index: int, data: str, previous_hash: str, timestamp: float = None, nonce: int = 0, block_hash=None) -> None:
         self.index: int = index
-        self.timestamp: float = time.time()
+        self.timestamp: float = timestamp if timestamp else time.time()
         self.data: str = data
         self.previous_hash: str = previous_hash
-        self.nonce = 0
-        self.hash: str = self.calculate_hash()
+        self.nonce = nonce
+        self.hash: str = block_hash if block_hash else self.calculate_hash()
 
     def calculate_hash(self) -> str:
         block_contents: str = f"{self.index}{self.timestamp}{
@@ -34,55 +36,107 @@ class Block:
 
 
 class Blockchain:
-    def __init__(self) -> None:
-        self.chain: list[Block] = [self.create_genesis_block()]
+    def __init__(self, filename: str = "blockchain.json") -> None:
+        self.filename = filename
+        file_exists: bool = os.path.exists(filename)
+        file_empty: bool = os.stat(filename).st_size == 0
+        if not file_exists or file_empty:
+            self.create_genesis_block()
 
-    def create_genesis_block(self) -> Block:
-        return Block(0, "Genesis Block", "0")
+    def create_genesis_block(self) -> None:
+        genesis_block = Block(0, "Genesis Block", "0")
+        self.write_block_to_file(genesis_block)
+
+    def write_block_to_file(self, block: Block) -> None:
+        # Open the file in append mode
+        with open(self.filename, "a") as file:
+            # Convert the block object to dictionary, serialize it to JSON, and write it to the file with a newline
+            file.write(json.dumps(block.__dict__) + "\n")
 
     def add_block(self, data: str, difficulty: int = 0) -> None:
-        latest_block: Block = self.chain[-1]
+        latest_block: None | Block = self.get_last_block()
         new_block = Block(
-            index=len(self.chain),
+            index=(latest_block.index + 1) if latest_block else 0,
             data=data,
-            previous_hash=latest_block.hash
+            previous_hash=latest_block.hash if latest_block else "0"
         )
         if difficulty > 0:
             new_block.mine_block(difficulty)
-        self.chain.append(new_block)
+        self.write_block_to_file(new_block)
+
+    def get_last_block(self) -> None | Block:
+        if not os.path.exists(self.filename):
+            return None
+        with open(self.filename, "r") as file:
+            # Create a list of all lines (deserialized) in the file
+            chain = [json.loads(line) for line in file.readlines()]
+            last_block_data = chain[-1]
+            return Block(
+                index=last_block_data["index"],
+                timestamp=last_block_data["timestamp"],
+                data=last_block_data["data"],
+                previous_hash=last_block_data["previous_hash"],
+                nonce=last_block_data["nonce"],
+                block_hash=last_block_data["hash"]
+            )
 
     def is_chain_valid(self) -> bool:
-        for i in range(1, len(self.chain)):
-            current_block: Block = self.chain[i]
-            calculated_hash = current_block.calculate_hash()
-            print(f"\nCurrent Block Hash: {current_block.hash}")
-            print(f"Calculated Hash: {calculated_hash}")
-            if current_block.hash != calculated_hash:
-                print(f"Block {i} hash does not match calculated hash.")
-                print("The blockchain is not valid.")
-                return False
-            else:
-                print(f"Block {i} hash matches calculated hash.")
-            previous_block: Block = self.chain[i - 1]
-            print(f"Previous Block Hash: {previous_block.hash}")
-            print(f"Current Block Previous Hash: {
-                  current_block.previous_hash}")
-            if current_block.previous_hash != previous_block.hash:
-                print(
-                    f"Block {i} previous hash does not match previous block's hash.")
-                print("The blockchain is not valid.")
-                return False
-            else:
-                print(
-                    f"Block {i} previous hash matches previous block's hash.")
-        print("The blockchain is valid.")
-        return True
+        chain_validity = True
+        if not os.path.exists(self.filename):
+            chain_validity = False
+        else:
+            with open(self.filename, "r") as file:
+                # Create a list of all lines (deserialized) in the file
+                chain: List[Block] = [
+                    Block(
+                        index=block_key["index"],
+                        timestamp=block_key["timestamp"],
+                        data=block_key["data"],
+                        previous_hash=block_key["previous_hash"],
+                        nonce=block_key["nonce"],
+                        block_hash=block_key["hash"]
+                    )
+                    for line in file.readlines() for block_key in [json.loads(line)]
+                    ]
+                for i in range(1, len(chain)):
+                    current_block: Block = chain[i]
+                    calculated_hash: str = current_block.calculate_hash()
+                    print(f"\nCurrent Block Hash: {current_block.hash}")
+                    print(f"Calculated Hash: {calculated_hash}")
+                    if current_block.hash != calculated_hash:
+                        print(
+                            f"Block {i} hash does not match calculated hash.")
+                        chain_validity = False
+                        break
+                    else:
+                        print(f"Block {i} hash matches calculated hash.")
+                    previous_block: Block = chain[i - 1]
+                    print(f"Previous Block Hash: {previous_block.hash}")
+                    print(f"Current Block Previous Hash: {
+                        current_block.previous_hash}")
+                    if current_block.previous_hash != previous_block.hash:
+                        print(
+                            f"Block {i} previous hash does not match previous block's hash.")
+                        chain_validity = False
+                        break
+                    else:
+                        print(
+                            f"Block {i} previous hash matches previous block's hash.")
+        if chain_validity:
+            print("The blockchain is valid.")
+            return True
+        else:
+            print("The blockchain is invalid.")
+            return False
 # endregion
 
 
 # region Init blockchain
 blockchain = Blockchain()
 # endregion
+
+
+
 
 
 # region API Routes
@@ -96,16 +150,17 @@ def add_block() -> Tuple[Response, int]:
         return jsonify({"message": "Data is required."}), 400
 
     blockchain.add_block(data)
+    last_block = blockchain.get_last_block()
     return jsonify({"message": "Block added successfully.",
-                    "block": blockchain.chain[-1].__dict__}), 200
+                    "block": last_block.__dict__}), 200
 
 
 @app.route("/get_chain", methods=["GET"])
 # API Route: Get the blockchain
-def get_chain() -> Tuple[Response, int]:
-    chain_data: list[dict[str, str]] = [
-        block.__dict__ for block in blockchain.chain]
-    return jsonify({"length": len(chain_data), "chain": chain_data}), 200
+def get_chain():
+    with open(blockchain.filename, "r") as file:
+        chain_data = [json.loads(line) for line in file.readlines()]
+        return jsonify({"length": len(chain_data), "chain": chain_data}), 200
 
 
 @app.route("/validate_chain", methods=["GET"])
