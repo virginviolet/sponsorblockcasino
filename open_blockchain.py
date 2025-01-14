@@ -4,7 +4,7 @@ import time
 import os
 import json
 from flask import Flask, request, jsonify, Response
-from typing import Tuple, Dict, List, Any
+from typing import Tuple, Dict, Any
 
 app = Flask(__name__)
 # endregion
@@ -13,7 +13,7 @@ app = Flask(__name__)
 
 
 class Block:
-    def __init__(self, index: int, data: str, previous_hash: str, timestamp: float = None, nonce: int = 0, block_hash=None) -> None:
+    def __init__(self, index: int, data: str, previous_hash: str, timestamp: float = 0.0, nonce: int = 0, block_hash: str | None = None) -> None:
         self.index: int = index
         self.timestamp: float = timestamp if timestamp else time.time()
         self.data: str = data
@@ -37,9 +37,9 @@ class Block:
 
 class Blockchain:
     def __init__(self, filename: str = "blockchain.json") -> None:
-        self.filename = filename
+        self.filename: str = filename
         file_exists: bool = os.path.exists(filename)
-        file_empty: bool = os.stat(filename).st_size == 0
+        file_empty: bool = file_exists and os.stat(filename).st_size == 0
         if not file_exists or file_empty:
             self.create_genesis_block()
 
@@ -67,17 +67,29 @@ class Blockchain:
     def get_last_block(self) -> None | Block:
         if not os.path.exists(self.filename):
             return None
-        with open(self.filename, "r") as file:
-            # Create a list of all lines (deserialized) in the file
-            chain = [json.loads(line) for line in file.readlines()]
-            last_block_data = chain[-1]
+        # Get the last line of the file
+        with open(self.filename, "rb") as file:
+            # Go to the second last byte
+            file.seek(-2, os.SEEK_END)
+            try:
+                # Seek backwards until a newline is found
+                # Move one byte at a time
+                while file.read(1) != b"\n":
+                    # Look two bytes back
+                    file.seek(-2, os.SEEK_CUR)
+            except OSError:
+                # Move to the start of the file if for example no newline is found
+                file.seek(0)
+            last_line: str = file.readline().decode()
+
+        for block_key in [json.loads(last_line)]:
             return Block(
-                index=last_block_data["index"],
-                timestamp=last_block_data["timestamp"],
-                data=last_block_data["data"],
-                previous_hash=last_block_data["previous_hash"],
-                nonce=last_block_data["nonce"],
-                block_hash=last_block_data["hash"]
+                index=block_key["index"],
+                timestamp=block_key["timestamp"],
+                data=block_key["data"],
+                previous_hash=block_key["previous_hash"],
+                nonce=block_key["nonce"],
+                block_hash=block_key["hash"]
             )
 
     def is_chain_valid(self) -> bool:
@@ -85,43 +97,51 @@ class Blockchain:
         if not os.path.exists(self.filename):
             chain_validity = False
         else:
+            current_block: None | Block = None
+            previous_block: None | Block = None
+            # Open the blockchain file
             with open(self.filename, "r") as file:
-                # Create a list of all lines (deserialized) in the file
-                chain: List[Block] = [
-                    Block(
-                        index=block_key["index"],
-                        timestamp=block_key["timestamp"],
-                        data=block_key["data"],
-                        previous_hash=block_key["previous_hash"],
-                        nonce=block_key["nonce"],
-                        block_hash=block_key["hash"]
+                for line in file:
+                    if current_block:
+                        previous_block = current_block
+                    # Deserialize the line's JSON data to a dictionary
+                    current_line_json: Dict[str, Any] = json.loads(line)
+                    # Create a new block object from the dictionary
+                    current_block = Block(
+                        index=current_line_json["index"],
+                        timestamp=current_line_json["timestamp"],
+                        data=current_line_json["data"],
+                        previous_hash=current_line_json["previous_hash"],
+                        nonce=current_line_json["nonce"],
+                        block_hash=current_line_json["hash"]
                     )
-                    for line in file.readlines() for block_key in [json.loads(line)]
-                    ]
-                for i in range(1, len(chain)):
-                    current_block: Block = chain[i]
+                    del current_line_json  # Free up a small amount of memory
+                    # Calculate the hash of the current block
                     calculated_hash: str = current_block.calculate_hash()
-                    print(f"\nCurrent Block Hash: {current_block.hash}")
-                    print(f"Calculated Hash: {calculated_hash}")
+                    print(f"\nCurrent block's \"Hash\": {current_block.hash}")
+                    print(f"Calculated hash:\t{calculated_hash}")
                     if current_block.hash != calculated_hash:
-                        print(
-                            f"Block {i} hash does not match calculated hash.")
+                        print(f"Block {current_block.index}'s hash does not match the calculated "
+                              "hash. This could mean that a block has been tampered with.")
                         chain_validity = False
                         break
                     else:
-                        print(f"Block {i} hash matches calculated hash.")
-                    previous_block: Block = chain[i - 1]
-                    print(f"Previous Block Hash: {previous_block.hash}")
-                    print(f"Current Block Previous Hash: {
-                        current_block.previous_hash}")
-                    if current_block.previous_hash != previous_block.hash:
-                        print(
-                            f"Block {i} previous hash does not match previous block's hash.")
-                        chain_validity = False
-                        break
-                    else:
-                        print(
-                            f"Block {i} previous hash matches previous block's hash.")
+                        print(f"Block {current_block.index}'s hash matches "
+                              "the calculated hash.")
+                    if previous_block:
+                        print(f"\nPrevious block's hash:\t\t\t{
+                              previous_block.hash}")
+                        print(f"Current block's \"Previous Hash\":\t{
+                            current_block.previous_hash}")
+                        if current_block.previous_hash != previous_block.hash:
+                            print(f"Block {current_block.index} \"Previous Hash\" value does not "
+                                  "match the previous block's hash. This could mean that a block is "
+                                  "missing or that one has been incorrectly inserted.")
+                            chain_validity = False
+                            break
+                        else:
+                            print(f"Block {current_block.index}  \"Previous Hash\" value matches "
+                                  "the previous block's hash.")
         if chain_validity:
             print("The blockchain is valid.")
             return True
@@ -136,9 +156,6 @@ blockchain = Blockchain()
 # endregion
 
 
-
-
-
 # region API Routes
 
 
@@ -150,17 +167,33 @@ def add_block() -> Tuple[Response, int]:
         return jsonify({"message": "Data is required."}), 400
 
     blockchain.add_block(data)
-    last_block = blockchain.get_last_block()
-    return jsonify({"message": "Block added successfully.",
-                    "block": last_block.__dict__}), 200
+    last_block: None | Block = blockchain.get_last_block()
+    if last_block and last_block.data != data:
+        return jsonify({"message": "Block could not be added."}), 500
+    else:
+        return jsonify({"message": "Block added successfully.",
+                        "block": last_block.__dict__}), 200
 
 
 @app.route("/get_chain", methods=["GET"])
 # API Route: Get the blockchain
-def get_chain():
+def get_chain() -> Tuple[Response, int]:
+    print("Retrieving blockchain...")
     with open(blockchain.filename, "r") as file:
-        chain_data = [json.loads(line) for line in file.readlines()]
+        chain_data: list[dict[str, Any]] = [
+            json.loads(line) for line in file.readlines()]
+        print("Blockchain retrieved.")
         return jsonify({"length": len(chain_data), "chain": chain_data}), 200
+
+
+@app.route("/get_last_block", methods=["GET"])
+# API Route: Get the last block of the blockchain
+def get_last_block() -> Tuple[Response, int]:
+    last_block: None | Block = blockchain.get_last_block()
+    if last_block:
+        return jsonify({"block": last_block.__dict__}), 200
+    else:
+        return jsonify({"message": "No blocks found."}), 404
 
 
 @app.route("/validate_chain", methods=["GET"])
