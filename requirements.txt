@@ -1,4 +1,6 @@
 flask
 requests
+setuptools
+wheel
 discord.py
 dotenv
