@@ -214,5 +214,5 @@ def shutdown(exit_code: int = 0) -> Tuple[Response, int]:
 
 # region Run Flask app
 if __name__ == "__main__":
-    app.run(port=8000, debug=True)
+    app.run(port=8080, debug=True)
 # endregion

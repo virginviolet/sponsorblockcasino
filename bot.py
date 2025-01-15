@@ -29,7 +29,7 @@ def start_flask_app_waitress() -> None:
     app_name = "sb_blockchain"
     host = "*"
     # Use the environment variable or default to 8000
-    port: str = os_environ.get("PORT", "8000")
+    port: str = os_environ.get("PORT", "8080")
     command: List[str] = [
         program,
         f"--listen={host}:{port}",
