@@ -1,8 +1,0 @@
-[phases.setup]
-apt_pkgs = ['python3', 'gcc']  # Install Python 3 and GCC as required dependencies
-
-[phases.install]
-cmds = ['python3 -m venv --copies /opt/venv', '. /opt/venv/bin/activate', 'pip install --upgrade setuptools', 'pip install --upgrade wheel', 'pip install --use-pep517 -r requirements.txt']
-
-[phases.start]
-cmd = 'python bot.py'  # Command to start your application
