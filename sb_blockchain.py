@@ -4,7 +4,7 @@ import time
 import os
 import json
 from flask import Flask, request, jsonify, Response
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, List, Any
 
 app = Flask(__name__)
 # endregion
@@ -13,10 +13,10 @@ app = Flask(__name__)
 
 
 class Block:
-    def __init__(self, index: int, data: str, previous_hash: str, timestamp: float = 0.0, nonce: int = 0, block_hash: str | None = None) -> None:
+    def __init__(self, index: int, data: str | List[Dict[str, Dict[str, str]]], previous_hash: str, timestamp: float = 0.0, nonce: int = 0, block_hash: str | None = None) -> None:
         self.index: int = index
         self.timestamp: float = timestamp if timestamp else time.time()
-        self.data: str = data
+        self.data: str | List[Dict[str, Dict[str, str]]] = data
         self.previous_hash: str = previous_hash
         self.nonce = nonce
         self.hash: str = block_hash if block_hash else self.calculate_hash()
@@ -53,7 +53,7 @@ class Blockchain:
             # Convert the block object to dictionary, serialize it to JSON, and write it to the file with a newline
             file.write(json.dumps(block.__dict__) + "\n")
 
-    def add_block(self, data: str, difficulty: int = 0) -> None:
+    def add_block(self, data: str | List[Dict[str, Dict[str,str]]], difficulty: int = 0) -> None:
         latest_block: None | Block = self.get_last_block()
         new_block = Block(
             index=(latest_block.index + 1) if latest_block else 0,
