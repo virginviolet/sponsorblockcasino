@@ -4,6 +4,7 @@ import time
 import os
 import json
 from flask import Flask, request, jsonify, Response
+from sys import exit as sys_exit
 from typing import Tuple, Dict, List, Any
 
 app = Flask(__name__)
@@ -202,6 +203,12 @@ def validate_chain() -> Tuple[Response | Dict[str, str], int]:
     is_valid: bool = blockchain.is_chain_valid()
     return jsonify({"message": "The blockchain is valid." if is_valid else
                     "The blockchain is not valid."}), 200
+
+@app.route("/shutdown", methods=["POST"])
+# API Route: Shutdown the Flask app
+def shutdown(exit_code: int = 0) -> Tuple[Response, int]:
+    print("The blockchain app will now exit.")
+    sys_exit(exit_code)
 # endregion
 
 

@@ -1,12 +1,17 @@
+from concurrent.futures import thread
+from itertools import chain
 import sb_blockchain
 import threading
+import requests
+import asyncio
 from time import sleep
 from discord import Intents, Interaction, Message, Client, Reaction, User, Emoji, PartialEmoji
 from discord.ext import commands
 from os import getenv
 from dotenv import load_dotenv
 from hashlib import sha256
-from typing import Dict, List
+from sys import exit as sys_exit
+from typing import Dict, List, NoReturn
 
 # region Functions
 
@@ -31,6 +36,19 @@ def add_block_transaction(
     ]
     blockchain.add_block(data=data, difficulty=0)
 
+async def terminate_bot() -> NoReturn:
+    print("Closing bot...")
+    await bot.close()
+    print("Bot closed.")
+    print("Shutting down blockchain flask app...")
+    try:
+        requests.post("http://127.0.0.1:5000/shutdown")
+    except Exception as e:
+        print(e)
+    await asyncio.sleep(1) # Give time for all tasks to finish
+    print("The script will now exit.")
+    sys_exit(1)
+
 # endregion
 
 
@@ -39,11 +57,11 @@ if __name__ == "__main__":
     print("Starting blockchain flask app thread...")
     try:
         flask_thread = threading.Thread(target=start_flask_app)
+        flask_thread.daemon = True  # Set the thread as a daemon thread
         flask_thread.start()
         print("Flask app thread started.")
     except Exception as e:
         print(f"Error starting Flask app thread: {e}")
-    sleep(1)
 # endregion
 
 print("Starting bot...")
@@ -108,6 +126,7 @@ async def on_reaction_add(reaction: Reaction, user: User) -> None:
             return
     if reaction_emoji_id == SBCOIN_EMOJI_ID:
         print(f"{reaction.message.author.name} received 1 SBCoin from {user.name}.")
+        # TODO Validate last block before transaction
         print("Adding transaction to blockchain...")
         try:
             add_block_transaction(
@@ -117,6 +136,13 @@ async def on_reaction_add(reaction: Reaction, user: User) -> None:
                 amount=1
             )
             print("Transaction added to blockchain.")
+            print("Validating blockchain...")
+            chain_validity: bool = blockchain.is_chain_valid()
+            if chain_validity is False:
+                # TODO Revert blockchain to previous state
+                print(f"Error validating blockchain: {e}. Shutting down bot.")
+                await terminate_bot()
+
         except Exception as e:
             print(f"Error adding transaction to blockchain: {e}")
 
