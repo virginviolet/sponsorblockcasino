@@ -63,11 +63,12 @@ def add_block_transaction(
     blockchain: sb_blockchain.Blockchain,
     sender: str,
     receiver: str,
-    amount: int
+    amount: int,
+    method: str
 ) -> None:
     data: List[Dict[str, Dict[str, str]]] = [
         {"transaction":
-         {"sender": sender, "receiver": receiver, "amount": str(amount)}}
+         {"sender": sender, "receiver": receiver, "amount": str(amount), "method": method}}
     ]
     blockchain.add_block(data=data, difficulty=0)
 
@@ -169,14 +170,15 @@ async def on_reaction_add(reaction: Reaction, user: User) -> None:
                 blockchain=blockchain,
                 sender=SENDER_USER_ID_HASH,
                 receiver=RECEIVER_USER_ID_HASH,
-                amount=1
+                amount=1,
+                method="reaction"
             )
             print("Transaction added to blockchain.")
             print("Validating blockchain...")
             chain_validity: bool = blockchain.is_chain_valid()
             if chain_validity is False:
                 # TODO Revert blockchain to previous state
-                print(f"Error validating blockchain: {e}. Shutting down bot.")
+                print(f"Error validating blockchain. Shutting down bot.")
                 await terminate_bot()
 
         except Exception as e:

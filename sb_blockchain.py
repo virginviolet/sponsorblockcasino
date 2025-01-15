@@ -1,5 +1,4 @@
 # region Init
-from csv import excel_tab
 import hashlib
 import time
 import os
@@ -42,8 +41,9 @@ class Block:
 
 
 class Blockchain:
-    def __init__(self, filename: str = "blockchain.json") -> None:
+    def __init__(self, filename: str = "blockchain.json", transactions_filename: str = "transactions.tsv") -> None:
         self.filename: str = filename
+        self.transactions_filename: str = filename
         file_exists: bool = os.path.exists(filename)
         file_empty: bool = file_exists and os.stat(filename).st_size == 0
         if not file_exists or file_empty:
@@ -68,7 +68,21 @@ class Blockchain:
         )
         if difficulty > 0:
             new_block.mine_block(difficulty)
+        if isinstance(new_block.data, list) and "transaction" in new_block.data[0]:
+            self.store_transaction(new_block.data, new_block.timestamp)
         self.write_block_to_file(new_block)
+
+    def store_transaction(self, data: List[Dict[str, Dict[str, str]]], timestamp: float) -> None:
+        if not os.path.exists(self.transactions_filename):
+            with open(self.transactions_filename, "w") as file:
+                file.write("Time\tSender\tReceiver\tAmount\tMethod\n")
+        time: float = timestamp
+        sender: str = data[0]["transaction"]["sender"]
+        receiver: str = data[0]["transaction"]["receiver"]
+        amount: str = data[0]["transaction"]["amount"]
+        method: str = data[0]["transaction"]["method"]
+        with open("transactions.tsv", "a") as file:
+            file.write(f"{time}\t{sender}\t{receiver}\t{amount}\t{method}\n")
 
     def get_last_block(self) -> None | Block:
         if not os.path.exists(self.filename):
