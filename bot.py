@@ -1,34 +1,69 @@
-from concurrent.futures import thread
-from itertools import chain
 import sb_blockchain
 import threading
-import requests
+import subprocess
+import signal
 import asyncio
 from time import sleep
-from discord import Intents, Interaction, Message, Client, Reaction, User, Emoji, PartialEmoji
+from discord import Intents, Interaction, Message, Client, Reaction, User, Emoji, PartialEmoji, app_commands
 from discord.ext import commands
-from os import getenv
+from os import environ as os_environ, getenv
 from dotenv import load_dotenv
 from hashlib import sha256
 from sys import exit as sys_exit
-from typing import Dict, List, NoReturn
+from typing import Dict, List, NoReturn, TextIO
 
 # region Functions
 
+def start_flask_app_waitress() -> None:
+    global waitress_process
+
+    def stream_output(pipe: TextIO, prefix: str) -> None:
+        # Receive output from the Waitress subprocess
+        for line in iter(pipe.readline, ''):
+            print(f"{prefix}: {line}", end="")
+        if hasattr(pipe, 'close'):
+            pipe.close()
+
+    print("Starting Flask app with Waitress...")
+    program = "waitress-serve"
+    app_name = "sb_blockchain"
+    host = "*"
+    # Use the environment variable or default to 8000
+    port: str = os_environ.get("PORT", "8000")
+    command: List[str] = [
+        program,
+        f"--listen={host}:{port}",
+        f"{app_name}:app"
+    ]
+    waitress_process = subprocess.Popen(
+        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    print("Flask app started with Waitress.")
+
+    # Start threads to read output from the subprocess
+    threading.Thread(
+        target=stream_output,
+        args=(waitress_process.stdout, "STDOUT"),
+        daemon=True
+    ).start()
+    threading.Thread(
+        target=stream_output,
+        args=(waitress_process.stderr, "STDERR"),
+        daemon=True
+    ).start()
 
 def start_flask_app() -> None:
+    # For use with the Flask development server
     print("Starting flask app...")
     try:
         sb_blockchain.app.run(port=5000, debug=True, use_reloader=False)
     except Exception as e:
         print(f"Error running Flask app: {e}")
 
-
 def add_block_transaction(
     blockchain: sb_blockchain.Blockchain,
-        sender: str,
-        receiver: str,
-        amount: int
+    sender: str,
+    receiver: str,
+    amount: int
 ) -> None:
     data: List[Dict[str, Dict[str, str]]] = [
         {"transaction":
@@ -40,28 +75,31 @@ async def terminate_bot() -> NoReturn:
     print("Closing bot...")
     await bot.close()
     print("Bot closed.")
-    print("Shutting down blockchain flask app...")
+    print("Shutting down the blockchain app...")
+    waitress_process.send_signal(signal.SIGTERM)
+    waitress_process.wait()
+    """ print("Shutting down blockchain flask app...")
     try:
         requests.post("http://127.0.0.1:5000/shutdown")
     except Exception as e:
-        print(e)
-    await asyncio.sleep(1) # Give time for all tasks to finish
+        print(e) """
+    await asyncio.sleep(1)  # Give time for all tasks to finish
     print("The script will now exit.")
     sys_exit(1)
 
 # endregion
 
-
 # region Flask
 if __name__ == "__main__":
     print("Starting blockchain flask app thread...")
     try:
-        flask_thread = threading.Thread(target=start_flask_app)
+        flask_thread = threading.Thread(target=start_flask_app_waitress)
         flask_thread.daemon = True  # Set the thread as a daemon thread
         flask_thread.start()
         print("Flask app thread started.")
     except Exception as e:
         print(f"Error starting Flask app thread: {e}")
+    sleep(1)
 # endregion
 
 print("Starting bot...")
@@ -77,7 +115,6 @@ client = Client(intents=intents)
 load_dotenv()
 TOKEN: str | None = getenv('DISCORD_TOKEN')
 # endregion
-
 
 @bot.event
 async def on_ready() -> None:
@@ -102,7 +139,6 @@ async def on_ready() -> None:
     # endregion
 
 # region Reaction
-
 
 @bot.event
 async def on_reaction_add(reaction: Reaction, user: User) -> None:
@@ -153,7 +189,6 @@ async def on_reaction_add(reaction: Reaction, user: User) -> None:
 # region Message
 # Example slash command
 
-
 @bot.tree.command(name="ping", description="Replies with Pong!")
 async def ping(interaction: Interaction) -> None:
     """
@@ -164,12 +199,11 @@ async def ping(interaction: Interaction) -> None:
     """
     await interaction.response.send_message("Pong!", ephemeral=True)
 
-
-@bot.tree.command(name="hello", description="Says hello to the specified user.")
+@bot.tree.command(name="hello", description="Say hello to someone")
+@app_commands.describe(name="Name of the user to greet")
 async def hello(interaction: Interaction, name: str) -> None:
     await interaction.response.send_message(f"Hello, {name}!")
 # endregion
-
 
 # region Main
 if TOKEN:
