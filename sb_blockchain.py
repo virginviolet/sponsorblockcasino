@@ -1,13 +1,18 @@
 # region Init
+from csv import excel_tab
 import hashlib
 import time
 import os
 import json
 from flask import Flask, request, jsonify, Response
+from dotenv import load_dotenv
 from sys import exit as sys_exit
 from typing import Tuple, Dict, List, Any
 
 app = Flask(__name__)
+# Load .env file for the server token
+load_dotenv()
+SERVER_TOKEN: str | None = os.getenv('SERVER_TOKEN')
 # endregion
 
 # region Classes
@@ -163,17 +168,27 @@ blockchain = Blockchain()
 @app.route("/add_block", methods=["POST"])
 # API Route: Add a new block to the blockchain
 def add_block() -> Tuple[Response, int]:
-    data: str = request.get_json().get("data")
+    token: str | None = request.headers.get("token")
+    if not token:
+        return jsonify({"message": "Token is required."}), 400
+    if token != SERVER_TOKEN:
+        return jsonify({"message": "Invalid token."}), 400
+    
+    data: str | List[Dict[str, Dict[str,str]]] = request.get_json().get("data")
     if not data:
         return jsonify({"message": "Data is required."}), 400
 
     blockchain.add_block(data)
-    last_block: None | Block = blockchain.get_last_block()
-    if last_block and last_block.data != data:
-        return jsonify({"message": "Block could not be added."}), 500
-    else:
-        return jsonify({"message": "Block added successfully.",
-                        "block": last_block.__dict__}), 200
+    try:
+        last_block: None | Block = blockchain.get_last_block()
+        if last_block and last_block.data != data:
+            return jsonify({"message": "Block could not be added."}), 500
+        else:
+            return jsonify({"message": "Block added successfully.",
+                            "block": last_block.__dict__}), 200
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return jsonify({"message": "An error occurred."}), 500
 
 
 @app.route("/get_chain", methods=["GET"])
@@ -206,9 +221,19 @@ def validate_chain() -> Tuple[Response | Dict[str, str], int]:
 
 @app.route("/shutdown", methods=["POST"])
 # API Route: Shutdown the Flask app
-def shutdown(exit_code: int = 0) -> Tuple[Response, int]:
+def shutdown() -> Tuple[Response, int]:
+    try:
+        token: str | None = request.headers.get("token")
+        if not token:
+            return jsonify({"message": "Token is required."}), 400
+        if token != SERVER_TOKEN:
+            return jsonify({"message": f"Invalid token."}), 400
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return jsonify({"message": "An error occurred."}), 500
+
     print("The blockchain app will now exit.")
-    sys_exit(exit_code)
+    sys_exit(0)
 # endregion
 
 

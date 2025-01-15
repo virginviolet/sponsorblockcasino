@@ -111,9 +111,9 @@ intents.message_content = True
 intents.members = True
 bot = commands.Bot("!", intents=intents)
 client = Client(intents=intents)
-# Load .env file for the bot token
+# Load .env file for the bot DISCORD_TOKEN
 load_dotenv()
-TOKEN: str | None = getenv('DISCORD_TOKEN')
+DISCORD_TOKEN: str | None = getenv('DISCORD_TOKEN')
 # endregion
 
 @bot.event
@@ -206,8 +206,8 @@ async def hello(interaction: Interaction, name: str) -> None:
 # endregion
 
 # region Main
-if TOKEN:
-    bot.run(TOKEN)
+if DISCORD_TOKEN:
+    bot.run(DISCORD_TOKEN)
 else:
     print("Error: DISCORD_TOKEN is not set in the environment variables.")
 # endregion
