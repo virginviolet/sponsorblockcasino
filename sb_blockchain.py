@@ -50,7 +50,8 @@ class Blockchain:
             self.create_genesis_block()
 
     def create_genesis_block(self) -> None:
-        genesis_block = Block(0, "Genesis Block", "0")
+        # genesis_block = Block(0, "Genesis Block", "0")
+        genesis_block = Block(0, "Jiraph complained about not being able to access nn block so I called Jiraph a scraper", "0")
         self.write_block_to_file(genesis_block)
 
     def write_block_to_file(self, block: Block) -> None:
