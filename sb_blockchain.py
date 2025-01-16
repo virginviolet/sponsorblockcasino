@@ -41,7 +41,7 @@ class Block:
 
 
 class Blockchain:
-    def __init__(self, filename: str = "blockchain.json", transactions_filename: str = "transactions.tsv") -> None:
+    def __init__(self, filename: str = "data/blockchain.json", transactions_filename: str = "data/transactions.tsv") -> None:
         self.filename: str = filename
         self.transactions_filename: str = transactions_filename
         file_exists: bool = os.path.exists(filename)
@@ -73,15 +73,15 @@ class Blockchain:
         self.write_block_to_file(new_block)
 
     def store_transaction(self, data: List[Dict[str, Dict[str, str]]], timestamp: float) -> None:
-        if not os.path.exists(self.transactions_filename):
-            with open(self.transactions_filename, "w") as file:
-                file.write("Time\tSender\tReceiver\tAmount\tMethod\n")
         time: float = timestamp
         sender: str = data[0]["transaction"]["sender"]
         receiver: str = data[0]["transaction"]["receiver"]
         amount: str = data[0]["transaction"]["amount"]
         method: str = data[0]["transaction"]["method"]
-        with open("transactions.tsv", "a") as file:
+        file_existed: bool = os.path.exists(self.transactions_filename)
+        with open(self.transactions_filename, "a") as file:
+            if not file_existed:
+                file.write("Time\tSender\tReceiver\tAmount\tMethod\n")
             file.write(f"{time}\t{sender}\t{receiver}\t{amount}\t{method}\n")
 
     def get_last_block(self) -> None | Block:
