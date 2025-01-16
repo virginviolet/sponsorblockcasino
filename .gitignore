@@ -1,3 +1,4 @@
-.env
-blockchain.json
 __pycache__/
+.env
+data/transactions.tsv
+data/blockchain.json
