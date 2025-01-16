@@ -3,7 +3,7 @@ import hashlib
 import time
 import os
 import json
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify, Response, send_file
 from dotenv import load_dotenv
 from sys import exit as sys_exit
 from typing import Tuple, Dict, List, Any
@@ -43,7 +43,7 @@ class Block:
 class Blockchain:
     def __init__(self, filename: str = "blockchain.json", transactions_filename: str = "transactions.tsv") -> None:
         self.filename: str = filename
-        self.transactions_filename: str = filename
+        self.transactions_filename: str = transactions_filename
         file_exists: bool = os.path.exists(filename)
         file_empty: bool = file_exists and os.stat(filename).st_size == 0
         if not file_exists or file_empty:
@@ -248,6 +248,15 @@ def shutdown() -> Tuple[Response, int]:
 
     print("The blockchain app will now exit.")
     sys_exit(0)
+
+@app.route("/transactions", methods=["GET"])
+# API Route: Download the transactions file
+def download_transactions() -> Tuple[Response | Any, int]:
+    file_exists: bool = os.path.exists(blockchain.transactions_filename)
+    if not file_exists:
+        return jsonify({"message": "No transactions found."}), 404
+    else:
+        return send_file(blockchain.transactions_filename, as_attachment=True), 200
 # endregion
 
 
