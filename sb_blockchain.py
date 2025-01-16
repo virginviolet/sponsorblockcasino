@@ -1,12 +1,14 @@
 # region Init
 import hashlib
+from io import TextIOWrapper
+from sqlite3.dbapi2 import Timestamp
 import time
 import os
 import json
 from flask import Flask, request, jsonify, Response, send_file
 from dotenv import load_dotenv
 from sys import exit as sys_exit
-from typing import Tuple, Dict, List, Any
+from typing import Tuple, Dict, List, Any, TypedDict
 
 app = Flask(__name__)
 # Load .env file for the server token
@@ -17,11 +19,31 @@ SERVER_TOKEN: str | None = os.getenv('SERVER_TOKEN')
 # region Classes
 
 
+class TransactionDict(TypedDict):
+    sender: str
+    receiver: str
+    amount: int
+    method: str
+
+class BlockDict(TypedDict):
+    index: int
+    timestamp: float
+    data: List[str | Dict[str, TransactionDict]]
+    previous_hash: str
+    nonce: int
+    hash: str
+
 class Block:
-    def __init__(self, index: int, data: str | List[Dict[str, Dict[str, str]]], previous_hash: str, timestamp: float = 0.0, nonce: int = 0, block_hash: str | None = None) -> None:
+    def __init__(self,
+                 index: int,
+                 data: List[str | Dict[str, TransactionDict]],
+                 previous_hash: str,
+                 timestamp: float = 0.0,
+                 nonce: int = 0,
+                 block_hash: str | None = None) -> None:
         self.index: int = index
         self.timestamp: float = timestamp if timestamp else time.time()
-        self.data: str | List[Dict[str, Dict[str, str]]] = data
+        self.data: List[str | Dict[str, TransactionDict]] = data
         self.previous_hash: str = previous_hash
         self.nonce = nonce
         self.hash: str = block_hash if block_hash else self.calculate_hash()
@@ -41,7 +63,9 @@ class Block:
 
 
 class Blockchain:
-    def __init__(self, filename: str = "data/blockchain.json", transactions_filename: str = "data/transactions.tsv") -> None:
+    def __init__(self,
+                 filename: str = "data/blockchain.json",
+                 transactions_filename: str = "data/transactions.tsv") -> None:
         self.filename: str = filename
         self.transactions_filename: str = transactions_filename
         file_exists: bool = os.path.exists(filename)
@@ -51,7 +75,12 @@ class Blockchain:
 
     def create_genesis_block(self) -> None:
         # genesis_block = Block(0, "Genesis Block", "0")
-        genesis_block = Block(0, "Jiraph complained about not being able to access nn block so I called Jiraph a scraper", "0")
+        genesis_block = Block(
+            0,
+            ["Jiraph complained about not being able to access nn block so I "
+            "called Jiraph a scraper"],
+            "0"
+        )
         self.write_block_to_file(genesis_block)
 
     def write_block_to_file(self, block: Block) -> None:
@@ -60,7 +89,10 @@ class Blockchain:
             # Convert the block object to dictionary, serialize it to JSON, and write it to the file with a newline
             file.write(json.dumps(block.__dict__) + "\n")
 
-    def add_block(self, data: str | List[Dict[str, Dict[str,str]]], difficulty: int = 0) -> None:
+    def add_block(
+            self,
+            data: List[str | Dict[str, TransactionDict]],
+            difficulty: int = 0) -> None:
         latest_block: None | Block = self.get_last_block()
         new_block = Block(
             index=(latest_block.index + 1) if latest_block else 0,
@@ -69,21 +101,149 @@ class Blockchain:
         )
         if difficulty > 0:
             new_block.mine_block(difficulty)
-        if isinstance(new_block.data, list) and "transaction" in new_block.data[0]:
-            self.store_transaction(new_block.data, new_block.timestamp)
+        for item in new_block.data:
+            if isinstance(item, dict) and "transaction" in item:
+                transaction: TransactionDict = item["transaction"]
+                self.store_transaction(
+                    new_block.timestamp,
+                    transaction["sender"],
+                    transaction["receiver"],
+                    transaction["amount"],
+                    transaction["method"]
+                )
         self.write_block_to_file(new_block)
 
-    def store_transaction(self, data: List[Dict[str, Dict[str, str]]], timestamp: float) -> None:
-        time: float = timestamp
-        sender: str = data[0]["transaction"]["sender"]
-        receiver: str = data[0]["transaction"]["receiver"]
-        amount: str = data[0]["transaction"]["amount"]
-        method: str = data[0]["transaction"]["method"]
+    def store_transaction(
+            self,
+            timestamp: float,
+            sender: str,
+            receiver: str,
+            amount: int,
+            method: str) -> None:
         file_existed: bool = os.path.exists(self.transactions_filename)
+        if not file_existed:
+            self.create_transactions_file()
+            
         with open(self.transactions_filename, "a") as file:
-            if not file_existed:
-                file.write("Time\tSender\tReceiver\tAmount\tMethod\n")
-            file.write(f"{time}\t{sender}\t{receiver}\t{amount}\t{method}\n")
+            file.write(
+                f"{timestamp}\t{sender}\t{receiver}\t{amount}\t{method}\n")
+
+    def create_transactions_file(self) -> None:
+        with open(self.transactions_filename, "w") as file:
+            file.write("Time\tSender\tReceiver\tAmount\tMethod\n")
+
+    def validate_transactions_file(
+            self,
+            blockchain_filename: str,
+            transactions_filename: str,
+            replace: bool = False,
+            force: bool = False) -> None:
+        def set_bookmark(file: TextIOWrapper,
+                            line_number: None | int = None,
+                            position: None | int = None) -> int:
+            bookmark: int = 0  # Initialize the variable
+            if line_number is not None:
+                # Store the current position in the file so we can return to it later
+                initial_position: int = file.tell()
+                for i, _ in enumerate(file):
+                    if i == line_number:
+                        # Bookmark this position in the file
+                        bookmark: int = file.tell()
+                        break
+                # Return to the initial position in the file
+                go_to_bookmark(file, initial_position)
+            elif position is not None:
+                bookmark = position
+            elif position is None and line_number is None:
+                # Bookmark the current position in the file
+                bookmark: int = file.tell()
+            else:
+                print("Invalid bookmark creation.")
+            return bookmark
+
+        def go_to_bookmark(file: TextIOWrapper, bookmark: int) -> None:
+            # Go to the bookmarked position in the file
+            file.seek(bookmark)
+
+        def convert_transaction_row_to_list(transaction_tsv: str) -> List[str]:
+            return transaction_tsv.split("\t")
+
+        file_existed: bool = os.path.exists(self.transactions_filename)
+        if not file_existed:
+            self.create_transactions_file()
+
+        with open(self.filename, "r") as blockchain_file:
+            validation_failed: bool = False
+            with open(self.transactions_filename, "r") as transactions_file:
+                bookmark: None | int = None
+                for line in blockchain_file:
+                    block_dict: (BlockDict) = json.loads(line)
+                    data_list: List[str | Dict[str, TransactionDict]] = block_dict["data"]
+                    for item in data_list:
+                        if isinstance(item, dict) and "transaction" in item:
+                            blockchain_transaction: TransactionDict = item["transaction"]
+                            blockchain_timestamp: float = block_dict["timestamp"]
+                            if bookmark is None:
+                                # The first line of the transactions file
+                                # contains the column headers
+                                # Create a bookmark at the second line
+                                bookmark = set_bookmark(
+                                    file=transactions_file,
+                                    line_number=1)
+                                if force:
+                                    # This will cause the whole file to be replaced
+                                    bookmark = set_bookmark(
+                                        transactions_file, line_number=1)
+                                    # Clear the file from the second line
+                                    transactions_file.truncate()
+                            go_to_bookmark(transactions_file, bookmark)
+                            transaction_tsv_row: str = transactions_file.readline().strip()
+                            transaction_tsv_row_list: List[str] = convert_transaction_row_to_list(transaction_tsv_row)
+                            columns: int = len(transaction_tsv_row_list)
+                            if columns != 5:
+                                print("Invalid transaction format.")
+                                validation_failed = True
+                            else:
+                                transaction_tsv_time = float(transaction_tsv_row_list[0])
+                                transaction_tsv_sender: str = transaction_tsv_row_list[1]
+                                transaction_tsv_receiver: str = transaction_tsv_row_list[2]
+                                transaction_tsv_amount: int = int(transaction_tsv_row_list[3])
+                                transaction_tsv_method: str = transaction_tsv_row_list[4]
+                            
+                                # Check if the transaction in the blockchain matches the transaction in the file
+                                if (blockchain_timestamp == transaction_tsv_time and
+                                    blockchain_transaction["sender"] == transaction_tsv_sender and
+                                    blockchain_transaction["receiver"] == transaction_tsv_receiver and
+                                    blockchain_transaction["amount"] == transaction_tsv_amount and
+                                    blockchain_transaction["method"] == transaction_tsv_method):
+                                    print("Transaction matches.")
+                                else: 
+                                    print("Transaction not found. The transactions "
+                                          "file does not reflect the blockchain.")
+                                    validation_failed = True
+                            if validation_failed and replace:
+                                print("Contents of the transactions file will be "
+                                      "replaced.")
+                                # Clear the file from bookmark to end
+                                transactions_file.truncate()
+                                self.store_transaction(
+                                    block_dict["timestamp"],
+                                    blockchain_transaction["sender"],
+                                    blockchain_transaction["receiver"],
+                                    blockchain_transaction["amount"],
+                                    blockchain_transaction["method"]
+                                )
+                            
+                            # Move the bookmark to the the end of the file
+                            set_bookmark(
+                                file=transactions_file,
+                                position=os.SEEK_END)
+
+    def get_chain_length(self) -> int:
+        # Open the blockchain file in read binary mode (faster than normal read)
+        with open(self.filename, "rb") as file:
+            # Count the number of lines and return the count
+            return sum(1 for _ in file)
 
     def get_last_block(self) -> None | Block:
         if not os.path.exists(self.filename):
@@ -188,8 +348,9 @@ def add_block() -> Tuple[Response, int]:
         return jsonify({"message": "Token is required."}), 400
     if token != SERVER_TOKEN:
         return jsonify({"message": "Invalid token."}), 400
-    
-    data: str | List[Dict[str, Dict[str,str]]] = request.get_json().get("data")
+
+    data: str | List[Dict[str, Dict[str, str]]
+                     ] = request.get_json().get("data")
     if not data:
         return jsonify({"message": "Data is required."}), 400
 
@@ -215,6 +376,15 @@ def get_chain() -> Tuple[Response, int]:
             json.loads(line) for line in file.readlines()]
         print("Blockchain retrieved.")
         return jsonify({"length": len(chain_data), "chain": chain_data}), 200
+    
+@app.route("/download_chain", methods=["GET"])
+# API Route: Download the blockchain
+def download_chain() -> Tuple[Response | Any, int]:
+    file_exists: bool = os.path.exists(blockchain.filename)
+    if not file_exists:
+        return jsonify({"message": "No blockchain found."}), 404
+    else:
+        return send_file(blockchain.filename, as_attachment=True), 200
 
 
 @app.route("/get_last_block", methods=["GET"])
@@ -234,6 +404,7 @@ def validate_chain() -> Tuple[Response | Dict[str, str], int]:
     return jsonify({"message": "The blockchain is valid." if is_valid else
                     "The blockchain is not valid."}), 200
 
+
 @app.route("/shutdown", methods=["POST"])
 # API Route: Shutdown the Flask app
 def shutdown() -> Tuple[Response, int]:
@@ -250,6 +421,7 @@ def shutdown() -> Tuple[Response, int]:
     print("The blockchain app will now exit.")
     sys_exit(0)
 
+
 @app.route("/transactions", methods=["GET"])
 # API Route: Download the transactions file
 def download_transactions() -> Tuple[Response | Any, int]:
@@ -263,5 +435,12 @@ def download_transactions() -> Tuple[Response | Any, int]:
 
 # region Run Flask app
 if __name__ == "__main__":
-    app.run(port=8080, debug=True)
+    # app.run(port=8080, debug=True)
+    blockchain = Blockchain()
+    # blockchain.validate_transactions_file(
+    #     blockchain_filename=blockchain.filename,
+    #     transactions_filename=blockchain.transactions_filename,
+        # replace=True,
+        # force=True
+    blockchain.is_chain_valid()
 # endregion

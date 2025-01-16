@@ -10,7 +10,7 @@ from os import environ as os_environ, getenv
 from dotenv import load_dotenv
 from hashlib import sha256
 from sys import exit as sys_exit
-from typing import Dict, List, NoReturn, TextIO
+from typing import Dict, List, NoReturn, TextIO, cast
 
 # region Functions
 
@@ -66,11 +66,12 @@ def add_block_transaction(
     amount: int,
     method: str
 ) -> None:
-    data: List[Dict[str, Dict[str, str]]] = [
-        {"transaction":
-         {"sender": sender, "receiver": receiver, "amount": str(amount), "method": method}}
-    ]
-    blockchain.add_block(data=data, difficulty=0)
+    data: List[Dict[str, sb_blockchain.TransactionDict]] = [{
+        "transaction":
+            {"sender": sender, "receiver": receiver, "amount": amount, "method": method}
+    }]
+    data_casted: List[str | Dict[str, sb_blockchain.TransactionDict]] = cast(List[str | Dict[str, sb_blockchain.TransactionDict]], data)
+    blockchain.add_block(data=data_casted, difficulty=0)
 
 async def terminate_bot() -> NoReturn:
     print("Closing bot...")
