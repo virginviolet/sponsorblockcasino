@@ -20,7 +20,8 @@ def start_flask_app_waitress() -> None:
     def stream_output(pipe: TextIO, prefix: str) -> None:
         # Receive output from the Waitress subprocess
         for line in iter(pipe.readline, ''):
-            print(f"{prefix}: {line}", end="")
+            # print(f"{prefix}: {line}", end="")
+            print(f"{line}", end="")
         if hasattr(pipe, 'close'):
             pipe.close()
 
