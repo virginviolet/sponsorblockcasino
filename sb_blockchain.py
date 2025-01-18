@@ -2,8 +2,6 @@
 import enum
 import hashlib
 from io import TextIOWrapper
-import re
-from sqlite3.dbapi2 import Timestamp
 import time
 import os
 import json
@@ -65,6 +63,7 @@ class Block:
 
 
 class Blockchain:
+    # region Chain init
     def __init__(self,
                  blockchain_file_name: str = "data/blockchain.json",
                  transactions_file_name: str = "data/transactions.tsv") -> None:
@@ -84,7 +83,9 @@ class Blockchain:
             "0"
         )
         self.write_block_to_file(genesis_block)
+    # endregion
 
+    # region Block ops
     def write_block_to_file(self, block: Block) -> None:
         # Open the file in append mode
         with open(self.blockchain_file_name, "a") as file:
@@ -106,6 +107,7 @@ class Blockchain:
         for item in new_block.data:
             if isinstance(item, dict) and "transaction" in item:
                 transaction: TransactionDict = item["transaction"]
+                # TODO Add hash for each transaction
                 self.store_transaction(
                     new_block.timestamp,
                     transaction["sender"],
@@ -114,7 +116,9 @@ class Blockchain:
                     transaction["method"]
                 )
         self.write_block_to_file(new_block)
+    # endregion
 
+    # region Tx ops
     def store_transaction(
             self,
             timestamp: float,
@@ -133,7 +137,9 @@ class Blockchain:
     def create_transactions_file(self) -> None:
         with open(self.transactions_file_name, "w") as file:
             file.write("Time\tSender\tReceiver\tAmount\tMethod\n")
+    # endregion
 
+    # Block ops 2
     def dict_to_block(self, block_dict: BlockDict) -> Block:
         # Create a new block object from a dictionary
         return Block(
@@ -151,7 +157,9 @@ class Blockchain:
         # Create a new block object from the dictionary
         block: Block = self.dict_to_block(block_dict)
         return block
+    # endregion
 
+    # region Tx file valid
     def is_transactions_file_valid(
             self,
             repair: bool = False,
@@ -169,45 +177,45 @@ class Blockchain:
 
         Parameter
         repair
+            # [x] Test
             If True, transactions missing from the transactions file will be
             added from the blockchain file.
-            # [ ] Test
+            # [x] Test
             Unless force is also True, operation will stop if it encounters
             any inconsistencies between the files (beyond missing transactions
             at the end of the transactions file).
-            # [ ] Test
+            # [x] Test
             If the file does not exist or is empty, a new file will be created.
-            # [ ] Test
             Default is False.
 
         Parameter
         force
-            If repair is False and force is True, and the transaction file is
-            empty or does not exist, a new file will be created. But it will not
-            replace a non-empty existing file.
+            # [x] Test
+            If True, the function will create a new transactions file if it does
+            not exist or is empty.
             # [x] Test
             If both repair and force are True, any data in the transactions file
             that is inconsistent with the blockchain file will be replaced.
             This may result in the loss of data in the transactions file.
 
             Default is False.
-        
         """
         
-        def line_generator(file: TextIOWrapper) -> Generator[str, Any, None]:
-            for line in file:
-                yield line.strip()
+        def line_generator(file: TextIOWrapper) -> Generator[Tuple[int, str], None, None]:
+            while True:
+                position: int = file.tell()
+                line: str = file.readline().strip()  # Read one line at a time
+                if not line:  # Break when EOF is reached
+                    break
+                yield position, line
         
-        def convert_transaction_row_to_list(transaction_tsv: str) -> List[str]:
-            # Moving this to a function fixed Pylance issue "Type of "tf_line_columns_list" is partially unknown"
-            return transaction_tsv.split("\t")
-
         class Mode(enum.Enum):
             # See if the transactions file matches the blockchain
             VALIDATE = "validate"
             # Copy transactions transactions from the blockchain to the transactions file
             APPEND = "append"
 
+        early_return_message: str = "Transaction file validation has finished."
         mode: Mode = Mode.VALIDATE
         file_existed: bool = os.path.exists(self.transactions_file_name)
         file_empty: bool = False
@@ -218,10 +226,8 @@ class Blockchain:
             file_empty: bool = os.stat(self.transactions_file_name).st_size == 0
             print(f"repair: {repair}")
             print(f"force: {force}")
-            if (repair and force):
+            if (repair or force):
                 tf_open_text_mode = "r+" # Allow reading and writing
-            elif repair:
-                tf_open_text_mode = "a+" # Allow reading and appending
             if (file_empty) and (repair or force):
                 # [x] Test (force but not repair)
                 print("Transactions file is empty. It will be replaced.")
@@ -229,8 +235,9 @@ class Blockchain:
                 self.create_transactions_file()
                 mode = Mode.APPEND
             elif file_empty:
-                print("Transactions file is empty.")
                 # [x] Test
+                print("Transactions file is empty.")
+                print(early_return_message)
                 return
         else:
             if force or repair:
@@ -238,79 +245,85 @@ class Blockchain:
                 print("Transaction file not found. A new file will be created.")
                 self.create_transactions_file()
                 mode = Mode.APPEND
-                tf_open_text_mode = "a+"
+                tf_open_text_mode = "a+" # Allow appending and reading
             else:
                 # [x] Test
                 print("Transaction file not found.")
+                print(early_return_message)
                 return
 
-
         with open(self.blockchain_file_name, "r") as bcf, open(self.transactions_file_name, tf_open_text_mode) as tf:
-            tf_lines: Generator[str, None] = line_generator(tf)
+            tf_lines: Generator[Tuple[int, str], None, None] = line_generator(tf)
 
-            tf_line: str | None = next(tf_lines, None) # Read the first line (column headers)
+            # Read the first line (column headers)
+            tf_position: int | None = None
+            tf_line: str | None = None
+            tf_position, tf_line = next(tf_lines, (None, None))
             
-            tf_line = next(tf_lines, None) # Read the second line
-            # XXX
-            # FIX
+            # Read the second line
+            tf_position, tf_line = next(tf_lines, (None, None))
             for line in bcf:
                 block: Block = self.load_block(line)
                 data_list: List[str | Dict[str, TransactionDict]] = block.data
                 for item in data_list:
                     if isinstance(item, dict) and "transaction" in item:
                         bcf_transaction: TransactionDict = item["transaction"]
-                        print(f"bcf_transaction: {bcf_transaction}")
+                        # print(f"bcf_transaction: {bcf_transaction}")
                         bcf_timestamp: float = block.timestamp
                         if mode == Mode.VALIDATE:
                             if tf_line is None:
                                 print("Expected data in the transactions file was not found.")
+                                # print(f"bcf_timestamp: {bcf_timestamp}")
+                                # print(f"data: '{bcf_transaction}'")
                                 if repair:
-                                    # [ ] Test (only header columns)
-                                    # [ ] Test (some data)
+                                    # [x] Test (only header columns)
+                                    # [x] Test (some data)
                                     print("Data will be appended to the transactions file.")
                                     mode = Mode.APPEND
                                 else:
                                     # [x] Test (only header columns)
                                     # [x] Test (some data)
                                     print("The transactions file is missing data.")
+                                    print(early_return_message)
                                     return
                             else:
-                                tf_line_columns_list: List[str] = convert_transaction_row_to_list(tf_line)
-                                print(f"tf_line_columns_list: [{tf_line_columns_list}]")
+                                tf_line_columns_list: List[str] = tf_line.split("\t")
+                                # print(f"tf_line_columns_list: [{tf_line_columns_list}]")
                                 column_count: int = len(tf_line_columns_list)
                                 if column_count != 5:
                                     # [x] Test
                                     print("Invalid transaction format.")
                                     if repair and force:
-                                        # [ ] Test
+                                        # [x] Test
                                         print("Contents of the transactions file will be replaced.")
                                         # Clear the file from current point to end
                                         tf.truncate()
                                         mode = Mode.APPEND
                                     else:
                                         # [x] Test
+                                        print(early_return_message)
                                         return
                                 else:
                                     tf_line_transaction_time = float(tf_line_columns_list[0])
-                                    print(f"tf_line_transaction_time: {tf_line_transaction_time}")
-                                    print(f"bcf_timestamp: {bcf_timestamp}")
-                                    print(f"tf_line_transaction_time == bcf_timestamp: {tf_line_transaction_time == bcf_timestamp}")
+                                    # print(f"tf_line_transaction_time: {tf_line_transaction_time}")
+                                    # print(f"bcf_timestamp: {bcf_timestamp}")
+                                    # print(f"tf_line_transaction_time == bcf_timestamp: {tf_line_transaction_time == bcf_timestamp}")
                                     tf_line_transaction_sender: str = tf_line_columns_list[1]
-                                    print(f"tf_line_transaction_sender: {tf_line_transaction_sender}")
-                                    print("bcf_transaction[\"sender\"]: {}".format(bcf_transaction["sender"]))
-                                    print(f"tf_line_transaction_sender == bcf_transaction[\"sender\"]: {tf_line_transaction_sender == bcf_transaction['sender']}")
+                                    # print(f"tf_line_transaction_sender: {tf_line_transaction_sender}")
+                                    # print("bcf_transaction[\"sender\"]: {}".format(bcf_transaction["sender"]))
+                                    # print(f"tf_line_transaction_sender == bcf_transaction[\"sender\"]: {tf_line_transaction_sender == bcf_transaction['sender']}")
                                     tf_line_transaction_receiver: str = tf_line_columns_list[2]
-                                    print(f"tf_line_transaction_receiver: {tf_line_transaction_receiver}")
-                                    print("bcf_transaction[\"receiver\"]: {}".format(bcf_transaction["receiver"]))
-                                    print(f"tf_line_transaction_receiver == bcf_transaction[\"receiver\"]: {tf_line_transaction_receiver == bcf_transaction['receiver']}")
+                                    # print(f"tf_line_transaction_receiver: {tf_line_transaction_receiver}")
+                                    # print("bcf_transaction[\"receiver\"]: {}".format(bcf_transaction["receiver"]))
+                                    # print(f"tf_line_transaction_receiver == bcf_transaction[\"receiver\"]: {tf_line_transaction_receiver == bcf_transaction['receiver']}")
                                     tf_line_transaction_amount: int = int(tf_line_columns_list[3])
-                                    print(f"tf_line_transaction_amount: {tf_line_transaction_amount}")
-                                    print("bcf_transaction[\"amount\"]: {}".format(bcf_transaction["amount"]))
-                                    print(f"tf_line_transaction_amount == bcf_transaction[\"amount\"]: {tf_line_transaction_amount == bcf_transaction['amount']}")
+                                    # print(f"tf_line_transaction_amount: {tf_line_transaction_amount}")
+                                    # print("bcf_transaction[\"amount\"]: {}".format(bcf_transaction["amount"]))
+                                    # print(f"tf_line_transaction_amount == bcf_transaction[\"amount\"]: {tf_line_transaction_amount == bcf_transaction['amount']}")
                                     tf_line_transaction_method: str = tf_line_columns_list[4]
-                                    print(f"tf_line_transaction_method: {tf_line_transaction_method}")
-                                    print("bcf_transaction[\"method\"]: {}".format(bcf_transaction["method"]))
-                                    print(f"tf_line_transaction_method == bcf_transaction[\"method\"]: {tf_line_transaction_method == bcf_transaction['method']}")
+                                    # print(f"tf_line_transaction_method: '{tf_line_transaction_method}'")
+                                    # print("bcf_transaction[\"method\"]: '{}'".format(bcf_transaction["method"]))
+                                    # print(f"tf_line_transaction_method == bcf_transaction[\"method\"]: {tf_line_transaction_method == bcf_transaction['method']}")
                                 
                                     # Check if the transaction in the blockchain matches the transaction in the file
                                     if (bcf_timestamp == tf_line_transaction_time and
@@ -323,13 +336,16 @@ class Blockchain:
                                     else: 
                                         print("Transaction data in the transactions file does not match the blockchain.")
                                         if repair and force:
-                                            # [ ] Test
+                                            # [x] Test
                                             print("Contents of the transactions file will be replaced.")
-                                            # FIX
-                                            tf.truncate()
+                                            # print(f"position: {tf_position}")
+                                            tf.truncate(tf_position)
                                             mode = Mode.APPEND
                                         else:
-                                            # [x] Test
+                                            # [x] Test (default)
+                                            # [x] Test (repair)
+                                            # [x] Test (force)
+                                            print(early_return_message)
                                             return
                         if mode == Mode.APPEND:
                             # [x] Test
@@ -341,11 +357,21 @@ class Blockchain:
                                 bcf_transaction["method"]
                             )
                         # Prepare the next line in the transactions file
-                        tf_line = next(tf_lines, None)
+                        tf_position, tf_line = next(tf_lines, (None, None))
+            if (tf_line is not None) and (repair and force):
+            # [x] Test
+                print("Extra data found in the transactions file. It will be removed.")
+                tf.truncate(tf_position)
+            elif tf_line is not None:
+            # [x] Test
+                print("Extra data found in the transactions file.")
+                print(early_return_message)
+                return
             # [x] Test (validated)
             # [x] Test (appended)
             print("Validation complete.")
 
+    # region Chain utils
     def get_chain_length(self) -> int:
         # Open the blockchain file in read binary mode (faster than normal read)
         with open(self.blockchain_file_name, "rb") as file:
@@ -379,7 +405,9 @@ class Blockchain:
                 nonce=block_key["nonce"],
                 block_hash=block_key["hash"]
             )
+    # endregion
 
+    # region Chain valid
     def is_chain_valid(self) -> bool:
         chain_validity = True
         if not os.path.exists(self.blockchain_file_name):
@@ -426,10 +454,10 @@ class Blockchain:
         else:
             print("The blockchain is invalid.")
             return False
-# endregion
+    # endregion
 
 
-# region Init blockchain
+# region Start chain
 blockchain = Blockchain()
 # endregion
 
@@ -451,7 +479,6 @@ def add_block() -> Tuple[Response, int]:
     if not data:
         return jsonify({"message": "Data is required."}), 400
 
-    # FIXME
     blockchain.add_block(data)
     try:
         last_block: None | Block = blockchain.get_last_block()
@@ -536,7 +563,9 @@ if __name__ == "__main__":
     # app.run(port=8080, debug=True)
     blockchain = Blockchain()
     blockchain.is_transactions_file_valid(
+        # repair=True
         repair=True,
+        # repair=True
         force=True
     )
 # endregion
