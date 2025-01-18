@@ -16,7 +16,7 @@ load_dotenv()
 SERVER_TOKEN: str | None = os.getenv('SERVER_TOKEN')
 # endregion
 
-# region Classes
+# region Type defs
 
 
 class TransactionDict(TypedDict):
@@ -33,8 +33,9 @@ class BlockDict(TypedDict):
     previous_hash: str
     nonce: int
     hash: str
+# endregion
 
-
+# region Block class
 class Block:
     def __init__(self,
                  index: int,
@@ -62,6 +63,7 @@ class Block:
         while not self.hash.startswith(target):
             self.nonce += 1
             self.hash = self.calculate_hash()
+# endregion
 
 
 class Blockchain:
@@ -120,6 +122,115 @@ class Blockchain:
                     transaction["method"]
                 )
         self.write_block_to_file(new_block)
+
+    def dict_to_block(self, block_dict: BlockDict) -> Block:
+        # Create a new block object from a dictionary
+        return Block(
+            index=block_dict["index"],
+            timestamp=block_dict["timestamp"],
+            data=block_dict["data"],
+            previous_hash=block_dict["previous_hash"],
+            nonce=block_dict["nonce"],
+            block_hash=block_dict["hash"]
+        )
+
+    def load_block(self, json_block: str) -> Block:
+        # Deserialize JSON data to a dictionary
+        block_dict: BlockDict = json.loads(json_block)
+        # Create a new block object from the dictionary
+        block: Block = self.dict_to_block(block_dict)
+        return block
+    # endregion
+
+    # region Chain utils
+    def get_chain_length(self) -> int:
+        # Open the blockchain file in read binary mode (faster than normal read)
+        with open(self.blockchain_file_name, "rb") as file:
+            # Count the number of lines and return the count
+            return sum(1 for _ in file)
+
+    def get_last_block(self) -> None | Block:
+        if not os.path.exists(self.blockchain_file_name):
+            return None
+        # Get the last line of the file
+        with open(self.blockchain_file_name, "rb") as file:
+            # Go to the second last byte
+            file.seek(-2, os.SEEK_END)
+            try:
+                # Seek backwards until a newline is found
+                # Move one byte at a time
+                while file.read(1) != b"\n":
+                    # Look two bytes back
+                    file.seek(-2, os.SEEK_CUR)
+            except OSError:
+                # Move to the start of the file
+                # if for example no newline is found
+                file.seek(0)
+            last_line: str = file.readline().decode()
+
+        for block_key in [json.loads(last_line)]:
+            return Block(
+                index=block_key["index"],
+                timestamp=block_key["timestamp"],
+                data=block_key["data"],
+                previous_hash=block_key["previous_hash"],
+                nonce=block_key["nonce"],
+                block_hash=block_key["hash"]
+            )
+    # endregion
+
+    # region Chain valid
+    def is_chain_valid(self) -> bool:
+        chain_validity = True
+        if not os.path.exists(self.blockchain_file_name):
+            chain_validity = False
+        else:
+            current_block: None | Block = None
+            previous_block: None | Block = None
+            # Open the blockchain file
+            with open(self.blockchain_file_name, "r") as file:
+                for line in file:
+                    if current_block:
+                        previous_block = current_block
+                    # Load the line as a block
+                    current_block = self.load_block(line)
+                    # Calculate the hash of the current block
+                    calculated_hash: str = current_block.calculate_hash()
+                    print(f"\nCurrent block's \"Hash\": {current_block.hash}")
+                    print(f"Calculated hash:\t{calculated_hash}")
+                    if current_block.hash != calculated_hash:
+                        print(f"Block {current_block.index}'s hash does not "
+                              "match the calculated "
+                              "hash. This could mean that a block has been "
+                              "tampered with.")
+                        chain_validity = False
+                        break
+                    else:
+                        print(f"Block {current_block.index}'s hash matches "
+                              "the calculated hash.")
+                    if previous_block:
+                        print("\nPrevious block's "
+                              f"hash:\t\t\t{previous_block.hash}")
+                        print(f"Current block's \"Previous "
+                              f"Hash\":\t{current_block.previous_hash}")
+                        if current_block.previous_hash != previous_block.hash:
+                            print(f"Block {current_block.index} "
+                                  "\"Previous Hash\" value does not "
+                                  "match the previous block's hash. This could "
+                                  "mean that a block is  missing or that one "
+                                  "has been incorrectly inserted.")
+                            chain_validity = False
+                            break
+                        else:
+                            print(f"Block {current_block.index} "
+                                  "\"Previous Hash\" value matches the "
+                                  "previous block's hash.")
+        if chain_validity:
+            print("The blockchain is valid.")
+            return True
+        else:
+            print("The blockchain is invalid.")
+            return False
     # endregion
 
     # region Tx ops
@@ -143,25 +254,6 @@ class Blockchain:
             file.write("Time\tSender\tReceiver\tAmount\tMethod\n")
     # endregion
 
-    # region Block ops 2
-    def dict_to_block(self, block_dict: BlockDict) -> Block:
-        # Create a new block object from a dictionary
-        return Block(
-            index=block_dict["index"],
-            timestamp=block_dict["timestamp"],
-            data=block_dict["data"],
-            previous_hash=block_dict["previous_hash"],
-            nonce=block_dict["nonce"],
-            block_hash=block_dict["hash"]
-        )
-
-    def load_block(self, json_block: str) -> Block:
-        # Deserialize JSON data to a dictionary
-        block_dict: BlockDict = json.loads(json_block)
-        # Create a new block object from the dictionary
-        block: Block = self.dict_to_block(block_dict)
-        return block
-    # endregion
 
     # region Tx file valid
     def is_transactions_file_valid(
@@ -375,97 +467,6 @@ class Blockchain:
             return_message = "The transactions file is valid."
             print(return_message)
             return (return_message, True)
-
-    # region Chain utils
-    def get_chain_length(self) -> int:
-        # Open the blockchain file in read binary mode (faster than normal read)
-        with open(self.blockchain_file_name, "rb") as file:
-            # Count the number of lines and return the count
-            return sum(1 for _ in file)
-
-    def get_last_block(self) -> None | Block:
-        if not os.path.exists(self.blockchain_file_name):
-            return None
-        # Get the last line of the file
-        with open(self.blockchain_file_name, "rb") as file:
-            # Go to the second last byte
-            file.seek(-2, os.SEEK_END)
-            try:
-                # Seek backwards until a newline is found
-                # Move one byte at a time
-                while file.read(1) != b"\n":
-                    # Look two bytes back
-                    file.seek(-2, os.SEEK_CUR)
-            except OSError:
-                # Move to the start of the file
-                # if for example no newline is found
-                file.seek(0)
-            last_line: str = file.readline().decode()
-
-        for block_key in [json.loads(last_line)]:
-            return Block(
-                index=block_key["index"],
-                timestamp=block_key["timestamp"],
-                data=block_key["data"],
-                previous_hash=block_key["previous_hash"],
-                nonce=block_key["nonce"],
-                block_hash=block_key["hash"]
-            )
-    # endregion
-
-    # region Chain valid
-    def is_chain_valid(self) -> bool:
-        chain_validity = True
-        if not os.path.exists(self.blockchain_file_name):
-            chain_validity = False
-        else:
-            current_block: None | Block = None
-            previous_block: None | Block = None
-            # Open the blockchain file
-            with open(self.blockchain_file_name, "r") as file:
-                for line in file:
-                    if current_block:
-                        previous_block = current_block
-                    # Load the line as a block
-                    current_block = self.load_block(line)
-                    # Calculate the hash of the current block
-                    calculated_hash: str = current_block.calculate_hash()
-                    print(f"\nCurrent block's \"Hash\": {current_block.hash}")
-                    print(f"Calculated hash:\t{calculated_hash}")
-                    if current_block.hash != calculated_hash:
-                        print(f"Block {current_block.index}'s hash does not "
-                              "match the calculated "
-                              "hash. This could mean that a block has been "
-                              "tampered with.")
-                        chain_validity = False
-                        break
-                    else:
-                        print(f"Block {current_block.index}'s hash matches "
-                              "the calculated hash.")
-                    if previous_block:
-                        print(f"\nPrevious block's hash:\t\t\t{
-                              previous_block.hash}")
-                        print(f"Current block's \"Previous Hash\":\t{
-                            current_block.previous_hash}")
-                        if current_block.previous_hash != previous_block.hash:
-                            print(f"Block {current_block.index} "
-                                  "\"Previous Hash\" value does not "
-                                  "match the previous block's hash. This could "
-                                  "mean that a block is  missing or that one "
-                                  "has been incorrectly inserted.")
-                            chain_validity = False
-                            break
-                        else:
-                            print(f"Block {current_block.index} "
-                                  "\"Previous Hash\" value matches the "
-                                  "previous block's hash.")
-        if chain_validity:
-            print("The blockchain is valid.")
-            return True
-        else:
-            print("The blockchain is invalid.")
-            return False
-    # endregion
 
 
 # region Start chain
