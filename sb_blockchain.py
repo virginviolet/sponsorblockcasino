@@ -163,7 +163,7 @@ class Blockchain:
     def is_transactions_file_valid(
             self,
             repair: bool = False,
-            force: bool = False) -> None:
+            force: bool = False) -> Tuple[str, bool]:
         """
         Validates the transactions file against the blockchain file.
         By default, the function will only validate the files and print the
@@ -173,7 +173,7 @@ class Blockchain:
         # [x] Test (file not found)
 
         Returns:
-        None
+        Bool
 
         Parameter
         repair
@@ -215,7 +215,8 @@ class Blockchain:
             # Copy transactions transactions from the blockchain to the transactions file
             APPEND = "append"
 
-        early_return_message: str = "Transaction file validation has finished."
+        finished_early_message: str = "Transaction file validation has finished."
+        return_message: str = "If you are receiving this message, something went wrong."
         mode: Mode = Mode.VALIDATE
         file_existed: bool = os.path.exists(self.transactions_file_name)
         file_empty: bool = False
@@ -236,9 +237,10 @@ class Blockchain:
                 mode = Mode.APPEND
             elif file_empty:
                 # [x] Test
-                print("Transactions file is empty.")
-                print(early_return_message)
-                return
+                return_message = "Transactions file is empty."
+                print(return_message)
+                print(finished_early_message)
+                return (return_message, False)
         else:
             if force or repair:
                 # [x] Test
@@ -248,9 +250,10 @@ class Blockchain:
                 tf_open_text_mode = "a+" # Allow appending and reading
             else:
                 # [x] Test
-                print("Transaction file not found.")
-                print(early_return_message)
-                return
+                return_message = "Transaction file not found."
+                print(return_message)
+                print(finished_early_message)
+                return (return_message, False)
 
         with open(self.blockchain_file_name, "r") as bcf, open(self.transactions_file_name, tf_open_text_mode) as tf:
             tf_lines: Generator[Tuple[int, str], None, None] = line_generator(tf)
@@ -283,16 +286,18 @@ class Blockchain:
                                 else:
                                     # [x] Test (only header columns)
                                     # [x] Test (some data)
-                                    print("The transactions file is missing data.")
-                                    print(early_return_message)
-                                    return
+                                    return_message = "The transactions file is missing data."
+                                    print(return_message)
+                                    print(finished_early_message)
+                                    return (return_message, False)
                             else:
                                 tf_line_columns_list: List[str] = tf_line.split("\t")
                                 # print(f"tf_line_columns_list: [{tf_line_columns_list}]")
                                 column_count: int = len(tf_line_columns_list)
                                 if column_count != 5:
                                     # [x] Test
-                                    print("Invalid transaction format.")
+                                    return_message = "Invalid transaction format."
+                                    print(return_message)
                                     if repair and force:
                                         # [x] Test
                                         print("Contents of the transactions file will be replaced.")
@@ -301,8 +306,8 @@ class Blockchain:
                                         mode = Mode.APPEND
                                     else:
                                         # [x] Test
-                                        print(early_return_message)
-                                        return
+                                        print(finished_early_message)
+                                        return (return_message, False)
                                 else:
                                     tf_line_transaction_time = float(tf_line_columns_list[0])
                                     # print(f"tf_line_transaction_time: {tf_line_transaction_time}")
@@ -334,7 +339,8 @@ class Blockchain:
                                         # [x] Test
                                         print("Transaction found.")
                                     else: 
-                                        print("Transaction data in the transactions file does not match the blockchain.")
+                                        return_message = "Transaction data in the transactions file does not match the blockchain."
+                                        print(return_message)
                                         if repair and force:
                                             # [x] Test
                                             print("Contents of the transactions file will be replaced.")
@@ -345,8 +351,8 @@ class Blockchain:
                                             # [x] Test (default)
                                             # [x] Test (repair)
                                             # [x] Test (force)
-                                            print(early_return_message)
-                                            return
+                                            print(finished_early_message)
+                                            return (return_message, False)
                         if mode == Mode.APPEND:
                             # [x] Test
                             self.store_transaction(
@@ -364,12 +370,15 @@ class Blockchain:
                 tf.truncate(tf_position)
             elif tf_line is not None:
             # [x] Test
-                print("Extra data found in the transactions file.")
-                print(early_return_message)
-                return
+                return_message = "Extra data found in the transactions file."
+                print(return_message)
+                print(finished_early_message)
+                return (return_message, False)
             # [x] Test (validated)
             # [x] Test (appended)
-            print("Validation complete.")
+            return_message = "The transactions file is valid."
+            print(return_message)
+            return (return_message, True)
 
     # region Chain utils
     def get_chain_length(self) -> int:
@@ -530,6 +539,23 @@ def validate_chain() -> Tuple[Response | Dict[str, str], int]:
                     "The blockchain is not valid."}), 200
 
 
+@app.route("/validate_transactions", methods=["GET"])
+# API Route: Validate the blockchain
+def validate_transactions() -> Tuple[Response | Dict[str, str], int]:
+    token: str | None = request.headers.get("token")
+    repair: bool = request.args.get("repair", "false").lower() == "true"
+    force: bool = request.args.get("force", "false").lower() == "true"
+    message: str
+    is_valid: bool
+    if token:
+        message, is_valid = blockchain.is_transactions_file_valid(repair, force)
+    else:
+        message, is_valid = blockchain.is_transactions_file_valid(force)
+        
+    
+    return jsonify({"message": message}), 200 if is_valid else 400
+
+
 @app.route("/shutdown", methods=["POST"])
 # API Route: Shutdown the Flask app
 def shutdown() -> Tuple[Response, int]:
@@ -547,7 +573,7 @@ def shutdown() -> Tuple[Response, int]:
     sys_exit(0)
 
 
-@app.route("/transactions", methods=["GET"])
+@app.route("/download_transactions", methods=["GET"])
 # API Route: Download the transactions file
 def download_transactions() -> Tuple[Response | Any, int]:
     file_exists: bool = os.path.exists(blockchain.transactions_file_name)
@@ -560,12 +586,5 @@ def download_transactions() -> Tuple[Response | Any, int]:
 
 # region Run Flask app
 if __name__ == "__main__":
-    # app.run(port=8080, debug=True)
-    blockchain = Blockchain()
-    blockchain.is_transactions_file_valid(
-        # repair=True
-        repair=True,
-        # repair=True
-        force=True
-    )
+    app.run(port=8080, debug=True)
 # endregion
