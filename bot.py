@@ -5,10 +5,11 @@ import signal
 import asyncio
 import json
 import pytz
-from time import sleep
+from time import sleep, time
 from datetime import datetime
-from discord import Intents, Interaction, Member, Message, Client, Reaction, User, Emoji, PartialEmoji, app_commands
+from discord import Intents, Interaction, Member, Message, Client, Emoji, PartialEmoji, app_commands
 from discord.ext import commands
+from discord.raw_models import RawReactionActionEvent
 from os import environ as os_environ, getenv
 from os.path import exists
 from dotenv import load_dotenv
@@ -29,7 +30,37 @@ load_dotenv()
 DISCORD_TOKEN: str | None = getenv('DISCORD_TOKEN')
 # endregion
 
-# region Classes
+# region LastMessageId
+
+
+class LastMessageId:
+    def __init__(self, file_name: str = "data/bot_checkpoint.json") -> None:
+        self.file_name: str = file_name
+        self.last_message_id: int = self.read()
+
+    def create(self) -> None:
+        with open(self.file_name, "w") as f:
+            f.write(json.dumps({"last_message_id": 0}))
+
+    def save(self, message_id: int) -> None:
+        if not exists(self.file_name):
+            self.create()
+
+        print(f"Saving checkpoint: {message_id}")
+        with open(self.file_name, "w") as f:
+            f.write(json.dumps({"last_message_id": message_id}))
+
+    def read(self) -> int:
+        if not exists(self.file_name):
+            self.create()
+
+        with open(self.file_name, "r") as f:
+            message_id_str: str = json.loads(f.read())["last_message_id"]
+            message_id_int: int = int(message_id_str)
+            return message_id_int
+# endregion
+
+# region Log
 
 
 class Log:
@@ -45,6 +76,11 @@ class Log:
                  time_zone: str | None = None) -> None:
         self.file_name: str = file_name
         self.time_zone: str | None = time_zone
+        timestamp: float = time()
+        if time_zone is not None:
+            self.log(f"The time zone is set to '{time_zone}'.", timestamp)
+        else:
+            self.log("The time zone is set to the local time zone.", timestamp)
 
     def create(self) -> None:
         with open(self.file_name, "w"):
@@ -80,7 +116,7 @@ class Log:
 
 # endregion
 
-# region Functions
+# region Flask funcs
 
 
 def start_flask_app_waitress() -> None:
@@ -129,121 +165,93 @@ def start_flask_app() -> None:
         sb_blockchain.app.run(port=5000, debug=True, use_reloader=False)
     except Exception as e:
         print(f"Error running Flask app: {e}")
+# endregion
+
+# region Missed msgs
 
 
-def add_block_transaction(
-    blockchain: sb_blockchain.Blockchain,
-    sender: str,
-    receiver: str,
-    amount: int,
-    method: str
-) -> None:
-    data: List[Dict[str, sb_blockchain.TransactionDict]] = [{
-        "transaction":
-            {"sender": sender, "receiver": receiver, "amount": amount,
-             "method": method}
-    }]
-    data_casted: List[str | Dict[str, sb_blockchain.TransactionDict]] = (
-        cast(List[str | Dict[str, sb_blockchain.TransactionDict]], data))
-    blockchain.add_block(data=data_casted, difficulty=0)
+async def process_missed_messages() -> None:
+    '''
+    Process messages that were sent since the bot was last online.
+    This does not process reaction to messages older than the last checkpoint
+    (i.e. older than the last message sent before the bot went offline). That
+    would require keeping track of every single message and reactions on the
+    server in a database.
+    '''
+    global last_message_checkpointer
+    last_message_id: int = int(last_message_checkpointer.read())
+    checkpoint_found: bool = False
+    missed_messages_processed_message: str = "Missed messages processed."
+    print("Processing missed messages...")
+    if last_message_id == 0:
+        print("No checkpoint found.")
+        checkpoint_found = False
+    else:
+        print(f"Checkpoint found: {last_message_id}")
+        checkpoint_found = True
 
-
-async def terminate_bot() -> NoReturn:
-    print("Closing bot...")
-    await bot.close()
-    print("Bot closed.")
-    print("Shutting down the blockchain app...")
-    waitress_process.send_signal(signal.SIGTERM)
-    waitress_process.wait()
-    """ print("Shutting down blockchain flask app...")
-    try:
-        requests.post("http://127.0.0.1:5000/shutdown")
-    except Exception as e:
-        print(e) """
-    await asyncio.sleep(1)  # Give time for all tasks to finish
-    print("The script will now exit.")
-    sys_exit(1)
+    message_id: int | None = None
+    for guild in bot.guilds:
+        print(f"Fetching messages from guild: {guild} ({guild.id})...")
+        for channel in guild.text_channels:
+            print("Fetching messages from "
+                  f"channel: {channel} ({channel.id})...")
+            async for message in channel.history(limit=None):
+                if checkpoint_found and message.id == last_message_id:
+                    print("Checkpoint reached.")
+                    print(missed_messages_processed_message)
+                    last_message_checkpointer.save(message.id)
+                    return
+                # print(f"{message.author}: {message.content}")
+                for reaction in message.reactions:
+                    async for user in reaction.users():
+                        message_id = message.id
+                        print(f"Reaction found: {reaction.emoji}: {user}.")
+                        print(f"Message ID: {message_id}.")
+                        print(f"{message.author}: {message.content}")
+                        sender_id: int = user.id
+                        receiver_id: int = message.author.id
+                        emoji: PartialEmoji | Emoji | str = reaction.emoji
+                        await process_reaction(emoji, sender_id, receiver_id)
+            print(f"Messages from channel {channel.id} ({channel}) fetched.")
+        print(f"Messages from guild {guild.id} ({guild}) fetched.")
+    if not checkpoint_found and message_id is not None:
+        last_message_checkpointer.save(message_id)
+    print(missed_messages_processed_message)
 
 # endregion
 
-# region Flask
-if __name__ == "__main__":
-    print("Starting blockchain flask app thread...")
-    try:
-        flask_thread = threading.Thread(target=start_flask_app_waitress)
-        flask_thread.daemon = True  # Set the thread as a daemon thread
-        flask_thread.start()
-        print("Flask app thread started.")
-    except Exception as e:
-        print(f"Error starting Flask app thread: {e}")
-    sleep(1)
-# endregion
-
-print("Starting bot...")
+# region Process react
 
 
-@bot.event
-async def on_ready() -> None:
-    # region Init
-    print("Bot started.")
+async def process_reaction(emoji: PartialEmoji | Emoji | str,
+                           sender_user_id: int,
+                           receiver_user_id: int) -> None:
 
-    print(f"Initializing blockchain...")
-    global blockchain
-    try:
-        blockchain = sb_blockchain.Blockchain()
-        print(f"Blockchain initialized.")
-    except Exception as e:
-        print(f"Error initializing blockchain: {e}")
-        return
+    emoji_id: int | str | None = 0
 
-    print("Initializing log...")
-    global log
-    log = Log(time_zone="Canada/Central")
-    print("Log initialized.")
-
-    # Sync the commands to Discord
-    print("Syncing commands...")
-    try:
-        await bot.tree.sync()
-        print(f"Synced commands for bot {bot.user}.")
-        print(f"Bot is ready!")
-    except Exception as e:
-        print(f"Error syncing commands: {e}")
-    # endregion
-
-# region Reaction
-
-
-@bot.event
-async def on_reaction_add(reaction: Reaction, user: User) -> None:
-    # TODO Add "if reaction.message.author.id != user.id" to prevent self-mining
-    global blockchain
-    SBCOIN_EMOJI_ID = 1032063250478661672
-    SENDER_USER_ID: int = user.id
-    RECEIVER_USER_ID: int = reaction.message.author.id
-    SENDER_USER_ID_HASH: str = sha256(str(SENDER_USER_ID).encode()).hexdigest()
-    RECEIVER_USER_ID_HASH: str = sha256(
-        str(RECEIVER_USER_ID).encode()).hexdigest()
-    reaction_emoji: PartialEmoji | Emoji | str = reaction.emoji
-    reaction_emoji_id: int | str | None = 0
-    match reaction_emoji:
+    match emoji:
         case Emoji():
-            reaction_emoji_id = reaction_emoji.id
-        case PartialEmoji() if reaction_emoji.id is not None:
-            reaction_emoji_id = reaction_emoji.id
+            emoji_id = emoji.id
+        case PartialEmoji() if emoji.id is not None:
+            emoji_id = emoji.id
         case PartialEmoji():
             return
         case str():
             return
-    if reaction_emoji_id == SBCOIN_EMOJI_ID:
-        print(f"{user.name} is mining 1 SBCoin "
-              f"for {reaction.message.author.name}...")
+    if emoji_id == sbcoin_emoji_id:
+        print(f"{sender_user_id} is mining 1 SBCoin "
+              f"for {receiver_user_id}...")
         print("Adding transaction to blockchain...")
         try:
+            sender_user_id_hash: str = (
+                sha256(str(sender_user_id).encode()).hexdigest())
+            receiver_user_id_hash: str = sha256(
+                str(receiver_user_id).encode()).hexdigest()
             add_block_transaction(
                 blockchain=blockchain,
-                sender=SENDER_USER_ID_HASH,
-                receiver=RECEIVER_USER_ID_HASH,
+                sender=sender_user_id_hash,
+                receiver=receiver_user_id_hash,
                 amount=1,
                 method="reaction"
             )
@@ -271,9 +279,9 @@ async def on_reaction_add(reaction: Reaction, user: User) -> None:
 
         try:
             if last_block_timestamp is not None:
-                mined_message: str = (f"{user.name} mined "
+                mined_message: str = (f"{sender_user_id} mined "
                                       "1 SBCoin for "
-                                      f"{reaction.message.author.name}.")
+                                      f"{receiver_user_id}.")
                 log.log(line=mined_message, timestamp=last_block_timestamp)
         except Exception as e:
             print(f"Error logging mining: {e}")
@@ -290,9 +298,130 @@ async def on_reaction_add(reaction: Reaction, user: User) -> None:
 
         if chain_validity is False:
             await terminate_bot()
+# endregion
 
-    # This must be at the end to process commands
-    await bot.process_commands(reaction.message)
+# region Add tx
+
+
+def add_block_transaction(
+    blockchain: sb_blockchain.Blockchain,
+    sender: str,
+    receiver: str,
+    amount: int,
+    method: str
+) -> None:
+    data: List[Dict[str, sb_blockchain.TransactionDict]] = [{
+        "transaction":
+            {"sender": sender, "receiver": receiver, "amount": amount,
+             "method": method}
+    }]
+    data_casted: List[str | Dict[str, sb_blockchain.TransactionDict]] = (
+        cast(List[str | Dict[str, sb_blockchain.TransactionDict]], data))
+    blockchain.add_block(data=data_casted, difficulty=0)
+# endregion
+
+# region Terminate bot
+
+
+async def terminate_bot() -> NoReturn:
+    print("Closing bot...")
+    await bot.close()
+    print("Bot closed.")
+    print("Shutting down the blockchain app...")
+    waitress_process.send_signal(signal.SIGTERM)
+    waitress_process.wait()
+    """ print("Shutting down blockchain flask app...")
+    try:
+        requests.post("http://127.0.0.1:5000/shutdown")
+    except Exception as e:
+        print(e) """
+    await asyncio.sleep(1)  # Give time for all tasks to finish
+    print("The script will now exit.")
+    sys_exit(1)
+# endregion
+
+# region Flask
+if __name__ == "__main__":
+    print("Starting blockchain flask app thread...")
+    try:
+        flask_thread = threading.Thread(target=start_flask_app_waitress)
+        flask_thread.daemon = True  # Set the thread as a daemon thread
+        flask_thread.start()
+        print("Flask app thread started.")
+    except Exception as e:
+        print(f"Error starting Flask app thread: {e}")
+    sleep(1)
+# endregion
+
+# region Init
+print("Starting bot...")
+
+
+@bot.event
+async def on_ready() -> None:
+    global sbcoin_emoji_id
+    sbcoin_emoji_id = 1032063250478661672
+    print("Bot started.")
+
+    print(f"Initializing blockchain...")
+    global blockchain
+    try:
+        blockchain = sb_blockchain.Blockchain()
+        print(f"Blockchain initialized.")
+    except Exception as e:
+        print(f"Error initializing blockchain: {e}")
+        return
+
+    print("Initializing log...")
+    global log
+    log = Log(time_zone="Canada/Central")
+    print("Log initialized.")
+
+    print("Loading checkpoint...")
+    global last_message_checkpointer
+    last_message_checkpointer = LastMessageId()
+    print("Checkpoint loaded.")
+
+    await process_missed_messages()
+
+    # Sync the commands to Discord
+    print("Syncing commands...")
+    try:
+        await bot.tree.sync()
+        print(f"Synced commands for bot {bot.user}.")
+        print(f"Bot is ready!")
+    except Exception as e:
+        print(f"Error syncing commands: {e}")
+# endregion
+
+
+# region Message
+@bot.event
+async def on_message(message: Message) -> None:
+    global last_message_checkpointer
+    last_message_checkpointer.save(message.id)
+# endregion
+
+
+# region Reaction
+@bot.event
+async def on_raw_reaction_add(payload: RawReactionActionEvent) -> None:
+    # TODO Add "if reaction.message.author.id != user.id" to prevent self-mining
+    # `payload` is an instance of the RawReactionActionEvent class from the
+    # discord.raw_models module that contains the data of the reaction event.
+    global blockchain
+    global sbcoin_emoji_id
+    if payload.guild_id is None:
+        return
+
+    if payload.event_type == "REACTION_ADD":
+        if payload.message_author_id is None:
+            return
+        if payload.emoji.id is None:
+            return
+        sender_user_id: int = payload.user_id
+        receiver_user_id: int = payload.message_author_id
+        await process_reaction(payload.emoji, sender_user_id, receiver_user_id)
 # endregion
 
 # region Balance
@@ -349,8 +478,6 @@ async def ping(interaction: Interaction) -> None:
     await interaction.response.send_message("Pong!", ephemeral=True)
 # endregion
 
-# TODO Add logging
-# TODO Add reading message history
 # TODO Track reaction removals
 # TODO Add hide parameters to commands
 # TODO Add transfer command
