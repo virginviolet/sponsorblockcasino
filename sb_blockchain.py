@@ -489,7 +489,6 @@ class Blockchain:
             print(return_message)
             return (return_message, True)
 
-
 # region Start chain
 blockchain = Blockchain()
 # endregion
@@ -614,24 +613,39 @@ def download_transactions() -> Tuple[Response | Any, int]:
 @app.route("/get_balance", methods=["GET"])
 # API Route: Get the balance of a user
 def get_balance() -> Tuple[Response, int]:
-    user: str | None = request.args.get("user")
-    user_unhashed: str | None = request.args.get("user_unhashed")
-    if not user and not user_unhashed:
-        return jsonify({"message": "User or user_unhashed is required."}), 400
-    elif user and user_unhashed:
-        return jsonify({"message": "Only one of user or user_unhashed is allowed."}), 400
-    
-    blockchain.is_transactions_file_valid()
-    
-    if user:
-        balance: int | None = blockchain.get_balance(user=user)
-    else:
-        # if user_unhashed:
-        balance: int | None = blockchain.get_balance(user_unhashed=user_unhashed)
-    if balance is not None:
-        return jsonify({"balance": balance}), 200
-    else:
-        return jsonify({"message": "No transactions found for user."}), 404
+    try:
+        user: str | None = request.args.get(str("user"))
+        user_unhashed: str | None = request.args.get("user_unhashed")
+        
+        # Debugging: Print the received query parameters
+        print(f"Received user: {user}")
+        print(f"Received user_unhashed: {user_unhashed}")
+        
+        if not user and not user_unhashed:
+            return jsonify({"message": "User or user_unhashed is required."}), 400
+        elif user and user_unhashed:
+            return jsonify({"message": "Only one of user or user_unhashed is allowed."}), 400
+        
+        # Validate the transactions file
+        blockchain.is_transactions_file_valid()
+        
+        # Retrieve the balance
+        if user:
+            balance: int | None = blockchain.get_balance(user=user)
+        else:
+            balance: int | None = blockchain.get_balance(user_unhashed=user_unhashed)
+        
+        # Debugging: Print the retrieved balance
+        print(f"Retrieved balance: {balance}")
+        
+        # Return the balance or an error message
+        if balance is not None:
+            return jsonify({"balance": balance}), 200
+        else:
+            return jsonify({"message": "No transactions found for user."}), 404
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return jsonify({"message": f"An error occurred {e}"}), 500
     
 
 # endregion
