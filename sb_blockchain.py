@@ -8,6 +8,7 @@ import json
 from flask import Flask, request, jsonify, Response, send_file
 from dotenv import load_dotenv
 from sys import exit as sys_exit
+import pandas as pd
 from typing import Generator, Tuple, Dict, List, Any, TypedDict
 
 app = Flask(__name__)
@@ -254,6 +255,24 @@ class Blockchain:
     def create_transactions_file(self) -> None:
         with open(self.transactions_file_name, "w") as file:
             file.write("Time\tSender\tReceiver\tAmount\tMethod\n")
+    
+    def get_balance(self, user: str | None = None, user_unhashed: str | None = None) -> int | None:
+        if user_unhashed:
+            user = hashlib.sha256(user_unhashed.encode()).hexdigest()
+        balance: int = 0
+        transactions: pd.DataFrame = pd.read_csv(self.transactions_file_name, sep="\t")  # type: ignore
+        if (user in transactions["Sender"].values) or (user in transactions["Receiver"].values):
+            sent: int = transactions[(transactions["Sender"] == user) & (transactions["Method"] != "reaction")]["Amount"].sum()  # type: ignore
+            print(f"Sent: {sent}")
+            received: int = transactions[transactions["Receiver"] == user]["Amount"].sum()  # type: ignore
+            print(f"Received: {received}")
+            balance = received - sent
+            print(f"Balance for {user}: {balance}")
+            return balance
+        else:
+            print(f"No transactions found for {user}.")
+            return None
+
     # endregion
 
 
@@ -591,20 +610,34 @@ def download_transactions() -> Tuple[Response | Any, int]:
         return send_file(
             blockchain.transactions_file_name,
             as_attachment=True), 200
+    
+@app.route("/get_balance", methods=["GET"])
+# API Route: Get the balance of a user
+def get_balance() -> Tuple[Response, int]:
+    user: str | None = request.args.get("user")
+    user_unhashed: str | None = request.args.get("user_unhashed")
+    if not user and not user_unhashed:
+        return jsonify({"message": "User or user_unhashed is required."}), 400
+    elif user and user_unhashed:
+        return jsonify({"message": "Only one of user or user_unhashed is allowed."}), 400
+    
+    blockchain.is_transactions_file_valid()
+    
+    if user:
+        balance: int | None = blockchain.get_balance(user=user)
+    else:
+        # if user_unhashed:
+        balance: int | None = blockchain.get_balance(user_unhashed=user_unhashed)
+    if balance is not None:
+        return jsonify({"balance": balance}), 200
+    else:
+        return jsonify({"message": "No transactions found for user."}), 404
+    
+
 # endregion
 
 
 # region Run Flask app
 if __name__ == "__main__":
-    # app.run(port=8080, debug=True)
-    blockchain.add_block(
-        [
-            {"transaction": {
-                "sender": "Alice",
-                "receiver": "Bob",
-                "amount": 10,
-                "method": "cash"
-            }}
-        ]
-    )
+    app.run(port=8080, debug=True)
 # endregion
