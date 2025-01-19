@@ -3,14 +3,63 @@ import threading
 import subprocess
 import signal
 import asyncio
+import json
+import pytz
 from time import sleep
+from datetime import datetime
 from discord import Intents, Interaction, Member, Message, Client, Reaction, User, Emoji, PartialEmoji, app_commands
 from discord.ext import commands
 from os import environ as os_environ, getenv
+from os.path import exists
 from dotenv import load_dotenv
 from hashlib import sha256
 from sys import exit as sys_exit
 from typing import Dict, List, NoReturn, TextIO, cast
+
+# region Classes
+class Log:
+    '''
+    The log cannot currently be verified or generated from the blockchain.
+    Use a validated transactions file for verification (see 
+    Blockchain.validate_transactions_file()).
+    The log is meant to be a local record of events.
+    '''
+    def __init__(self,
+                 file_name: str = "data/transactions.log",
+                 time_zone: str | None = None) -> None:
+        self.file_name: str = file_name
+        self.time_zone: str | None = time_zone
+
+    def create(self) -> None:
+        with open(self.file_name, "w"):
+            pass
+
+    def log(self, line: str, timestamp: float) -> None:
+        if self.time_zone is None:
+            # Use local time zone
+            timestamp_friendly = datetime.fromtimestamp(timestamp).strftime(
+                "%Y-%m-%d %H:%M:%S")
+        else:
+            # Convert Unix timestamp to datetime object
+            timestamp_dt: datetime = datetime.fromtimestamp(timestamp, pytz.utc)
+
+            # Adjust for time zone
+            timestamp_dt = timestamp_dt.astimezone(pytz.timezone(self.time_zone))
+
+            # Format the timestamp
+            timestamp_friendly: str = timestamp_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+        # Create the log file if it doesn't exist
+        if not exists(self.file_name):
+            self.create()
+
+        with open(self.file_name, "a") as f:
+            timestamped_line: str = f"{timestamp_friendly}: {line}"
+            print(timestamped_line)
+            f.write(f"{timestamped_line}\n")
+
+
+# endregion
 
 # region Functions
 
@@ -124,12 +173,11 @@ client = Client(intents=intents)
 load_dotenv()
 DISCORD_TOKEN: str | None = getenv('DISCORD_TOKEN')
 # endregion
-
-
 @bot.event
 async def on_ready() -> None:
     # region Init
     print("Bot started.")
+    
     print(f"Initializing blockchain...")
     global blockchain
     try:
@@ -138,6 +186,12 @@ async def on_ready() -> None:
     except Exception as e:
         print(f"Error initializing blockchain: {e}")
         return
+    
+    print("Initializing log...")
+    global log
+    log = Log(time_zone="Canada/Central")
+    print("Log initialized.")
+
     # Sync the commands to Discord
     print("Syncing commands...")
     try:
@@ -173,7 +227,8 @@ async def on_reaction_add(reaction: Reaction, user: User) -> None:
         case str():
             return
     if reaction_emoji_id == SBCOIN_EMOJI_ID:
-        print(f"{reaction.message.author.name} mined 1 SBCoin for {user.name}.")
+        print(f"{user.name} is mining 1 SBCoin "
+              f"for {reaction.message.author.name}...")
         print("Adding transaction to blockchain...")
         try:
             add_block_transaction(
@@ -184,15 +239,48 @@ async def on_reaction_add(reaction: Reaction, user: User) -> None:
                 method="reaction"
             )
             print("Transaction added to blockchain.")
-            print("Validating blockchain...")
-            chain_validity: bool = blockchain.is_chain_valid()
-            if chain_validity is False:
-                # TODO Revert blockchain to previous state
-                print(f"Error validating blockchain. Shutting down bot.")
-                await terminate_bot()
-
         except Exception as e:
             print(f"Error adding transaction to blockchain: {e}")
+            await terminate_bot()
+        
+        # Log the mining
+        block_retrieval_success: bool | None = None
+        last_block_timestamp: float | None = None
+        try:
+            # Get the last block's timestamp for logging
+            last_block: None | sb_blockchain.Block = blockchain.get_last_block()
+            if last_block is not None:
+                last_block_timestamp = last_block.timestamp
+                del last_block
+            else:
+                block_retrieval_success = False
+        except Exception as e:
+            print(f"Error getting last block: {e}")
+            block_retrieval_success = False
+        if block_retrieval_success is False:
+            await terminate_bot()
+
+        try:
+            if last_block_timestamp is not None:
+                mined_message: str = (f"{user.name} mined "
+                                    f"1 SBCoin for {reaction.message.author.name}.")
+                log.log(line=mined_message, timestamp=last_block_timestamp)
+        except Exception as e:
+            print(f"Error logging mining: {e}")
+            await terminate_bot()
+
+        chain_validity: bool | None = None
+        try:
+            print("Validating blockchain...")
+            chain_validity = blockchain.is_chain_valid()
+        except Exception as e:
+            # TODO Revert blockchain to previous state
+            print(f"Error validating blockchain: {e}")
+            chain_validity = False
+
+        if chain_validity is False:
+            await terminate_bot()
+            
 
     # This must be at the end to process commands
     await bot.process_commands(reaction.message)
@@ -218,10 +306,11 @@ async def balance(interaction: Interaction, user: Member | None = None) -> None:
     user_to_check: Member | str
     if user is None:
         user_to_check = interaction.user.mention
+        user_id: int = interaction.user.id
     else:
         user_to_check = user.mention
+        user_id: int = user.id
 
-    user_id: int = interaction.user.id
     user_id_hash: str = sha256(str(user_id).encode()).hexdigest()
     balance: int | None = blockchain.get_balance(user=user_id_hash)
     if balance is None:
@@ -251,8 +340,10 @@ async def ping(interaction: Interaction) -> None:
     await interaction.response.send_message("Pong!", ephemeral=True)
 # endregion
 
-# TODO Add logging
-# TODO Add send command
+# TODO Add reading message history
+# TODO Track reaction removals
+# TODO Add hide parameters to commands
+# TODO Add transfer command
 # TODO Add gamble command
 # TODO Add help command
 
