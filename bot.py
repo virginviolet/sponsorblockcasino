@@ -4,7 +4,7 @@ import subprocess
 import signal
 import asyncio
 from time import sleep
-from discord import Intents, Interaction, Message, Client, Reaction, User, Emoji, PartialEmoji, app_commands
+from discord import Intents, Interaction, Member, Message, Client, Reaction, User, Emoji, PartialEmoji, app_commands
 from discord.ext import commands
 from os import environ as os_environ, getenv
 from dotenv import load_dotenv
@@ -13,6 +13,7 @@ from sys import exit as sys_exit
 from typing import Dict, List, NoReturn, TextIO, cast
 
 # region Functions
+
 
 def start_flask_app_waitress() -> None:
     global waitress_process
@@ -52,6 +53,7 @@ def start_flask_app_waitress() -> None:
         daemon=True
     ).start()
 
+
 def start_flask_app() -> None:
     # For use with the Flask development server
     print("Starting flask app...")
@@ -59,6 +61,7 @@ def start_flask_app() -> None:
         sb_blockchain.app.run(port=5000, debug=True, use_reloader=False)
     except Exception as e:
         print(f"Error running Flask app: {e}")
+
 
 def add_block_transaction(
     blockchain: sb_blockchain.Blockchain,
@@ -69,10 +72,13 @@ def add_block_transaction(
 ) -> None:
     data: List[Dict[str, sb_blockchain.TransactionDict]] = [{
         "transaction":
-            {"sender": sender, "receiver": receiver, "amount": amount, "method": method}
+            {"sender": sender, "receiver": receiver, "amount": amount,
+             "method": method}
     }]
-    data_casted: List[str | Dict[str, sb_blockchain.TransactionDict]] = cast(List[str | Dict[str, sb_blockchain.TransactionDict]], data)
+    data_casted: List[str | Dict[str, sb_blockchain.TransactionDict]] = (
+        cast(List[str | Dict[str, sb_blockchain.TransactionDict]], data))
     blockchain.add_block(data=data_casted, difficulty=0)
+
 
 async def terminate_bot() -> NoReturn:
     print("Closing bot...")
@@ -119,6 +125,7 @@ load_dotenv()
 DISCORD_TOKEN: str | None = getenv('DISCORD_TOKEN')
 # endregion
 
+
 @bot.event
 async def on_ready() -> None:
     # region Init
@@ -143,8 +150,10 @@ async def on_ready() -> None:
 
 # region Reaction
 
+
 @bot.event
 async def on_reaction_add(reaction: Reaction, user: User) -> None:
+    # TODO Add "if reaction.message.author.id != user.id" to prevent self-mining
     global blockchain
     SBCOIN_EMOJI_ID = 1032063250478661672
     SENDER_USER_ID: int = user.id
@@ -164,8 +173,7 @@ async def on_reaction_add(reaction: Reaction, user: User) -> None:
         case str():
             return
     if reaction_emoji_id == SBCOIN_EMOJI_ID:
-        print(f"{reaction.message.author.name} received 1 SBCoin from {user.name}.")
-        # TODO Validate last block before transaction
+        print(f"{reaction.message.author.name} mined 1 SBCoin for {user.name}.")
         print("Adding transaction to blockchain...")
         try:
             add_block_transaction(
@@ -190,24 +198,63 @@ async def on_reaction_add(reaction: Reaction, user: User) -> None:
     await bot.process_commands(reaction.message)
 # endregion
 
+# region Balance
+
+
+@bot.tree.command(name="balance", description="Check your balance")
+@app_commands.describe(user="User to check the balance")
+async def balance(interaction: Interaction, user: Member | None = None) -> None:
+    """
+    Check the balance of a user. If no user is specified, the balance of the
+    user who invoked the command is checked.
+
+    Args:
+        interaction (Interaction): The interaction object representing the
+        command invocation.
+
+        user (str, optional): The user to check the balance. Defaults to None.
+    """
+    global blockchain
+    user_to_check: Member | str
+    if user is None:
+        user_to_check = interaction.user.mention
+    else:
+        user_to_check = user.mention
+
+    user_id: int = interaction.user.id
+    user_id_hash: str = sha256(str(user_id).encode()).hexdigest()
+    balance: int | None = blockchain.get_balance(user=user_id_hash)
+    if balance is None:
+        await interaction.response.send_message(f"{user_to_check} has 0 "
+                                                "SBCoins.")
+    elif balance == 1:
+        await interaction.response.send_message(f"{user_to_check} has 1 "
+                                                "SBCoin.")
+    else:
+        await interaction.response.send_message(f"{user_to_check} has "
+                                                f"{balance} SBCoins.")
+
+
 # region Message
 # Example slash command
 
 @bot.tree.command(name="ping", description="Replies with Pong!")
 async def ping(interaction: Interaction) -> None:
     """
-    Replies with Pong! The response is visible only to the user who invoked the command.
+    Replies with Pong! The response is visible only to the user who invoked the
+    command.
 
     Args:
-        interaction (Interaction): The interaction object representing the command invocation.
+        interaction (Interaction): The interaction object representing the
+        command invocation.
     """
     await interaction.response.send_message("Pong!", ephemeral=True)
-
-@bot.tree.command(name="hello", description="Say hello to someone")
-@app_commands.describe(name="Name of the user to greet")
-async def hello(interaction: Interaction, name: str) -> None:
-    await interaction.response.send_message(f"Hello, {name}!")
 # endregion
+
+# TODO Add logging
+# TODO Add send command
+# TODO Add gamble command
+# TODO Add help command
 
 # region Main
 if DISCORD_TOKEN:
