@@ -2,3 +2,5 @@ __pycache__/
 .env
 data/transactions.tsv
 data/blockchain.json
+data/transactions.log
+
