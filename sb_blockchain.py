@@ -30,9 +30,9 @@ class BlockDict(TypedDict):
     index: int
     timestamp: float
     data: List[str | Dict[str, TransactionDict]]
-    previous_hash: str
+    previous_block_hash: str
     nonce: int
-    hash: str
+    block_hash: str
 # endregion
 
 # region Block class
@@ -40,29 +40,30 @@ class Block:
     def __init__(self,
                  index: int,
                  data: List[str | Dict[str, TransactionDict]],
-                 previous_hash: str,
+                 previous_block_hash: str,
                  timestamp: float = 0.0,
                  nonce: int = 0,
                  block_hash: str | None = None) -> None:
         self.index: int = index
         self.timestamp: float = timestamp if timestamp else time.time()
         self.data: List[str | Dict[str, TransactionDict]] = data
-        self.previous_hash: str = previous_hash
+        self.previous_block_hash: str = previous_block_hash
         self.nonce = nonce
-        self.hash: str = block_hash if block_hash else self.calculate_hash()
+        self.block_hash: str = block_hash if block_hash else self.calculate_hash()
 
     def calculate_hash(self) -> str:
         block_contents: str = f"{self.index}{self.timestamp}{
-            self.data}{self.previous_hash}{self.nonce}"
+            self.data}{self.previous_block_hash}{self.nonce}"
         hash_string: str = hashlib.sha256(block_contents.encode()).hexdigest()
-        # print(f"Hash: {hash_string}")
+        # print(f"block_hash: {hash_string}")
         return hash_string
+
 
     def mine_block(self, difficulty: int) -> None:
         target: str = "0" * difficulty  # Create a string of zeros
-        while not self.hash.startswith(target):
+        while not self.block_hash.startswith(target):
             self.nonce += 1
-            self.hash = self.calculate_hash()
+            self.block_hash = self.calculate_hash()
 # endregion
 
 
@@ -106,7 +107,7 @@ class Blockchain:
         new_block = Block(
             index=(latest_block.index + 1) if latest_block else 0,
             data=data,
-            previous_hash=latest_block.hash if latest_block else "0"
+            previous_block_hash=latest_block.block_hash if latest_block else "0"
         )
         if difficulty > 0:
             new_block.mine_block(difficulty)
@@ -129,9 +130,9 @@ class Blockchain:
             index=block_dict["index"],
             timestamp=block_dict["timestamp"],
             data=block_dict["data"],
-            previous_hash=block_dict["previous_hash"],
+            previous_block_hash=block_dict["previous_block_hash"],
             nonce=block_dict["nonce"],
-            block_hash=block_dict["hash"]
+            block_hash=block_dict["block_hash"]
         )
 
     def load_block(self, json_block: str) -> Block:
@@ -173,9 +174,9 @@ class Blockchain:
                 index=block_key["index"],
                 timestamp=block_key["timestamp"],
                 data=block_key["data"],
-                previous_hash=block_key["previous_hash"],
+                previous_block_hash=block_key["previous_block_hash"],
                 nonce=block_key["nonce"],
-                block_hash=block_key["hash"]
+                block_hash=block_key["block_hash"]
             )
     # endregion
 
@@ -194,36 +195,37 @@ class Blockchain:
                         previous_block = current_block
                     # Load the line as a block
                     current_block = self.load_block(line)
-                    # Calculate the hash of the current block
+                    # Calculate the block_hash of the current block
                     calculated_hash: str = current_block.calculate_hash()
-                    print(f"\nCurrent block's \"Hash\": {current_block.hash}")
+                    print("\nCurrent block's \"block hash\": "
+                          f"{current_block.block_hash}")
                     print(f"Calculated hash:\t{calculated_hash}")
-                    if current_block.hash != calculated_hash:
+                    if current_block.block_hash != calculated_hash:
                         print(f"Block {current_block.index}'s hash does not "
-                              "match the calculated "
-                              "hash. This could mean that a block has been "
-                              "tampered with.")
+                              "match the calculated hash. This could mean that "
+                              "a block has been tampered with.")
                         chain_validity = False
                         break
                     else:
-                        print(f"Block {current_block.index}'s hash matches "
-                              "the calculated hash.")
+                        print(f"Block {current_block.index}'s hash matches the "
+                              "calculated hash.")
                     if previous_block:
                         print("\nPrevious block's "
-                              f"hash:\t\t\t{previous_block.hash}")
-                        print(f"Current block's \"Previous "
-                              f"Hash\":\t{current_block.previous_hash}")
-                        if current_block.previous_hash != previous_block.hash:
+                              f"block hash:\t\t\t{previous_block.block_hash}")
+                        print("Current block's \"Previous hash\":\t"
+                              f"{current_block.previous_block_hash}")
+                        if (current_block.previous_block_hash
+                            != previous_block.block_hash):
                             print(f"Block {current_block.index} "
-                                  "\"Previous Hash\" value does not "
-                                  "match the previous block's hash. This could "
-                                  "mean that a block is  missing or that one "
-                                  "has been incorrectly inserted.")
+                                  "\"Previous hash\" value does not "
+                                  "match the previous block's hash. This "
+                                  "could mean that a block is missing or that "
+                                  "one has been incorrectly inserted.")
                             chain_validity = False
                             break
                         else:
                             print(f"Block {current_block.index} "
-                                  "\"Previous Hash\" value matches the "
+                                  "\"Previous hash\" value matches the "
                                   "previous block's hash.")
         if chain_validity:
             print("The blockchain is valid.")
@@ -594,5 +596,15 @@ def download_transactions() -> Tuple[Response | Any, int]:
 
 # region Run Flask app
 if __name__ == "__main__":
-    app.run(port=8080, debug=True)
+    # app.run(port=8080, debug=True)
+    blockchain.add_block(
+        [
+            {"transaction": {
+                "sender": "Alice",
+                "receiver": "Bob",
+                "amount": 10,
+                "method": "cash"
+            }}
+        ]
+    )
 # endregion
