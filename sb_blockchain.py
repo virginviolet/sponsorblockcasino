@@ -37,6 +37,8 @@ class BlockDict(TypedDict):
 # endregion
 
 # region Block class
+
+
 class Block:
     def __init__(self,
                  index: int,
@@ -50,7 +52,8 @@ class Block:
         self.data: List[str | Dict[str, TransactionDict]] = data
         self.previous_block_hash: str = previous_block_hash
         self.nonce = nonce
-        self.block_hash: str = block_hash if block_hash else self.calculate_hash()
+        self.block_hash: str = (
+            block_hash if block_hash else self.calculate_hash())
 
     def calculate_hash(self) -> str:
         block_contents: str = f"{self.index}{self.timestamp}{
@@ -58,7 +61,6 @@ class Block:
         hash_string: str = hashlib.sha256(block_contents.encode()).hexdigest()
         # print(f"block_hash: {hash_string}")
         return hash_string
-
 
     def mine_block(self, difficulty: int) -> None:
         target: str = "0" * difficulty  # Create a string of zeros
@@ -216,7 +218,7 @@ class Blockchain:
                         print("Current block's \"Previous hash\":\t"
                               f"{current_block.previous_block_hash}")
                         if (current_block.previous_block_hash
-                            != previous_block.block_hash):
+                                != previous_block.block_hash):
                             print(f"Block {current_block.index} "
                                   "\"Previous hash\" value does not "
                                   "match the previous block's hash. This "
@@ -255,16 +257,25 @@ class Blockchain:
     def create_transactions_file(self) -> None:
         with open(self.transactions_file_name, "w") as file:
             file.write("Time\tSender\tReceiver\tAmount\tMethod\n")
-    
-    def get_balance(self, user: str | None = None, user_unhashed: str | None = None) -> int | None:
+
+    def get_balance(self,
+                    user: str | None = None,
+                    user_unhashed: str | None = None) -> int | None:
         if user_unhashed:
             user = hashlib.sha256(user_unhashed.encode()).hexdigest()
         balance: int = 0
-        transactions: pd.DataFrame = pd.read_csv(self.transactions_file_name, sep="\t")  # type: ignore
-        if (user in transactions["Sender"].values) or (user in transactions["Receiver"].values):
-            sent: int = transactions[(transactions["Sender"] == user) & (transactions["Method"] != "reaction")]["Amount"].sum()  # type: ignore
+        transactions: pd.DataFrame = (
+            pd.read_csv(self.transactions_file_name, sep="\t"))  # type: ignore
+        if ((user in transactions["Sender"].values) or
+                (user in transactions["Receiver"].values)):
+            sent: int = (transactions[(transactions["Sender"] == user) & (
+                # type: ignore
+                transactions["Method"] != "reaction")]["Amount"].sum())
             print(f"Sent: {sent}")
-            received: int = transactions[transactions["Receiver"] == user]["Amount"].sum()  # type: ignore
+            # type: ignore
+            received: int = (
+                transactions[transactions["Receiver"]
+                             == user]["Amount"].sum())  # type: ignore
             print(f"Received: {received}")
             balance = received - sent
             print(f"Balance for {user}: {balance}")
@@ -275,8 +286,8 @@ class Blockchain:
 
     # endregion
 
-
     # region Tx file valid
+
     def is_transactions_file_valid(
             self,
             repair: bool = False,
@@ -489,6 +500,7 @@ class Blockchain:
             print(return_message)
             return (return_message, True)
 
+
 # region Start chain
 blockchain = Blockchain()
 # endregion
@@ -609,44 +621,45 @@ def download_transactions() -> Tuple[Response | Any, int]:
         return send_file(
             blockchain.transactions_file_name,
             as_attachment=True), 200
-    
+
+
 @app.route("/get_balance", methods=["GET"])
 # API Route: Get the balance of a user
 def get_balance() -> Tuple[Response, int]:
-    try:
-        user: str | None = request.args.get(str("user"))
-        user_unhashed: str | None = request.args.get("user_unhashed")
-        
-        # Debugging: Print the received query parameters
-        print(f"Received user: {user}")
-        print(f"Received user_unhashed: {user_unhashed}")
-        
-        if not user and not user_unhashed:
-            return jsonify({"message": "User or user_unhashed is required."}), 400
-        elif user and user_unhashed:
-            return jsonify({"message": "Only one of user or user_unhashed is allowed."}), 400
-        
-        # Validate the transactions file
-        blockchain.is_transactions_file_valid()
-        
-        # Retrieve the balance
-        if user:
-            balance: int | None = blockchain.get_balance(user=user)
-        else:
-            balance: int | None = blockchain.get_balance(user_unhashed=user_unhashed)
-        
-        # Debugging: Print the retrieved balance
-        print(f"Retrieved balance: {balance}")
-        
-        # Return the balance or an error message
-        if balance is not None:
-            return jsonify({"balance": balance}), 200
-        else:
-            return jsonify({"message": "No transactions found for user."}), 404
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        return jsonify({"message": f"An error occurred {e}"}), 500
-    
+    user: str | None = request.args.get(str("user"))
+    user_unhashed: str | None = request.args.get("user_unhashed")
+
+    # Debugging: Print the received query parameters
+    print(f"Received user: {user}")
+    print(f"Received user_unhashed: {user_unhashed}")
+
+    if not user and not user_unhashed:
+        return jsonify({"message": "User or user_unhashed is required."}), 400
+    elif user and user_unhashed:
+        return jsonify({"message": "Only one of user or user_unhashed is "
+                        "allowed."}), 400
+
+    # Validate the transactions file
+    blockchain.is_transactions_file_valid()
+
+    # Retrieve the balance
+    if user:
+        balance: int | None = blockchain.get_balance(user=user)
+    else:
+        balance: int | None = blockchain.get_balance(
+            user_unhashed=user_unhashed)
+
+    # Debugging: Print the retrieved balance
+    print(f"Retrieved balance: {balance}")
+
+    # Return the balance or an error message
+    if balance is not None:
+        # Convert to int64 to int for JSON serialization
+        balance = int(balance)
+        return jsonify({"balance": balance}), 200
+    else:
+        return jsonify({"message": "No transactions found for user."}), 404
+
 
 # endregion
 
