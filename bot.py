@@ -16,7 +16,22 @@ from hashlib import sha256
 from sys import exit as sys_exit
 from typing import Dict, List, NoReturn, TextIO, cast
 
+
+# region Variables
+# Intents and bot setup
+intents: Intents = Intents.default()
+intents.message_content = True
+intents.members = True
+bot = commands.Bot("!", intents=intents)
+client = Client(intents=intents)
+# Load .env file for the bot DISCORD_TOKEN
+load_dotenv()
+DISCORD_TOKEN: str | None = getenv('DISCORD_TOKEN')
+# endregion
+
 # region Classes
+
+
 class Log:
     '''
     The log cannot currently be verified or generated from the blockchain.
@@ -24,6 +39,7 @@ class Log:
     Blockchain.validate_transactions_file()).
     The log is meant to be a local record of events.
     '''
+
     def __init__(self,
                  file_name: str = "data/transactions.log",
                  time_zone: str | None = None) -> None:
@@ -37,17 +53,20 @@ class Log:
     def log(self, line: str, timestamp: float) -> None:
         if self.time_zone is None:
             # Use local time zone
-            timestamp_friendly = datetime.fromtimestamp(timestamp).strftime(
-                "%Y-%m-%d %H:%M:%S")
+            timestamp_friendly = (
+                datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S"))
         else:
             # Convert Unix timestamp to datetime object
-            timestamp_dt: datetime = datetime.fromtimestamp(timestamp, pytz.utc)
+            timestamp_dt: datetime = (
+                datetime.fromtimestamp(timestamp, pytz.utc))
 
             # Adjust for time zone
-            timestamp_dt = timestamp_dt.astimezone(pytz.timezone(self.time_zone))
+            timestamp_dt = (
+                timestamp_dt.astimezone(pytz.timezone(self.time_zone)))
 
             # Format the timestamp
-            timestamp_friendly: str = timestamp_dt.strftime("%Y-%m-%d %H:%M:%S")
+            timestamp_friendly: str = (
+                timestamp_dt.strftime("%Y-%m-%d %H:%M:%S"))
 
         # Create the log file if it doesn't exist
         if not exists(self.file_name):
@@ -162,22 +181,12 @@ if __name__ == "__main__":
 
 print("Starting bot...")
 
-# region Variables
-# Intents and bot setup
-intents: Intents = Intents.default()
-intents.message_content = True
-intents.members = True
-bot = commands.Bot("!", intents=intents)
-client = Client(intents=intents)
-# Load .env file for the bot DISCORD_TOKEN
-load_dotenv()
-DISCORD_TOKEN: str | None = getenv('DISCORD_TOKEN')
-# endregion
+
 @bot.event
 async def on_ready() -> None:
     # region Init
     print("Bot started.")
-    
+
     print(f"Initializing blockchain...")
     global blockchain
     try:
@@ -186,7 +195,7 @@ async def on_ready() -> None:
     except Exception as e:
         print(f"Error initializing blockchain: {e}")
         return
-    
+
     print("Initializing log...")
     global log
     log = Log(time_zone="Canada/Central")
@@ -242,7 +251,7 @@ async def on_reaction_add(reaction: Reaction, user: User) -> None:
         except Exception as e:
             print(f"Error adding transaction to blockchain: {e}")
             await terminate_bot()
-        
+
         # Log the mining
         block_retrieval_success: bool | None = None
         last_block_timestamp: float | None = None
@@ -263,7 +272,8 @@ async def on_reaction_add(reaction: Reaction, user: User) -> None:
         try:
             if last_block_timestamp is not None:
                 mined_message: str = (f"{user.name} mined "
-                                    f"1 SBCoin for {reaction.message.author.name}.")
+                                      "1 SBCoin for "
+                                      f"{reaction.message.author.name}.")
                 log.log(line=mined_message, timestamp=last_block_timestamp)
         except Exception as e:
             print(f"Error logging mining: {e}")
@@ -280,7 +290,6 @@ async def on_reaction_add(reaction: Reaction, user: User) -> None:
 
         if chain_validity is False:
             await terminate_bot()
-            
 
     # This must be at the end to process commands
     await bot.process_commands(reaction.message)
@@ -340,6 +349,7 @@ async def ping(interaction: Interaction) -> None:
     await interaction.response.send_message("Pong!", ephemeral=True)
 # endregion
 
+# TODO Add logging
 # TODO Add reading message history
 # TODO Track reaction removals
 # TODO Add hide parameters to commands
