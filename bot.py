@@ -28,6 +28,9 @@ client = Client(intents=intents)
 # Load .env file for the bot DISCORD_TOKEN
 load_dotenv()
 DISCORD_TOKEN: str | None = getenv('DISCORD_TOKEN')
+coin = "SBCoin"
+coins = "SBCoins"
+coin_emoji_id = 1032063250478661672
 # endregion
 
 # region LastMessageId
@@ -239,8 +242,8 @@ async def process_reaction(emoji: PartialEmoji | Emoji | str,
             return
         case str():
             return
-    if emoji_id == sbcoin_emoji_id:
-        print(f"{sender_user_id} is mining 1 SBCoin "
+    if emoji_id == coin_emoji_id:
+        print(f"{sender_user_id} is mining 1 {coin} "
               f"for {receiver_user_id}...")
         print("Adding transaction to blockchain...")
         try:
@@ -280,8 +283,7 @@ async def process_reaction(emoji: PartialEmoji | Emoji | str,
         try:
             if last_block_timestamp is not None:
                 mined_message: str = (f"{sender_user_id} mined "
-                                      "1 SBCoin for "
-                                      f"{receiver_user_id}.")
+                                      f"1 {coin} for {receiver_user_id}.")
                 log.log(line=mined_message, timestamp=last_block_timestamp)
         except Exception as e:
             print(f"Error logging mining: {e}")
@@ -351,6 +353,15 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Error starting Flask app thread: {e}")
     sleep(1)
+
+    print(f"Initializing blockchain...")
+    try:
+        blockchain = sb_blockchain.Blockchain()
+        print(f"Blockchain initialized.")
+    except Exception as e:
+        print(f"Error initializing blockchain: {e}")
+        print("This script will be terminated.")
+        sys_exit(1)
 # endregion
 
 # region Init
@@ -359,18 +370,7 @@ print("Starting bot...")
 
 @bot.event
 async def on_ready() -> None:
-    global sbcoin_emoji_id
-    sbcoin_emoji_id = 1032063250478661672
     print("Bot started.")
-
-    print(f"Initializing blockchain...")
-    global blockchain
-    try:
-        blockchain = sb_blockchain.Blockchain()
-        print(f"Blockchain initialized.")
-    except Exception as e:
-        print(f"Error initializing blockchain: {e}")
-        return
 
     print("Initializing log...")
     global log
@@ -409,8 +409,6 @@ async def on_raw_reaction_add(payload: RawReactionActionEvent) -> None:
     # TODO Add "if reaction.message.author.id != user.id" to prevent self-mining
     # `payload` is an instance of the RawReactionActionEvent class from the
     # discord.raw_models module that contains the data of the reaction event.
-    global blockchain
-    global sbcoin_emoji_id
     if payload.guild_id is None:
         return
 
@@ -423,6 +421,20 @@ async def on_raw_reaction_add(payload: RawReactionActionEvent) -> None:
         receiver_user_id: int = payload.message_author_id
         await process_reaction(payload.emoji, sender_user_id, receiver_user_id)
 # endregion
+
+@bot.tree.command(name="transfer", description=f"Transfer {coins} to another user")
+@app_commands.describe(user=f"User to transfer the {coins} to", amount=f"Amount of {coins} to transfer")
+async def transfer(interaction: Interaction, user: Member, amount: int) -> None:
+    """
+    Transfer a specified amount of coins to another user.
+
+    Args:
+        interaction (Interaction): The interaction object representing the
+        command invocation.
+    """
+
+
+
 
 # region Balance
 
@@ -440,7 +452,6 @@ async def balance(interaction: Interaction, user: Member | None = None) -> None:
 
         user (str, optional): The user to check the balance. Defaults to None.
     """
-    global blockchain
     user_to_check: Member | str
     if user is None:
         user_to_check = interaction.user.mention
@@ -453,13 +464,13 @@ async def balance(interaction: Interaction, user: Member | None = None) -> None:
     balance: int | None = blockchain.get_balance(user=user_id_hash)
     if balance is None:
         await interaction.response.send_message(f"{user_to_check} has 0 "
-                                                "SBCoins.")
+                                                f"{coins}.")
     elif balance == 1:
         await interaction.response.send_message(f"{user_to_check} has 1 "
-                                                "SBCoin.")
+                                                f"{coin}.")
     else:
         await interaction.response.send_message(f"{user_to_check} has "
-                                                f"{balance} SBCoins.")
+                                                f"{balance} {coins}.")
 
 
 # region Message
@@ -479,7 +490,7 @@ async def ping(interaction: Interaction) -> None:
 # endregion
 
 # TODO Track reaction removals
-# TODO Add hide parameters to commands
+# TODO Add "hide" parameters to commands
 # TODO Add transfer command
 # TODO Add gamble command
 # TODO Add help command
