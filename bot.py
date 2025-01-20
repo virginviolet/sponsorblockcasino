@@ -7,7 +7,7 @@ import json
 import pytz
 from time import sleep, time
 from datetime import datetime
-from discord import Intents, Interaction, Member, Message, Client, Emoji, PartialEmoji, app_commands
+from discord import Intents, Interaction, Member, Message, Client, Emoji, PartialEmoji, User, app_commands
 from discord.ext import commands
 from discord.raw_models import RawReactionActionEvent
 from os import environ as os_environ, getenv
@@ -28,9 +28,6 @@ client = Client(intents=intents)
 # Load .env file for the bot DISCORD_TOKEN
 load_dotenv()
 DISCORD_TOKEN: str | None = getenv('DISCORD_TOKEN')
-coin = "SBCoin"
-coins = "SBCoins"
-coin_emoji_id = 1032063250478661672
 # endregion
 
 # region LastMessageId
@@ -117,6 +114,52 @@ class Log:
             f.write(f"{timestamped_line}\n")
 
 
+# endregion
+
+# region Bot config
+class BotConfiguration:
+    def __init__(self, file_name: str = "data/bot_configuration.json") -> None:
+        self.file_name: str = file_name
+        self.configuration: Dict[str, str] = self.read()
+        self.coin: str = self.configuration["COIN"]
+        self.coins: str = self.configuration["COINS"]
+        self.coin_emoji_id: int = int(self.configuration["COIN_EMOJI_ID"])
+        if self.coin_emoji_id == 0:
+            print("WARNING: COIN_EMOJI_ID has not set in bot_configuration.json nor "
+                  "in the environment variables.")
+        self.administrator_id: int = int(self.configuration["ADMINISTRATOR_ID"])
+        if self.administrator_id == 0:
+            print("WARNING: ADMINISTRATOR_ID has not set in bot_configuration.json nor "
+                  "in the environment variables.")
+
+    def create(self) -> None:
+        configuration: Dict[str, str] = {
+            "COIN": "coin",
+            "COINS": "coins",
+            "COIN_EMOJI_ID": "0",
+            "ADMINISTRATOR_ID": "0"
+        }
+        with open(self.file_name, "w") as f:
+            f.write(json.dumps(configuration))
+    
+    def read(self) -> Dict[str, str]:
+        if not exists(self.file_name):
+            self.create()
+        
+        with open(self.file_name, "r") as f:
+            configuration: Dict[str, str] = json.loads(f.read())
+            # Override the configuration with environment variables
+            if os_environ.get("COIN"):
+                configuration["coin"] = os_environ.get("COIN", "")
+            if os_environ.get("COINS"):
+                configuration["coins"] = os_environ.get("COINS", "")
+            if os_environ.get("COIN_EMOJI_ID"):
+                configuration["COIN_EMOJI_ID"] = os_environ.get("COIN_EMOJI_ID", "")
+            if os_environ.get("ADMINISTRATOR_ID"):
+                configuration["ADMINISTRATOR_ID"] = os_environ.get("ADMINISTRATOR_ID", "")
+            return configuration
+            
+            
 # endregion
 
 # region Flask funcs
@@ -212,10 +255,10 @@ async def process_missed_messages() -> None:
                         print(f"Reaction found: {reaction.emoji}: {user}.")
                         print(f"Message ID: {message_id}.")
                         print(f"{message.author}: {message.content}")
-                        sender_id: int = user.id
-                        receiver_id: int = message.author.id
+                        sender: Member | User = user
+                        receiver: User | Member = message.author
                         emoji: PartialEmoji | Emoji | str = reaction.emoji
-                        await process_reaction(emoji, sender_id, receiver_id)
+                        await process_reaction(emoji, sender, receiver)
             print(f"Messages from channel {channel.id} ({channel}) fetched.")
         print(f"Messages from guild {guild.id} ({guild}) fetched.")
     if not checkpoint_found and message_id is not None:
@@ -228,11 +271,11 @@ async def process_missed_messages() -> None:
 
 
 async def process_reaction(emoji: PartialEmoji | Emoji | str,
-                           sender_user_id: int,
-                           receiver_user_id: int) -> None:
+                           sender: Member | User,
+                           receiver: Member | User | None = None,
+                           receiver_id: int | None = None) -> None:
 
     emoji_id: int | str | None = 0
-
     match emoji:
         case Emoji():
             emoji_id = emoji.id
@@ -242,26 +285,30 @@ async def process_reaction(emoji: PartialEmoji | Emoji | str,
             return
         case str():
             return
-    if emoji_id == coin_emoji_id:
-        print(f"{sender_user_id} is mining 1 {coin} "
-              f"for {receiver_user_id}...")
-        print("Adding transaction to blockchain...")
-        try:
-            sender_user_id_hash: str = (
-                sha256(str(sender_user_id).encode()).hexdigest())
-            receiver_user_id_hash: str = sha256(
-                str(receiver_user_id).encode()).hexdigest()
-            add_block_transaction(
-                blockchain=blockchain,
-                sender=sender_user_id_hash,
-                receiver=receiver_user_id_hash,
-                amount=1,
-                method="reaction"
-            )
-            print("Transaction added to blockchain.")
-        except Exception as e:
-            print(f"Error adding transaction to blockchain: {e}")
-            await terminate_bot()
+    if emoji_id == COIN_EMOJI_ID:
+        
+        if receiver is None:
+            # Get receiver from id
+            if receiver_id is not None:
+                receiver = await bot.fetch_user(receiver_id)
+            else:
+                print("ERROR: Receiver is None.")
+                return
+        else:
+            receiver_id = receiver.id
+        
+        sender_id: int = sender.id
+
+        print(f"{sender} ({sender_id}) is mining 1 {COIN} "
+              f"for {receiver} ({receiver_id})...")
+        await add_block_transaction(
+            blockchain=blockchain,
+            sender = sender,
+            receiver = receiver,
+            amount=1,
+            method="reaction"
+        )
+    
 
         # Log the mining
         block_retrieval_success: bool | None = None
@@ -282,8 +329,8 @@ async def process_reaction(emoji: PartialEmoji | Emoji | str,
 
         try:
             if last_block_timestamp is not None:
-                mined_message: str = (f"{sender_user_id} mined "
-                                      f"1 {coin} for {receiver_user_id}.")
+                mined_message: str = (f"{sender} ({sender_id}) mined 1 {COIN} "
+                                        f"for {receiver} ({receiver_id}).")
                 log.log(line=mined_message, timestamp=last_block_timestamp)
         except Exception as e:
             print(f"Error logging mining: {e}")
@@ -305,21 +352,33 @@ async def process_reaction(emoji: PartialEmoji | Emoji | str,
 # region Add tx
 
 
-def add_block_transaction(
+async def add_block_transaction(
     blockchain: sb_blockchain.Blockchain,
-    sender: str,
-    receiver: str,
+    sender: Member | User,
+    receiver: Member | User,
     amount: int,
     method: str
 ) -> None:
-    data: List[Dict[str, sb_blockchain.TransactionDict]] = [{
-        "transaction":
-            {"sender": sender, "receiver": receiver, "amount": amount,
-             "method": method}
-    }]
-    data_casted: List[str | Dict[str, sb_blockchain.TransactionDict]] = (
-        cast(List[str | Dict[str, sb_blockchain.TransactionDict]], data))
-    blockchain.add_block(data=data_casted, difficulty=0)
+    sender_id_unhashed: int = sender.id
+    receiver_id_unhashed: int = receiver.id
+    sender_id_hash: str = (
+        sha256(str(sender_id_unhashed).encode()).hexdigest())
+    receiver_id_hash: str = (
+        sha256(str(receiver_id_unhashed).encode()).hexdigest())
+    print("Adding transaction to blockchain...")
+    try:
+        data: List[Dict[str, sb_blockchain.TransactionDict]] = [{
+            "transaction":
+                {"sender": sender_id_hash, "receiver": receiver_id_hash, "amount": amount,
+                "method": method}
+        }]
+        data_casted: List[str | Dict[str, sb_blockchain.TransactionDict]] = (
+            cast(List[str | Dict[str, sb_blockchain.TransactionDict]], data))
+        blockchain.add_block(data=data_casted, difficulty=0)
+    except Exception as e:
+        print(f"Error adding transaction to blockchain: {e}")
+        await terminate_bot()
+    print("Transaction added to blockchain.")
 # endregion
 
 # region Terminate bot
@@ -371,6 +430,13 @@ print("Initializing log...")
 log = Log(time_zone="Canada/Central")
 print("Log initialized.")
 
+print("Loading bot configuration...")
+configuration = BotConfiguration()
+COIN: str = configuration.coin
+COINS: str = configuration.coins
+COIN_EMOJI_ID: int = configuration.coin_emoji_id
+ADMINISTRATOR_ID: int = configuration.administrator_id
+print("Bot configuration loaded.")
 
 @bot.event
 async def on_ready() -> None:
@@ -415,14 +481,22 @@ async def on_raw_reaction_add(payload: RawReactionActionEvent) -> None:
             return
         if payload.emoji.id is None:
             return
-        sender_user_id: int = payload.user_id
+        sender: Member | None = payload.member
+        if sender is None:
+            print("ERROR: Sender is None.")
+            return
         receiver_user_id: int = payload.message_author_id
-        await process_reaction(payload.emoji, sender_user_id, receiver_user_id)
+        await process_reaction(emoji=payload.emoji,
+                               sender=sender,
+                               receiver_id=receiver_user_id)
 # endregion
 
-@bot.tree.command(name="transfer", description=f"Transfer {coins} to another user")
-@app_commands.describe(user=f"User to transfer the {coins} to", amount=f"Amount of {coins} to transfer")
-async def transfer(interaction: Interaction, user: Member, amount: int) -> None:
+
+@bot.tree.command(name="transfer",
+                  description=f"Transfer {COINS} to another user")
+@app_commands.describe(amount=f"Amount of {COINS} to transfer",
+                       user=f"User to transfer the {COINS} to")
+async def transfer(interaction: Interaction, amount: int, user: Member) -> None:
     """
     Transfer a specified amount of coins to another user.
 
@@ -430,9 +504,53 @@ async def transfer(interaction: Interaction, user: Member, amount: int) -> None:
         interaction (Interaction): The interaction object representing the
         command invocation.
     """
-
-
-
+    sender: User | Member = interaction.user
+    sender_id: int = sender.id
+    receiver: Member = user
+    receiver_id: int = receiver.id
+    print(f"User {sender_id} is requesting to transfer {amount} {COINS} to "
+          f"user {receiver_id}...")
+    balance: int | None = None
+    try:
+        balance = blockchain.get_balance(user_unhashed=sender_id)
+    except Exception as e:
+        print(f"Error getting balance for user {sender} ({sender_id}): {e}")
+        administrator: str = (await bot.fetch_user(ADMINISTRATOR_ID)).mention
+        await interaction.response.send_message("Error getting balance."
+                                                f"{administrator} pls fix.")
+    if balance is None:
+        print(f"Balance is None for user {sender} ({sender_id}).")
+        await interaction.response.send_message(f"You have 0 {COINS}.")
+        return
+    if balance < amount:
+        print(f"{sender} ({sender_id}) does not have enough {COINS} to "
+              f"transfer {amount} to {sender} ({sender_id}). "
+              f"Balance: {balance}.")
+        await interaction.response.send_message(f"You do not have enough "
+                                                f"{COINS}. You have {balance} "
+                                                f"{COINS}.")
+        return
+    await add_block_transaction(
+        blockchain=blockchain,
+        sender=sender,
+        receiver=receiver,
+        amount=amount,
+        method="transfer"
+    )
+    last_block: sb_blockchain.Block | None = blockchain.get_last_block()
+    if last_block is None:
+        print("ERROR: Last block is None.")
+        administrator: str = (await bot.fetch_user(ADMINISTRATOR_ID)).mention
+        await interaction.response.send_message("Error transferring coins. "
+                                                f"{administrator} pls fix.")
+        await terminate_bot()
+    timestamp: float = last_block.timestamp
+    log.log(line=f"{sender} ({sender_id}) transferred {amount} {COINS} "
+            f"to {receiver} ({receiver_id}).",
+                timestamp=timestamp)
+    await interaction.response.send_message(f"{sender.mention} transferred "
+                                            f"{amount} {COINS} "
+                                            f"to {receiver.mention}.")
 
 # region Balance
 
@@ -462,13 +580,13 @@ async def balance(interaction: Interaction, user: Member | None = None) -> None:
     balance: int | None = blockchain.get_balance(user=user_id_hash)
     if balance is None:
         await interaction.response.send_message(f"{user_to_check} has 0 "
-                                                f"{coins}.")
+                                                f"{COINS}.")
     elif balance == 1:
         await interaction.response.send_message(f"{user_to_check} has 1 "
-                                                f"{coin}.")
+                                                f"{COIN}.")
     else:
         await interaction.response.send_message(f"{user_to_check} has "
-                                                f"{balance} {coins}.")
+                                                f"{balance} {COINS}.")
 
 
 # region Message
@@ -487,6 +605,7 @@ async def ping(interaction: Interaction) -> None:
     await interaction.response.send_message("Pong!", ephemeral=True)
 # endregion
 
+# TODO Prevent self-mining
 # TODO Track reaction removals
 # TODO Add "hide" parameters to commands
 # TODO Add transfer command

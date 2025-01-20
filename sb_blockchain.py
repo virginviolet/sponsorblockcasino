@@ -259,9 +259,13 @@ class Blockchain:
             file.write("Time\tSender\tReceiver\tAmount\tMethod\n")
 
     def get_balance(self,
-                    user: str | None = None,
-                    user_unhashed: str | None = None) -> int | None:
-        if user_unhashed:
+                    user: str | int | None = None,
+                    user_unhashed: str | int | None = None) -> int | None:
+        if isinstance(user_unhashed, int):
+            user = hashlib.sha256(str(user_unhashed).encode()).hexdigest()
+        elif isinstance(user, int):
+            user = hashlib.sha256(str(user).encode()).hexdigest()
+        elif user_unhashed:
             user = hashlib.sha256(user_unhashed.encode()).hexdigest()
         balance: int = 0
         transactions: pd.DataFrame = (
