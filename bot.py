@@ -367,16 +367,14 @@ if __name__ == "__main__":
 # region Init
 print("Starting bot...")
 
+print("Initializing log...")
+log = Log(time_zone="Canada/Central")
+print("Log initialized.")
+
 
 @bot.event
 async def on_ready() -> None:
     print("Bot started.")
-
-    print("Initializing log...")
-    global log
-    log = Log(time_zone="Canada/Central")
-    print("Log initialized.")
-
     print("Loading checkpoint...")
     global last_message_checkpointer
     last_message_checkpointer = LastMessageId()
