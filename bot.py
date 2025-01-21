@@ -5,6 +5,7 @@ import signal
 import asyncio
 import json
 import pytz
+import random
 from time import sleep, time
 from datetime import datetime
 from discord import Intents, Interaction, Member, Message, Client, Emoji, PartialEmoji, User, app_commands
@@ -30,34 +31,61 @@ load_dotenv()
 DISCORD_TOKEN: str | None = getenv('DISCORD_TOKEN')
 # endregion
 
-# region LastMessageId
+# region Checkpoints
 
 
-class LastMessageId:
-    def __init__(self, file_name: str = "data/bot_checkpoint.json") -> None:
+class LastMessageIdCheckponts:
+    def __init__(self,
+                 file_name: str = "data/bot_checkpoint.json",
+                 number: int = 10) -> None:
         self.file_name: str = file_name
-        self.last_message_id: int = self.read()
+        self.number: int = number
+        self.last_message_ids: List[Dict[str, int]] | None = self.load()
+        self.entry_count: int = self.count_lines()
 
+    def count_lines(self) -> int:
+        if not exists(self.file_name):
+            return 0
+        
+        with open(self.file_name, "r") as file:
+            count: int = sum(1 for _ in file)
+            return count
+        
     def create(self) -> None:
-        with open(self.file_name, "w") as f:
-            f.write(json.dumps({"last_message_id": 0}))
+        with open(self.file_name, "w"):
+            pass
 
     def save(self, message_id: int) -> None:
         if not exists(self.file_name):
             self.create()
 
-        print(f"Saving checkpoint: {message_id}")
-        with open(self.file_name, "w") as f:
-            f.write(json.dumps({"last_message_id": message_id}))
+        # print(f"Saving checkpoint: {message_id}")
+        with open(self.file_name, "a") as file:
+            file.write("\n" + json.dumps({"last_message_id": message_id}))
+        self.entry_count += 1
+        # self.entry_count = self.count_lines()
 
-    def read(self) -> int:
+        if self.entry_count > self.number:
+            self.remove_first_line()
+            self.entry_count -= 1
+
+    def remove_first_line(self) -> None:
+        with open(self.file_name, "r") as file:
+            lines: List[str] = file.readlines()
+        with open(self.file_name, "w") as file:
+            file.writelines(lines[1:])
+
+    def load(self) -> List[Dict[str, int]] | None:
         if not exists(self.file_name):
-            self.create()
+            return None
 
-        with open(self.file_name, "r") as f:
-            message_id_str: str = json.loads(f.read())["last_message_id"]
-            message_id_int: int = int(message_id_str)
-            return message_id_int
+        with open(self.file_name, "r") as file:
+            checkpoints: List[Dict[str,int]] | None = []
+            for line in file:
+                checkpoint: Dict[str, int] = (
+                    {k: int(v) for k, v in json.loads(line).items()})
+                checkpoints.append(checkpoint)
+                return checkpoints
 # endregion
 
 # region Log
@@ -224,17 +252,14 @@ async def process_missed_messages() -> None:
     would require keeping track of every single message and reactions on the
     server in a database.
     '''
-    global last_message_checkpointer
-    last_message_id: int = int(last_message_checkpointer.read())
-    checkpoint_found: bool = False
+    checkpoints: List[Dict[str, int]] | None = checkpoints_machine.last_message_ids
+    print(f"Checkpoints: {checkpoints}")
     missed_messages_processed_message: str = "Missed messages processed."
     print("Processing missed messages...")
-    if last_message_id == 0:
-        print("No checkpoint found.")
-        checkpoint_found = False
+    if checkpoints is None:
+        print("No checkpoints could be loaded.")
     else:
-        print(f"Checkpoint found: {last_message_id}")
-        checkpoint_found = True
+        print(f"Checkpoints loaded: {checkpoints}")
 
     message_id: int | None = None
     for guild in bot.guilds:
@@ -243,26 +268,35 @@ async def process_missed_messages() -> None:
             print("Fetching messages from "
                   f"channel: {channel} ({channel.id})...")
             async for message in channel.history(limit=None):
-                if checkpoint_found and message.id == last_message_id:
-                    print("Checkpoint reached.")
-                    print(missed_messages_processed_message)
-                    last_message_checkpointer.save(message.id)
-                    return
-                # print(f"{message.author}: {message.content}")
-                for reaction in message.reactions:
-                    async for user in reaction.users():
+                # print(f"{message.author}: {message.content} ({message_id}).")
+                if checkpoints is not None:
+                    for checkpoint in checkpoints:
                         message_id = message.id
-                        print(f"Reaction found: {reaction.emoji}: {user}.")
-                        print(f"Message ID: {message_id}.")
-                        print(f"{message.author}: {message.content}")
-                        sender: Member | User = user
-                        receiver: User | Member = message.author
-                        emoji: PartialEmoji | Emoji | str = reaction.emoji
-                        await process_reaction(emoji, sender, receiver)
+                        # print(f"Checkpoint: {checkpoint}")
+                        # input("Press Enter to continue...")
+                        # print(f"last_message_id: {checkpoint['last_message_id']}")
+                        if message_id == checkpoint["last_message_id"]:
+                            print("Checkpoint reached.")
+                            print(missed_messages_processed_message)
+                            checkpoints_machine.save(message.id)
+                            return
+                    for reaction in message.reactions:
+                        async for user in reaction.users():
+                            message_id = message.id
+                            # print(f"Reaction found: {reaction.emoji}: {user}.")
+                            # print(f"Message ID: {message_id}.")
+                            # print(f"{message.author}: {message.content}")
+                            sender: Member | User = user
+                            receiver: User | Member = message.author
+                            emoji: PartialEmoji | Emoji | str = reaction.emoji
+                            # await process_reaction(emoji, sender, receiver)
             print(f"Messages from channel {channel.id} ({channel}) fetched.")
         print(f"Messages from guild {guild.id} ({guild}) fetched.")
-    if not checkpoint_found and message_id is not None:
-        last_message_checkpointer.save(message_id)
+    if message_id is not None:
+        print(f"Saving checkpoint: {message_id}")
+        checkpoints_machine.save(message_id)
+    else:
+        print(f"ERROR: Could not save checkpoint because message_id is None.")
     print(missed_messages_processed_message)
 
 # endregion
@@ -426,10 +460,6 @@ if __name__ == "__main__":
 # region Init
 print("Starting bot...")
 
-print("Initializing log...")
-log = Log(time_zone="Canada/Central")
-print("Log initialized.")
-
 print("Loading bot configuration...")
 configuration = BotConfiguration()
 COIN: str = configuration.coin
@@ -438,13 +468,17 @@ COIN_EMOJI_ID: int = configuration.coin_emoji_id
 ADMINISTRATOR_ID: int = configuration.administrator_id
 print("Bot configuration loaded.")
 
+print("Initializing log...")
+log = Log(time_zone="Canada/Central")
+print("Log initialized.")
+
+print("Loading checkpoint...")
+checkpoints_machine = LastMessageIdCheckponts(number=2)
+print("Checkpoint loaded.")
+
 @bot.event
 async def on_ready() -> None:
     print("Bot started.")
-    print("Loading checkpoint...")
-    global last_message_checkpointer
-    last_message_checkpointer = LastMessageId()
-    print("Checkpoint loaded.")
 
     await process_missed_messages()
 
@@ -462,8 +496,7 @@ async def on_ready() -> None:
 # region Message
 @bot.event
 async def on_message(message: Message) -> None:
-    global last_message_checkpointer
-    last_message_checkpointer.save(message.id)
+    checkpoints_machine.save(message.id)
 # endregion
 
 

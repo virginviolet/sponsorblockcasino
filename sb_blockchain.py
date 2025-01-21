@@ -200,36 +200,36 @@ class Blockchain:
                     current_block = self.load_block(line)
                     # Calculate the block_hash of the current block
                     calculated_hash: str = current_block.calculate_hash()
-                    print("\nCurrent block's \"block hash\": "
+                    """ print("\nCurrent block's \"block hash\": "
                           f"{current_block.block_hash}")
-                    print(f"Calculated hash:\t{calculated_hash}")
+                    print(f"Calculated hash:\t{calculated_hash}") """
                     if current_block.block_hash != calculated_hash:
-                        print(f"Block {current_block.index}'s hash does not "
+                        """ print(f"Block {current_block.index}'s hash does not "
                               "match the calculated hash. This could mean that "
-                              "a block has been tampered with.")
+                              "a block has been tampered with.") """
                         chain_validity = False
                         break
-                    else:
+                    """ else:
                         print(f"Block {current_block.index}'s hash matches the "
-                              "calculated hash.")
+                              "calculated hash.") """
                     if previous_block:
-                        print("\nPrevious block's "
+                        """ print("\nPrevious block's "
                               f"block hash:\t\t\t{previous_block.block_hash}")
                         print("Current block's \"Previous hash\":\t"
-                              f"{current_block.previous_block_hash}")
+                              f"{current_block.previous_block_hash}") """
                         if (current_block.previous_block_hash
                                 != previous_block.block_hash):
-                            print(f"Block {current_block.index} "
+                            """ print(f"Block {current_block.index} "
                                   "\"Previous hash\" value does not "
                                   "match the previous block's hash. This "
                                   "could mean that a block is missing or that "
-                                  "one has been incorrectly inserted.")
+                                  "one has been incorrectly inserted.") """
                             chain_validity = False
                             break
                         else:
-                            print(f"Block {current_block.index} "
+                            """ print(f"Block {current_block.index} "
                                   "\"Previous hash\" value matches the "
-                                  "previous block's hash.")
+                                  "previous block's hash.") """
         if chain_validity:
             print("The blockchain is valid.")
             return True
@@ -425,7 +425,7 @@ class Blockchain:
                                     if repair and force:
                                         print("Contents of the transactions "
                                               "file will be replaced.")
-                                        tf.truncate()
+                                        tf.truncate(tf_position)
                                         mode = Mode.APPEND
                                     else:
                                         print(finished_early_message)
