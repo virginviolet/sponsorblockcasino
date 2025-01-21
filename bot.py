@@ -8,10 +8,10 @@ import pytz
 import random
 from time import sleep, time
 from datetime import datetime
-from discord import Intents, Interaction, Member, Message, Client, Emoji, PartialEmoji, User, app_commands
+from discord import Guild, Intents, Interaction, Member, Message, Client, Emoji, PartialEmoji, User, TextChannel, app_commands
 from discord.ext import commands
 from discord.raw_models import RawReactionActionEvent
-from os import environ as os_environ, getenv
+from os import environ as os_environ, getenv, makedirs
 from os.path import exists
 from dotenv import load_dotenv
 from hashlib import sha256
@@ -29,6 +29,7 @@ client = Client(intents=intents)
 # Load .env file for the bot DISCORD_TOKEN
 load_dotenv()
 DISCORD_TOKEN: str | None = getenv('DISCORD_TOKEN')
+channel_checkpoint_limit: int = 3
 # endregion
 
 # region Checkpoints
@@ -37,12 +38,17 @@ class ChannelCheckpoints:
     def __init__(self,
                  guild_name: str,
                  guild_id: int,
-                 name: str,
-                 id: int,
+                 channel_name: str,
+                 channel_id: int,
                  number: int = 10) -> None:
         self.number: int = number
+        # TODO Add a file in directories that state the names of guilds/channels
+        self.guild_name: str = guild_name
+        self.guild_id: int = guild_id
+        self.channel_name: str = channel_name
+        self.channel_id: int = channel_id
         self.directory: str = (
-            f"data/checkpoints/{guild_name}_{guild_id}/{name}_{id}")
+            f"data/checkpoints/guilds/{self.guild_id}/channels/{self.channel_id}")
         self.file_name: str = f"{self.directory}/channel_checkpoints.json"
         self.entry_count: int = self.count_lines()
         self.last_message_ids: List[Dict[str, int]] | None = self.load()
@@ -56,6 +62,28 @@ class ChannelCheckpoints:
             return count
         
     def create(self) -> None:
+        # Create missing directories
+        directories: str = self.file_name[:self.file_name.rfind("/")]
+        for i, directory in enumerate(directories.split("/")):
+            path: str = "/".join(directories.split("/")[:i+1])
+            if not exists(directory):
+                makedirs(path, exist_ok=True)
+            # Write the guild name and channel name to files in the id
+            # directories, so that bot maintainers can identify the guilds and
+            # channels
+            # Channel names can change, but the IDs will not
+            if directory.isdigit() and int(directory) == self.guild_id:
+                name_file_name: str = f"{path}/guild_name.json"
+                with open(name_file_name, "w") as file:
+                    file.write(json.dumps({"guild_name": self.guild_name}))
+                    pass
+            elif directory.isdigit() and int(directory) == self.channel_id:
+                name_file_name: str = f"{path}/channel_name.json"
+                with open(name_file_name, "w") as file:
+                    file.write(json.dumps({"channel_name": self.channel_name}))
+                    pass
+
+        print(f"Creating checkpoints file: '{self.file_name}'")
         with open(self.file_name, "w"):
             pass
 
@@ -64,12 +92,15 @@ class ChannelCheckpoints:
             self.create()
 
         # print(f"Saving checkpoint: {message_id}")
+        self.entry_count = self.count_lines()
         with open(self.file_name, "a") as file:
-            file.write("\n" + json.dumps({"last_message_id": message_id}))
+            if self.entry_count == 0:
+                file.write(json.dumps({"last_message_id": message_id}))
+            else:
+                file.write("\n" + json.dumps({"last_message_id": message_id}))
         self.entry_count += 1
-        # self.entry_count = self.count_lines()
 
-        if self.entry_count > self.number:
+        while self.entry_count > self.number:
             self.remove_first_line()
             self.entry_count -= 1
 
@@ -85,32 +116,13 @@ class ChannelCheckpoints:
 
         with open(self.file_name, "r") as file:
             checkpoints: List[Dict[str,int]] | None = []
+            # print("Loading checkpoints...")
             for line in file:
                 checkpoint: Dict[str, int] = (
                     {k: int(v) for k, v in json.loads(line).items()})
+                # print(f"checkpoint: {checkpoint}")
                 checkpoints.append(checkpoint)
                 return checkpoints
-
-
-class AllGuildChannelsCheckpoints:
-    def __init__(self, guild_checkpoints: Dict[int, GuildCheckpoints] = {}) -> None:
-        self.guild_checkpoints: Dict[int, GuildCheckpoints] = guild_checkpoints
-
-
-class GuildCheckpoints:
-    def __init__(self, guild_name: str, guild_id: int, channels: List[Dict[int,str]] = []) -> None:
-        self.guild_name: str = guild_name
-        self.guild_id: int = guild_id
-        self.channels: List[Dict[int, str]] = channels
-        self.channel_checkpoints: dict[int, ChannelCheckpoints] = {}
-
-    def start_channel_checkpoints(self) -> None:
-        for channel in self.channels:
-            channel_id: int = channel["id"]
-            channel_name: str = channel["name"]
-            channel_checkpoints: ChannelCheckpoints = ChannelCheckpoints(guild_name=self.guild_name, guild_id=self.guild_id, name=channel_name, id=channel_id)
-            self.channel_checkpoints[channel_id] = channel_checkpoints
-
 
 # endregion
 
@@ -137,6 +149,13 @@ class Log:
             self.log("The time zone is set to the local time zone.", timestamp)
 
     def create(self) -> None:
+        # Create missing directories
+        directories: str = self.file_name[:self.file_name.rfind("/")]
+        for directory in directories.split("/"):
+            if not exists(directory):
+                makedirs(directory)
+
+        # Create the log file
         with open(self.file_name, "w"):
             pass
 
@@ -187,12 +206,21 @@ class BotConfiguration:
                   "in the environment variables.")
 
     def create(self) -> None:
+        # Create missing directories
+        directories: str = self.file_name[:self.file_name.rfind("/")]
+        for directory in directories.split("/"):
+            if not exists(directory):
+                makedirs(directory)
+
+        # Create the configuration file
+        # Default configuration
         configuration: Dict[str, str] = {
             "COIN": "coin",
             "COINS": "coins",
             "COIN_EMOJI_ID": "0",
             "ADMINISTRATOR_ID": "0"
         }
+        # Save the configuration to the file
         with open(self.file_name, "w") as f:
             f.write(json.dumps(configuration))
     
@@ -269,8 +297,8 @@ def start_flask_app() -> None:
 
 # region CP start
 
-def start_checkpoints():
-    all_checkpoints: dict[str, GuildCheckpoints] = {}
+def start_checkpoints(limit: int = 10) -> Dict[int, ChannelCheckpoints]:
+    all_checkpoints: dict[int, ChannelCheckpoints] = {}
     print("Starting checkpoints...")
     channel_id: int = 0
     channel_name: str = ""
@@ -278,13 +306,17 @@ def start_checkpoints():
         guild_id: int = guild.id
         guild_name: str = guild.name
         print(f"Guild: {guild_name} ({guild_id})")
-        guild_checkpoints: GuildCheckpoints = GuildCheckpoints(guild_name=guild_name, guild_id=guild_id)
         for channel in guild.text_channels:
             channel_id = channel.id
             channel_name = channel.name
             print(f"Channel: {channel_name} ({channel_id})")
-            channel_checkpoints: ChannelCheckpoints = ChannelCheckpoints(guild_name=guild_name, guild_id=guild_id, name=channel_name, id=channel_id)
-            guild_checkpoints.channel_checkpoints[channel_id] = channel_checkpoints
+            all_checkpoints[channel_id] = ChannelCheckpoints(
+                guild_name=guild_name,
+                guild_id=guild_id,
+                channel_name=channel_name,
+                channel_id=channel_id,
+                number=limit
+            )
     print("Checkpoints started.")
     return all_checkpoints
 
@@ -300,51 +332,63 @@ async def process_missed_messages() -> None:
     would require keeping track of every single message and reactions on the
     server in a database.
     '''
-    checkpoints: List[Dict[str, int]] | None = checkpoints_machine.last_message_ids
-    print(f"Checkpoints: {checkpoints}")
+    global all_channel_checkpoints
     missed_messages_processed_message: str = "Missed messages processed."
-    print("Processing missed messages...")
-    if checkpoints is None:
-        print("No checkpoints could be loaded.")
-    else:
-        print(f"Checkpoints loaded: {checkpoints}")
 
-    message_id: int | None = None
+    print("Processing missed messages...")
+
     for guild in bot.guilds:
-        print(f"Fetching messages from guild: {guild} ({guild.id})...")
+        print(f"Fetching messages from guild: {guild.name} ({guild.id})...")
         for channel in guild.text_channels:
             print("Fetching messages from "
-                  f"channel: {channel} ({channel.id})...")
+                  f"channel: {channel.name} ({channel.id})...")
+            channel_checkpoints: List[Dict[str, int]] | None = all_channel_checkpoints[channel.id].load()
+            if channel_checkpoints is not None:
+                print(f"Channel checkpoints loaded.")
+            else:
+                print("No checkpoints could be loaded.")
+            new_channel_messages_found: int = 0
+            fresh_last_message_id: int | None = None
+            checkpoint_reached: bool = False
+            # Fetch messages from the channel (reverse chronological order)
             async for message in channel.history(limit=None):
+                message_id: int = message.id
+                if new_channel_messages_found == 0:
+                    # The first message found will be the last message sent
+                    # This will be used as the checkpoint
+                    fresh_last_message_id = message_id
                 # print(f"{message.author}: {message.content} ({message_id}).")
-                if checkpoints is not None:
-                    for checkpoint in checkpoints:
-                        message_id = message.id
-                        # print(f"Checkpoint: {checkpoint}")
-                        # input("Press Enter to continue...")
-                        # print(f"last_message_id: {checkpoint['last_message_id']}")
+                if channel_checkpoints is not None:
+                    for checkpoint in channel_checkpoints:
                         if message_id == checkpoint["last_message_id"]:
-                            print("Checkpoint reached.")
-                            print(missed_messages_processed_message)
-                            checkpoints_machine.save(message.id)
-                            return
+                            print("Channel checkpoint reached.")
+                            checkpoint_reached = True
+                            break
+                    if checkpoint_reached:
+                        break
+                    new_channel_messages_found += 1
                     for reaction in message.reactions:
                         async for user in reaction.users():
-                            message_id = message.id
                             # print(f"Reaction found: {reaction.emoji}: {user}.")
                             # print(f"Message ID: {message_id}.")
                             # print(f"{message.author}: {message.content}")
                             sender: Member | User = user
                             receiver: User | Member = message.author
                             emoji: PartialEmoji | Emoji | str = reaction.emoji
-                            # await process_reaction(emoji, sender, receiver)
-            print(f"Messages from channel {channel.id} ({channel}) fetched.")
+                            await process_reaction(emoji, sender, receiver)
+            print(f"Messages from channel {channel.name} ({channel.id}) fetched.")
+            if fresh_last_message_id is None:
+                print("WARNING: No channel messages found.")
+            else:
+                if new_channel_messages_found > 0:
+                    # TODO Only save checkpoint if we read any messages beyond the
+                    # already saved checkpoint
+                    print(f"Saving checkpoint: {fresh_last_message_id}")
+                    all_channel_checkpoints[channel.id].save(fresh_last_message_id)
+                else:
+                    print("Will not save checkpoint for this channel because no "
+                        "new messages were found.")
         print(f"Messages from guild {guild.id} ({guild}) fetched.")
-    if message_id is not None:
-        print(f"Saving checkpoint: {message_id}")
-        checkpoints_machine.save(message_id)
-    else:
-        print(f"ERROR: Could not save checkpoint because message_id is None.")
     print(missed_messages_processed_message)
 
 # endregion
@@ -520,16 +564,12 @@ print("Initializing log...")
 log = Log(time_zone="Canada/Central")
 print("Log initialized.")
 
-print("Loading checkpoint...")
-checkpoints_machine = ChannelCheckpoints(number=2)
-print("Checkpoint loaded.")
-
 @bot.event
 async def on_ready() -> None:
     print("Bot started.")
 
-    global channel_checkpoints
-    channel_checkpoints: Dict[str, ChannelCheckpoints] = start_checkpoints()
+    global all_channel_checkpoints
+    all_channel_checkpoints = start_checkpoints(limit=channel_checkpoint_limit)
 
     await process_missed_messages()
 
@@ -547,10 +587,43 @@ async def on_ready() -> None:
 # region Message
 @bot.event
 async def on_message(message: Message) -> None:
-    guild_id: int = message.guild.id
+    global all_channel_checkpoints
     channel_id: int = message.channel.id
-    channel_checkpoints{}
-    checkpoints_machine.save(guild=guild_id, channel=channel_id, message_id=message.id)
+    
+    if channel_id in all_channel_checkpoints:
+        all_channel_checkpoints[channel_id].save(message.id)
+    else:
+        # If a channel is created while the bot is running, we will likely end
+        # up here.
+        # Add a new instance of ChannelCheckpoints to
+        # the all_channel_checkpoints dictionary for this new channel.
+        guild: Guild | None = message.guild
+        if guild is None:
+            print("ERROR: Guild is None.")
+            administrator: str = (
+                (await bot.fetch_user(ADMINISTRATOR_ID)).mention)
+            await message.channel.send("An error occurred. "
+                                       f"{administrator} pls fix.")
+            return
+        guild_name: str = guild.name
+        guild_id: int = guild.id
+        channel = message.channel
+        if isinstance(channel, TextChannel):
+            channel_name: str = channel.name
+            all_channel_checkpoints[channel_id] = ChannelCheckpoints(
+                guild_name=guild_name,
+                guild_id=guild_id,
+                channel_name=channel_name,
+                channel_id=channel_id
+            )
+        else:
+            print("ERROR: Channel is not a text channel.")
+            administrator: str = (
+                (await bot.fetch_user(ADMINISTRATOR_ID)).mention)
+            await message.channel.send("An error occurred. "
+                                       f"{administrator} pls fix.")
+            return
+        
 # endregion
 
 
