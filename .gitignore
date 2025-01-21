@@ -4,4 +4,4 @@ data/transactions.tsv
 data/blockchain.json
 data/transactions.log
 
-data/bot_checkpoint.json
+data/checkpoints/
