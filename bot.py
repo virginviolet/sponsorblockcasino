@@ -33,15 +33,19 @@ DISCORD_TOKEN: str | None = getenv('DISCORD_TOKEN')
 
 # region Checkpoints
 
-
-class LastMessageIdCheckponts:
+class ChannelCheckpoints:
     def __init__(self,
-                 file_name: str = "data/bot_checkpoint.json",
+                 guild_name: str,
+                 guild_id: int,
+                 name: str,
+                 id: int,
                  number: int = 10) -> None:
-        self.file_name: str = file_name
         self.number: int = number
-        self.last_message_ids: List[Dict[str, int]] | None = self.load()
+        self.directory: str = (
+            f"data/checkpoints/{guild_name}_{guild_id}/{name}_{id}")
+        self.file_name: str = f"{self.directory}/channel_checkpoints.json"
         self.entry_count: int = self.count_lines()
+        self.last_message_ids: List[Dict[str, int]] | None = self.load()
 
     def count_lines(self) -> int:
         if not exists(self.file_name):
@@ -86,6 +90,28 @@ class LastMessageIdCheckponts:
                     {k: int(v) for k, v in json.loads(line).items()})
                 checkpoints.append(checkpoint)
                 return checkpoints
+
+
+class AllGuildChannelsCheckpoints:
+    def __init__(self, guild_checkpoints: Dict[int, GuildCheckpoints] = {}) -> None:
+        self.guild_checkpoints: Dict[int, GuildCheckpoints] = guild_checkpoints
+
+
+class GuildCheckpoints:
+    def __init__(self, guild_name: str, guild_id: int, channels: List[Dict[int,str]] = []) -> None:
+        self.guild_name: str = guild_name
+        self.guild_id: int = guild_id
+        self.channels: List[Dict[int, str]] = channels
+        self.channel_checkpoints: dict[int, ChannelCheckpoints] = {}
+
+    def start_channel_checkpoints(self) -> None:
+        for channel in self.channels:
+            channel_id: int = channel["id"]
+            channel_name: str = channel["name"]
+            channel_checkpoints: ChannelCheckpoints = ChannelCheckpoints(guild_name=self.guild_name, guild_id=self.guild_id, name=channel_name, id=channel_id)
+            self.channel_checkpoints[channel_id] = channel_checkpoints
+
+
 # endregion
 
 # region Log
@@ -240,6 +266,28 @@ def start_flask_app() -> None:
     except Exception as e:
         print(f"Error running Flask app: {e}")
 # endregion
+
+# region CP start
+
+def start_checkpoints():
+    all_checkpoints: dict[str, GuildCheckpoints] = {}
+    print("Starting checkpoints...")
+    channel_id: int = 0
+    channel_name: str = ""
+    for guild in bot.guilds:
+        guild_id: int = guild.id
+        guild_name: str = guild.name
+        print(f"Guild: {guild_name} ({guild_id})")
+        guild_checkpoints: GuildCheckpoints = GuildCheckpoints(guild_name=guild_name, guild_id=guild_id)
+        for channel in guild.text_channels:
+            channel_id = channel.id
+            channel_name = channel.name
+            print(f"Channel: {channel_name} ({channel_id})")
+            channel_checkpoints: ChannelCheckpoints = ChannelCheckpoints(guild_name=guild_name, guild_id=guild_id, name=channel_name, id=channel_id)
+            guild_checkpoints.channel_checkpoints[channel_id] = channel_checkpoints
+    print("Checkpoints started.")
+    return all_checkpoints
+
 
 # region Missed msgs
 
@@ -473,12 +521,15 @@ log = Log(time_zone="Canada/Central")
 print("Log initialized.")
 
 print("Loading checkpoint...")
-checkpoints_machine = LastMessageIdCheckponts(number=2)
+checkpoints_machine = ChannelCheckpoints(number=2)
 print("Checkpoint loaded.")
 
 @bot.event
 async def on_ready() -> None:
     print("Bot started.")
+
+    global channel_checkpoints
+    channel_checkpoints: Dict[str, ChannelCheckpoints] = start_checkpoints()
 
     await process_missed_messages()
 
@@ -496,7 +547,10 @@ async def on_ready() -> None:
 # region Message
 @bot.event
 async def on_message(message: Message) -> None:
-    checkpoints_machine.save(message.id)
+    guild_id: int = message.guild.id
+    channel_id: int = message.channel.id
+    channel_checkpoints{}
+    checkpoints_machine.save(guild=guild_id, channel=channel_id, message_id=message.id)
 # endregion
 
 
@@ -620,7 +674,6 @@ async def balance(interaction: Interaction, user: Member | None = None) -> None:
     else:
         await interaction.response.send_message(f"{user_to_check} has "
                                                 f"{balance} {COINS}.")
-
 
 # region Message
 # Example slash command
