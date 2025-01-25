@@ -1,4 +1,3 @@
-
 import sb_blockchain
 import threading
 import subprocess
@@ -13,7 +12,7 @@ from datetime import datetime
 from discord import Guild, Intents, Interaction, Member, Message, Client, Emoji, PartialEmoji, User, TextChannel, app_commands
 from discord.ext import commands
 from discord.raw_models import RawReactionActionEvent
-from os import environ as os_environ, getenv, makedirs
+from os import environ as os_environ, getenv, makedirs, name
 from os.path import exists
 from dotenv import load_dotenv
 from hashlib import sha256
@@ -155,7 +154,7 @@ class Log:
     def create(self) -> None:
         # Create missing directories
         directories: str = self.file_name[:self.file_name.rfind("/")]
-        for i, directory in enumerate(directories.split("/")):
+        for _, directory in enumerate(directories.split("/")):
             if not exists(directory):
                 makedirs(directory)
 
@@ -197,16 +196,17 @@ class Log:
 class BotConfiguration:
     def __init__(self, file_name: str = "data/bot_configuration.json") -> None:
         self.file_name: str = file_name
-        self.configuration: Dict[str, str] = self.read()
-        self.coin: str = self.configuration["COIN"]
-        self.coins: str = self.configuration["COINS"]
-        self.coin_emoji_id: int = int(self.configuration["COIN_EMOJI_ID"])
+        self.configuration: Dict[str, str | Dict[str, Dict[str, int]]] = self.read()
+        self.coin: str = str(self.configuration["COIN"])
+        self.coins: str = str(self.configuration["COINS"])
+        self.coin_emoji_id: int = int(str(self.configuration["COIN_EMOJI_ID"]))
+        print(f"configuration: {self.configuration}")
         if self.coin_emoji_id == 0:
             print("WARNING: COIN_EMOJI_ID has not set "
                   "in bot_configuration.json nor "
                   "in the environment variables.")
         self.administrator_id: int = int(
-            self.configuration["ADMINISTRATOR_ID"])
+            str(self.configuration["ADMINISTRATOR_ID"]))
         if self.administrator_id == 0:
             print("WARNING: ADMINISTRATOR_ID has not set "
                   "in bot_configuration.json nor "
@@ -221,43 +221,30 @@ class BotConfiguration:
 
         # Create the configuration file
         # Default configuration
-        configuration: Dict[str, str] = {
+        configuration: Dict[str, str | Dict[str, Dict[str, int]]] = {
             "COIN": "coin",
             "COINS": "coins",
             "COIN_EMOJI_ID": "0",
-            "AWARD_LOSE_EMOJI": "0",
-            "AWARD_SMALL_WIN_EMOJI": "0",
-            "AWARD_MEDIUM_WIN_EMOJI": "0",
-            "AWARD_HIGH_WIN_EMOJI": "0",
-            "AWARD_VERY_HIGH_WIN_EMOJI": "0",
-            "AWARD_JACKPOT_EMOJI": "0",
             "CASINO_HOUSE_ID": "0",
-            "ADMINISTRATOR_ID": "0",
+            "ADMINISTRATOR_ID": "0"
         }
         # Save the configuration to the file
-        with open(self.file_name, "w") as f:
-            f.write(json.dumps(configuration))
+        with open(self.file_name, "w") as file:
+            file.write(json.dumps(configuration))
 
-    def read(self) -> Dict[str, str]:
+    def read(self) -> Dict[str, str | Dict[str, Dict[str, int]]]:
         if not exists(self.file_name):
             self.create()
 
-        with open(self.file_name, "r") as f:
-            configuration: Dict[str, str] = json.loads(f.read())
+        with open(self.file_name, "r") as file:
+            configuration: Dict[str, str | Dict[str, Dict[str, int]]] = json.loads(file.read())
             # Override the configuration with environment variables
             env_vars: Dict[str, str] = {
                 "COIN": "coin",
                 "COINS": "coins",
-                "COIN_EMOJI_ID": "COIN_EMOJI_ID",
-                "AWARD_LOSE_EMOJI": "AWARD_LOSE_EMOJI",
-                "AWARD_SMALL_WIN_EMOJI": "AWARD_SMALL_WIN_EMOJI",
-                "AWARD_MEDIUM_WIN_EMOJI": "AWARD_MEDIUM_WIN_EMOJI",
-                "AWARD_HIGH_WIN_EMOJI": "AWARD_HIGH_WIN_EMOJI",
-                "AWARD_VERY_HIGH_WIN_EMOJI": "AWARD_VERY_HIGH_WIN_EMOJI",
-                "AWARD_JACKPOT_EMOJI": "AWARD_JACKPOT_EMOJI",
-                "CASINO_HOUSE_ID": "CASINO_HOUSE_ID",
-                "ADMINISTRATOR_ID": "ADMINISTRATOR_ID"
+                "COIN_EMOJI_ID": "COIN_EMOJI_ID"
             }
+            # TODO add reels env vars
 
             for env_var, config_key in env_vars.items():
                 if os_environ.get(env_var):
@@ -268,8 +255,234 @@ class BotConfiguration:
 
 # endregion
 
-# region SaveData
-class SaveData:
+# region Slot machine
+class SlotMachine:
+    def __init__(self, file_name: str = "data/slot_machine.json") -> None:
+        self.file_name: str = file_name
+        self.configuration: Dict[str, Dict[str, Dict[str, int | float]] | Dict[str, int]] = self.load_config()
+        self._reels: Dict[str, Dict[str, int]] = self.load_reels()
+        # self.emoji_ids: Dict[str, int] = cast(Dict[str, int], self.configuration["emoji_ids"])
+        self._probabilities: Dict[str, float] = self.calculate_all_probabilities()
+
+    def load_reels(self) -> Dict[str, Dict[str, int]]:
+        print("Getting reels...")
+        self.configuration = self.load_config()
+        reels: Dict[str, Dict[str, int]] = cast(Dict[str, Dict[str, int]], self.configuration["reels"])
+        return reels
+    
+    @property
+    def reels(self) -> Dict[str, Dict[str, int]]:
+        return self._reels
+    
+    @reels.setter
+    def reels(self, value: Dict[str, Dict[str, int]]) -> None:
+        self._reels = value
+        self.configuration["reels"] = cast(Dict[str, Dict[str, int | float]], self._reels)
+        self.save_config()
+
+    @property
+    def probabilities(self) -> Dict[str, float]:
+        return self.calculate_all_probabilities()
+
+    def create_config(self) -> None:
+        print("Creating template slot machine configuration file...")
+        # Create missing directories
+        directories: str = self.file_name[:self.file_name.rfind("/")]
+        makedirs(directories, exist_ok=True)
+
+        # Create the configuration file
+        # Default configuration
+        configuration: Dict[
+                        str,
+                            Dict[str, Dict[str, int | float]] |
+                            Dict[str, int] |
+                            int |
+                            float
+                            ] = {
+            "awards": {
+                "lose_wager": {"emoji": 0, "amount": 0, "multiplier": -1.0, "multiplier_adjusted": -1.0},
+                "small_win": {"emoji": 0, "amount": 1, "multiplier": 0.0, "multiplier_adjusted": 0.0},
+                "medium_win": {"emoji": 0, "amount": 0, "multiplier": 2.0, "multiplier_adjusted": 2.0},
+                "high_win": {"emoji": 0, "amount": 1000, "multiplier": 0.0, "multiplier_adjusted": 0.0},
+                "very_high_win": {"emoji": 0, "amount": 0, "multiplier": 10.0, "multiplier_adjusted": 10.0},
+                "jackpot": {"emoji": 0, "amount": 0, "multiplier": 0.0, "multiplier_adjusted": 0.0}
+                },
+            "reels": {
+                "reel_1": {
+                    "lose_wager": 0,
+                    "small_win": 0,
+                    "medium_win": 0,
+                    "high_win": 0,
+                    "very_high_win": 0,
+                    "jackpot": 0
+                    },
+                "reel_2": {
+                    "lose_wager": 0,
+                    "small_win": 0,
+                    "medium_win": 0,
+                    "high_win": 0,
+                    "very_high_win": 0,
+                    "jackpot": 0
+                    },
+                "reel_3": {
+                    "lose_wager": 0,
+                    "small_win": 0,
+                    "medium_win": 0,
+                    "high_win": 0,
+                    "very_high_win": 0,
+                    "jackpot": 0
+                    }
+            },
+            "max_reel_symbols": 20,
+            "jackpot_amount": 0,
+            "desired_rtp": 0.8,
+            "rtp_multiplier": 0.8
+        }
+        # Save the configuration to the file
+        with open(self.file_name, "w") as file:
+            file.write(json.dumps(configuration))
+        print("Template slot machine configuration file created.")
+        
+    def load_config(self) -> Dict[str, Dict[str, Dict[str, int | float]] | Dict[str, int]]:
+        if not exists(self.file_name):
+            self.create_config()
+
+        with open(self.file_name, "r") as file:
+            configuration: (Dict[
+                str,
+                Dict[str, Dict[str, int | float]] |
+                Dict[str, int]
+                ]) = json.loads(file.read())
+            return configuration
+    
+    def save_config(self) -> None:
+        print("Saving slot machine configuration...")
+        with open(self.file_name, "w") as file:
+            file.write(json.dumps(self.configuration))
+        print("Slot machine configuration saved.")
+    
+    def calculate_probability(self, symbol: str) -> float:
+        number_of_symbol_on_reel: int = 0
+        total_reel_symbols: int = 0
+        overall_probability: float = 1.0
+        probability_for_wheel: float
+        for reel in self.reels:
+            number_of_symbol_on_reel += self.reels[reel][symbol]
+            total_reel_symbols += sum(self.reels[reel].values())
+            if total_reel_symbols != 0 and number_of_symbol_on_reel != 0:
+                probability_for_wheel = (
+                    number_of_symbol_on_reel / total_reel_symbols)
+            else:
+                probability_for_wheel = 0.0
+            overall_probability *= probability_for_wheel
+        return overall_probability
+    
+    def calculate_chance_of_losing(self) -> float:
+        print("Calculating chance of losing...")
+        no_award_probability: float = 1.0
+        symbols: List[str] = [symbol for symbol in self.reels["reel_1"]]
+        for symbol in symbols:
+            symbols_match_probability: float = (
+                self.calculate_probability(symbol))
+            symbols_no_match_probability: float = 1 - symbols_match_probability
+            if symbol != "lose_wager":
+                no_award_probability *= symbols_no_match_probability
+            else:
+                no_award_probability *= symbols_match_probability
+                
+        print(f"Chance of losing: {no_award_probability}")
+        return no_award_probability
+    
+    def calculate_all_probabilities(self) -> Dict[str, float]:
+        self.reels = self.load_reels()
+        probabilities: Dict[str, float] = {}
+        for symbol in self.reels["reel_1"]:
+            probability: float = self.calculate_probability(symbol)
+            probabilities[symbol] = probability
+        lose_probability: float = self.calculate_chance_of_losing()
+        probabilities["lose"] = lose_probability
+        win_probability: float = 1 - lose_probability
+        probabilities["win"] = win_probability
+        return probabilities
+    
+    def count_symbols(self, reel: str | None = None) -> int:
+        if reel is None:
+            return sum([sum(reel.values()) for reel in self.reels.values()])
+        else:
+            return sum(self.reels[reel].values())
+        
+    def set_rtp_multiplier(self) -> None:
+        # Adjust the targeted RTP so that it accounts for losses from fixed
+        # awards
+        self.configuration = self.load_config()
+        probabilities: Dict[str, float] = self.calculate_all_probabilities()
+        awards: Dict[str, Dict[str, int | float]] = cast(Dict[str, Dict[str, int | float]], self.configuration["awards"])
+        desired_rtp: float = cast(float, self.configuration["desired_rtp"])
+        expected_house_loss_from_fixed_awards: float = 0
+        for event in awards:
+            if event == "win":
+                continue
+            elif event == "lose":
+                continue
+            print(f"----\nAward type: {event}")
+            amount: int | float = awards[event]["amount"]
+            print(f"Amount: {amount}")
+            award_multiplier: float = awards[event]["multiplier"]
+            print(f"Multiplier: {award_multiplier}")
+            if amount > 0 and award_multiplier == 0.0:
+                # print(f"Event: {event}")
+                # print(f"Amount: {amount}")
+                event_probability: float = probabilities[event]
+                print(f"Event probability: {event_probability}")
+                event_expected_rtp: float = (event_probability * amount)
+                print(f"Event expected RTP: {event_expected_rtp} (amount * probability)")
+                expected_house_loss_from_fixed_awards += event_expected_rtp
+                print(f"Accumulated expected loss: {expected_house_loss_from_fixed_awards} (sum of all excepted RTP losses)")
+        adjusted_rtp: float = desired_rtp - expected_house_loss_from_fixed_awards
+        print(f"Desired RTP: {desired_rtp}")
+        print(f"Total expected loss: {expected_house_loss_from_fixed_awards}")
+        print(f"Adjusted RTP: {adjusted_rtp} (Desired RTP - Total expected loss)")
+        input("Press Enter to continue...")
+        print("Estimated RTP type: ", type(self.configuration["rtp_multiplier"]))
+        self.configuration["rtp_multiplier"] = adjusted_rtp
+        self.save_config()
+
+    def adjust_award_multipliers(self) -> None:
+        # Set adjusted values for the multipliers of the awards.
+        # The adjusted values are the original values multiplied by the RTP
+        # multiplier.
+
+        # Load the configuration
+        self.configuration = self.load_config()
+
+        # Get the RTP multiplier
+        rtp_multiplier: float = cast(float, self.configuration["rtp_multiplier"])
+
+        # Get the awards
+        awards: Dict[str, Dict[str, int | float]] = cast(Dict[str, Dict[str, int | float]], self.configuration["awards"])
+
+        # Adjust the multipliers
+        for award in awards:
+            if award == "lose_wager":
+                continue
+            award_multiplier: float = cast(float, awards[award]["multiplier"])
+            adjusted_multiplier: float = award_multiplier * rtp_multiplier
+            awards[award]["multiplier_adjusted"] = adjusted_multiplier
+        
+        # Save the configuration
+        self.configuration["awards"] = awards
+        
+        awards_table: str = ""
+        for award in awards:
+            awards_table += f"{award}: {awards[award]}\n"
+        print(f"Awards table:\n{awards_table}")
+
+        self.save_config()
+
+# endregion
+
+# region UserSaveData
+class UserSaveData:
     def __init__(self, user_id: int, user_name: str) -> None:
         self.user_id: int = user_id
         self.user_name: str = user_name
@@ -570,11 +783,13 @@ async def add_block_transaction(
         sha256(str(receiver_id_unhashed).encode()).hexdigest())
     print("Adding transaction to blockchain...")
     try:
-        data: List[Dict[str, sb_blockchain.TransactionDict]] = [{
-            "transaction":
-                {"sender": sender_id_hash, "receiver": receiver_id_hash, "amount": amount,
-                "method": method}
-        }]
+        data: List[Dict[str, sb_blockchain.TransactionDict]] = (
+            [{"transaction": {
+                "sender": sender_id_hash,
+                "receiver": receiver_id_hash,
+                "amount": amount,
+                "method": method
+                }}])
         data_casted: List[str | Dict[str, sb_blockchain.TransactionDict]] = (
             cast(List[str | Dict[str, sb_blockchain.TransactionDict]], data))
         blockchain.add_block(data=data_casted, difficulty=0)
@@ -635,18 +850,14 @@ COIN: str = configuration.coin
 COINS: str = configuration.coins
 COIN_EMOJI_ID: int = configuration.coin_emoji_id
 ADMINISTRATOR_ID: int = configuration.administrator_id
-AWARD_LOSE_EMOJI: int = configuration.award_lose_emoji
-AWARD_SMALL_WIN_EMOJI: int = configuration.award_small_win_emoji
-AWARD_MEDIUM_WIN_EMOJI: int = configuration.award_medium_win_emoji
-AWARD_HIGH_WIN_EMOJI: int = configuration.award_high_win_emoji
-AWARD_VERY_HIGH_WIN_EMOJI: int = configuration.award_very_high_win_emoji
-AWARD_JACKPOT_EMOJI: int = configuration.award_jackpot_emoji
+slot_machine = SlotMachine()
 print("Bot configuration loaded.")
 
 print("Initializing log...")
 log = Log(time_zone="Canada/Central")
 print("Log initialized.")
 
+slot_machine.set_rtp_multiplier()
 
 @bot.event
 async def on_ready() -> None:
@@ -832,6 +1043,136 @@ async def balance(interaction: Interaction, user: Member | None = None) -> None:
         await interaction.response.send_message(f"{user_to_check} has "
                                                 f"{balance} {COINS}.")
 
+# region Reels
+@bot.tree.command(name="reels",
+                  description="Design the slot machine reels")
+@app_commands.describe(add_symbol="Add a symbol to the reels")
+@app_commands.describe(amount="Amount of symbols to add")
+@app_commands.describe(remove_symbol="Remove a symbol from the reels")
+@app_commands.describe(reel="The reel to modify")
+async def reels(interaction: Interaction,
+                add_symbol: str | None = None,
+                remove_symbol: str | None = None,
+                amount: int | None = None,
+                reel: str | None = None) -> None:
+    """
+    Design the slot machine reels by adding and removing symbols.
+
+    Args:
+        interaction (Interaction): The interaction object representing the
+        command invocation.
+
+        add (str, optional): add_symbol a symbol to the reels. Defaults to None.
+
+        remove_symbol (str, optional): Remove a symbol from the reels. Defaults to None.
+    """
+    # XXX
+    # TODO Calculate RTP
+    # TODO Send message
+    # TODO Set max amount of symbols
+    if amount is None:
+        if reel is None:
+            amount = 3
+        else:
+            amount = 1
+    new_reels: Dict[str, Dict[str, int]] = slot_machine.reels
+    if add_symbol and reel is None:
+        if amount % 3 != 0:
+            await interaction.response.send_message("The amount of symbols to "
+                                                    "add must be a multiple "
+                                                    "of 3.")
+            return
+    elif add_symbol and reel:
+        print(f"add_symboling symbol: {add_symbol}")
+        print(f"Amount: {amount}")
+        print(f"Reel: {reel}")
+        if reel in slot_machine.reels and add_symbol in slot_machine.reels[reel]:
+            slot_machine.reels[reel][add_symbol] += amount
+        else:
+            print(f"Error: Invalid reel or symbol '{reel}' or '{add_symbol}'")
+    if add_symbol:
+        print(f"Adding symbol: {add_symbol}")
+        print(f"Amount: {amount}")
+        if add_symbol in slot_machine.reels['reel_1']:
+            per_reel_amount: int = int(amount / 3)
+            new_reels['reel_1'][add_symbol] += per_reel_amount
+            new_reels['reel_2'][add_symbol] += per_reel_amount
+            new_reels['reel_3'][add_symbol] += per_reel_amount
+
+            slot_machine.reels = new_reels
+            print(f"Added {per_reel_amount} {add_symbol} to each reel.")
+        else:
+            print(f"Error: Invalid symbol '{add_symbol}'")
+        print(slot_machine.reels)
+        # if amount 
+    if remove_symbol is not None:
+        # TODO Add remove symbol
+        print(f"Removing symbol: {remove_symbol} (TBA)")
+
+    print("Saving reels...")
+
+    slot_machine.reels = new_reels
+    slot_machine.set_rtp_multiplier()
+    slot_machine.adjust_award_multipliers()
+    new_reels = slot_machine.reels
+    # print(f"Reels: {slot_machine.configuration}")
+    print(f"Probabilities saved.")
+    print("Preparing message...")
+
+    amount_of_symbols: int = slot_machine.count_symbols()
+    reel_amount_of_symbols: int
+    reels_table: str = ""
+    for reel, symbols in new_reels.items():
+        symbols_table: str = ""
+        for symbol, amount in symbols.items():
+            symbols_table += f"{symbol}: {amount}\n"
+        reel_amount_of_symbols = sum(symbols.values())
+        reels_table += (f"{reel}:\n"
+                        f"{symbols_table}"
+                        f"Total: {reel_amount_of_symbols}\n\n")
+    probabilities: Dict[str, float] = slot_machine.probabilities
+    probabilities_table: str = ""
+    max_digits: int = 4
+    lowest_number: float = float("0." + "0" * (max_digits - 1) + "1")
+    for symbol, probability in probabilities.items():
+        probability_display: str | None = None
+        probability_percentage: float = probability * 100
+        probability_rounded: float = round(probability_percentage, max_digits)
+        if (probability == probability_rounded):
+            probability_display = f"{str(probability_percentage)}%"
+        elif probability_percentage > lowest_number:
+            probability_display = "~{}%".format(
+                str(round(probability_percentage, max_digits)))
+        else:
+            probability_display = f"<{str(lowest_number)}%"
+        probabilities_table += f"{symbol}: {probability_display}\n"
+
+    desired_rtp: float = slot_machine.configuration["desired_rtp"]
+    desired_rtp_percentage: float = desired_rtp * 100
+    desired_rtp_percentage_rounded: float = round(desired_rtp_percentage, max_digits)
+    adjusted_rtp: float = slot_machine.configuration["rtp_multiplier"]
+    adjusted_rtp_percentage: float = adjusted_rtp * 100
+    adjusted_rtp_percentage_rounded: float = round(adjusted_rtp_percentage, max_digits)
+    message: str = ("Reels:\n"
+        f"{reels_table}\n"
+        "Symbols total:\n"
+        f"{amount_of_symbols}\n\n"
+        "Probabilities:\n"
+        f"{probabilities_table}\n"
+        "Desired RTP:\n"
+        f"{desired_rtp_percentage_rounded}%\n\n"
+        "RTP multiplier:\n"
+        f"{adjusted_rtp_percentage_rounded}%")
+    print("Message prepared.")
+    # TODO Win/lose and RTP multiplier doesn't seem right
+    # TODO Per symbol RTP
+    await interaction.response.send_message(message)
+
+    
+
+# endregion
+
+
 # region Pull
 
 
@@ -857,8 +1198,9 @@ async def pull(interaction: Interaction, wager: int | None = None) -> None:
     user: User | Member = interaction.user
     user_id: int = user.id
     user_name: str = user.name
-    save_data: SaveData = SaveData(user_id=user_id, user_name=user_name)
-    starting_bonus_received: bool = save_data.load("starting_bonus_received") == "True"
+    save_data: UserSaveData = UserSaveData(user_id=user_id, user_name=user_name)
+    starting_bonus_received: bool = (
+        save_data.load("starting_bonus_received") == "True")
     class Award(NamedTuple):
         emoji: int | str
         min: int
@@ -866,38 +1208,31 @@ async def pull(interaction: Interaction, wager: int | None = None) -> None:
         chance: float
 
     return_to_player: float = 0.95
-    # Decrase the chance of losing the more you wager
-    # Increase the chance of winning the more you wager
-    # Add a small value to avoid log(0), which is undefined and would cause a math error.
-    wager_logarithm: float = math.log(wager + 0.001)
-    # chance is affected by wager and RTP
-    lose = Award(emoji=AWARD_LOSE_EMOJI,
-                 min=-1,
-                 max=-wager,
-                 chance=(0.5 / (wager_logarithm * 0.1)) * (return_to_player))
-    # frequent small wins
-    small_win = Award(emoji=AWARD_SMALL_WIN_EMOJI,
-                      min=1,
-                      max=1,
-                      chance=clamp(
-                          value=0.3 * (1 - wager_logarithm * 0.015) * return_to_player,
-                          lower_bound=0.3 * return_to_player,
-                          upper_bound=0.7 * return_to_player
-                          ))
-    medium_win = Award(emoji=AWARD_MEDIUM_WIN_EMOJI,
-                       min=2,
-                       max=5,
-                       # if wager is really high, this breaks and become negative for some reason
-                       chance=min(0.3, 0.15 * (800 - wager_logarithm * 0.01)) * return_to_player)
-    # min and max values are affected by wager
-    high_win = Award(emoji=AWARD_HIGH_WIN_EMOJI,
-                     min=,
-                     max=,
-                     chance=
-    very_high_win = Award(emoji=AWARD_VERY_HIGH_WIN_EMOJI,
-                          min=85,
-                          max=200, 
-                          chance=
+    symbols_per_reel: int = 20
+    
+    # lose = Award(emoji=AWARD_LOSE_WAGER_EMOJI,
+    #              min=-1,
+    #              max=-wager,
+    #              chance=)
+    # # frequent small wins
+    # small_win = Award(emoji=AWARD_SMALL_WIN_EMOJI,
+    #                   min=1,
+    #                   max=1,
+    #                   chance=)
+    # medium_win = Award(emoji=AWARD_MEDIUM_WIN_EMOJI,
+    #                    min=2,
+    #                    max=5,
+    #                    # if wager is really high, this breaks and become negative for some reason
+    #                    chance=min(0.3, 0.15 * (800 - wager_logarithm * 0.01)) * return_to_player)
+    # # min and max values are affected by wager
+    # high_win = Award(emoji=AWARD_HIGH_WIN_EMOJI,
+    #                  min=,
+    #                  max=,
+    #                  chance=)
+    # very_high_win = Award(emoji=AWARD_VERY_HIGH_WIN_EMOJI,
+    #                       min=85,
+    #                       max=200, 
+    #                       chance=)
     """ jackpot = Award(emoji=AWARD_JACKPOT_EMOJI,
                     min=,
                     max=,
@@ -954,11 +1289,11 @@ async def pull(interaction: Interaction, wager: int | None = None) -> None:
             timestamp=timestamp)
     # TODO Add proper timestamp
     # TODO Send gif of slot machine
-    else:
-        message = f"Congratulations! You won {reward_amount} {COINS}!"
-    else:
-        reward_amount_positive: int = abs(reward_amount)
-        message: str = f"Sorry, you lost {reward_amount_positive} {COINS}."
+    # else:
+    #     message = f"Congratulations! You won {reward_amount} {COINS}!"
+    # else:
+    #     reward_amount_positive: int = abs(reward_amount)
+    #     message: str = f"Sorry, you lost {reward_amount_positive} {COINS}."
     await interaction.response.send_message(message)
 
     if not starting_bonus_received:
