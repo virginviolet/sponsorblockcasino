@@ -9,7 +9,7 @@ import random
 import math
 from time import sleep, time
 from datetime import datetime
-from discord import Guild, Intents, Interaction, Member, Message, Client, Emoji, PartialEmoji, User, TextChannel, app_commands
+from discord import Guild, Intents, Interaction, Member, Message, Client, Emoji, PartialEmoji, Role, User, TextChannel, app_commands, utils
 from discord.ext import commands
 from discord.raw_models import RawReactionActionEvent
 from os import environ as os_environ, getenv, makedirs, name
@@ -32,6 +32,7 @@ client = Client(intents=intents)
 load_dotenv()
 DISCORD_TOKEN: str | None = getenv('DISCORD_TOKEN')
 channel_checkpoint_limit: int = 3
+guild_ids: List[int] = []
 # endregion
 
 # region Checkpoints
@@ -293,45 +294,75 @@ class SlotMachine:
         # Create the configuration file
         # Default configuration
         configuration: Dict[
-                        str,
-                            Dict[str, Dict[str, int | float]] |
-                            Dict[str, int] |
-                            int |
-                            float
-                            ] = {
+            str,
+            Dict[str, Dict[str, int | float]] |
+            Dict[str, int] |
+            int |
+            float
+        ] = {
             "awards": {
-                "lose_wager": {"emoji": 0, "amount": 0, "multiplier": -1.0, "multiplier_adjusted": -1.0},
-                "small_win": {"emoji": 0, "amount": 1, "multiplier": 0.0, "multiplier_adjusted": 0.0},
-                "medium_win": {"emoji": 0, "amount": 0, "multiplier": 2.0, "multiplier_adjusted": 2.0},
-                "high_win": {"emoji": 0, "amount": 1000, "multiplier": 0.0, "multiplier_adjusted": 0.0},
-                "very_high_win": {"emoji": 0, "amount": 0, "multiplier": 10.0, "multiplier_adjusted": 10.0},
-                "jackpot": {"emoji": 0, "amount": 0, "multiplier": 0.0, "multiplier_adjusted": 0.0}
-                },
+            "lose_wager": {
+                "emoji": 0,
+                "amount": 0,
+                "multiplier": -1.0,
+                "multiplier_adjusted": -1.0
+            },
+            "small_win": {
+                "emoji": 0,
+                "amount": 1,
+                "multiplier": 0.0,
+                "multiplier_adjusted": 0.0
+            },
+            "medium_win": {
+                "emoji": 0,
+                "amount": 0,
+                "multiplier": 2.0,
+                "multiplier_adjusted": 2.0
+            },
+            "high_win": {
+                "emoji": 0,
+                "amount": 1000,
+                "multiplier": 0.0,
+                "multiplier_adjusted": 0.0
+            },
+            "very_high_win": {
+                "emoji": 0,
+                "amount": 0,
+                "multiplier": 10.0,
+                "multiplier_adjusted": 10.0
+            },
+            "jackpot": {
+                "emoji": 0,
+                "amount": 0,
+                "multiplier": 0.0,
+                "multiplier_adjusted": 0.0
+            }
+            },
             "reels": {
-                "reel_1": {
-                    "lose_wager": 0,
-                    "small_win": 0,
-                    "medium_win": 0,
-                    "high_win": 0,
-                    "very_high_win": 0,
-                    "jackpot": 0
-                    },
-                "reel_2": {
-                    "lose_wager": 0,
-                    "small_win": 0,
-                    "medium_win": 0,
-                    "high_win": 0,
-                    "very_high_win": 0,
-                    "jackpot": 0
-                    },
-                "reel_3": {
-                    "lose_wager": 0,
-                    "small_win": 0,
-                    "medium_win": 0,
-                    "high_win": 0,
-                    "very_high_win": 0,
-                    "jackpot": 0
-                    }
+            "reel_1": {
+                "lose_wager": 0,
+                "small_win": 0,
+                "medium_win": 0,
+                "high_win": 0,
+                "very_high_win": 0,
+                "jackpot": 0
+            },
+            "reel_2": {
+                "lose_wager": 0,
+                "small_win": 0,
+                "medium_win": 0,
+                "high_win": 0,
+                "very_high_win": 0,
+                "jackpot": 0
+            },
+            "reel_3": {
+                "lose_wager": 0,
+                "small_win": 0,
+                "medium_win": 0,
+                "high_win": 0,
+                "very_high_win": 0,
+                "jackpot": 0
+            }
             },
             "max_reel_symbols": 20,
             "jackpot_amount": 0,
@@ -418,13 +449,17 @@ class SlotMachine:
         probabilities: Dict[str, float] = self.calculate_all_probabilities()
         awards: Dict[str, Dict[str, int | float]] = cast(Dict[str, Dict[str, int | float]], self.configuration["awards"])
         desired_rtp: float = cast(float, self.configuration["desired_rtp"])
-        expected_house_loss_from_fixed_awards: float = 0
+        expected_rtp_static_awards: float = 1.0
+        # expected_house_loss_from_fixed_awards: float = 0
         for event in awards:
             if event == "win":
                 continue
-            elif event == "lose":
+            print(f"----\nEvent: {event}")
+            event_probability: float = probabilities[event]
+            print(f"Event probability: {event_probability}")
+            if event == "lose":
+                expected_rtp_static_awards += event_probability
                 continue
-            print(f"----\nAward type: {event}")
             amount: int | float = awards[event]["amount"]
             print(f"Amount: {amount}")
             award_multiplier: float = awards[event]["multiplier"]
@@ -433,16 +468,36 @@ class SlotMachine:
                 # print(f"Event: {event}")
                 # print(f"Amount: {amount}")
                 event_probability: float = probabilities[event]
-                print(f"Event probability: {event_probability}")
                 event_expected_rtp: float = (event_probability * amount)
                 print(f"Event expected RTP: {event_expected_rtp} (amount * probability)")
-                expected_house_loss_from_fixed_awards += event_expected_rtp
-                print(f"Accumulated expected loss: {expected_house_loss_from_fixed_awards} (sum of all excepted RTP losses)")
-        adjusted_rtp: float = desired_rtp - expected_house_loss_from_fixed_awards
+                expected_rtp_static_awards += event_expected_rtp
+                # expected_house_loss_from_fixed_awards += event_expected_rtp
+                # print(f"Accumulated expected loss: {expected_house_loss_from_fixed_awards} (sum of all excepted RTP losses)")
+        # adjusted_rtp: float = desired_rtp - expected_house_loss_from_fixed_awards
         print(f"Desired RTP: {desired_rtp}")
-        print(f"Total expected loss: {expected_house_loss_from_fixed_awards}")
-        print(f"Adjusted RTP: {adjusted_rtp} (Desired RTP - Total expected loss)")
-        input("Press Enter to continue...")
+        print(f"\nExpected RTP from fixed amount prices: {expected_rtp_static_awards}")
+        adjusted_rtp: float = 0.0 # Initialize variable
+        if expected_rtp_static_awards > desired_rtp:
+            print(f"Players are expected to earn {expected_rtp_static_awards} {COINS} from static awards for every {COIN} spent.")
+            excess_rtp: float = expected_rtp_static_awards - desired_rtp
+            print(f"Excess RTP: {excess_rtp}")
+            adjusted_rtp = desired_rtp - excess_rtp
+            print(f"Adjusted RTP: {adjusted_rtp} (Desired RTP - Excess RTP)")
+        elif expected_rtp_static_awards < desired_rtp:
+            print(f"Players are expected to earn {expected_rtp_static_awards} {COINS} from static awards for every {COIN} spent.")
+            deficit_rtp: float = desired_rtp - expected_rtp_static_awards
+            print(f"Deficit RTP: {deficit_rtp}")
+            adjusted_rtp = desired_rtp + deficit_rtp
+            print(f"Adjusted RTP: {adjusted_rtp} (Desired RTP + Deficit RTP)")
+        else:
+            print("No adjustment needed.")
+            adjusted_rtp = desired_rtp
+            print(f"Adjusted RTP: {adjusted_rtp} (Desired RTP)")
+        print(f"If a player wagers 1 {COIN} and wins a 2x award, with the adjusted RTP, the player will earn ~{round(1 * 2 * adjusted_rtp, 4)} {COINS}.")
+        print(f"If a player wagers 10 {COINS} and wins a 2x award, with the adjusted RTP, the player will earn ~{round(10 * 2 * adjusted_rtp)} {COINS}.")
+        # print(f"Total expected loss: {expected_house_loss_from_fixed_awards}")
+        # print(f"Adjusted RTP: {adjusted_rtp} (Desired RTP - Total expected loss)")
+        # input("Press Enter to continue...")
         print("Estimated RTP type: ", type(self.configuration["rtp_multiplier"]))
         self.configuration["rtp_multiplier"] = adjusted_rtp
         self.save_config()
@@ -819,6 +874,32 @@ async def terminate_bot() -> NoReturn:
     sys_exit(1)
 # endregion
 
+# region Guild list
+def load_guild_ids(file_name: str = "data/guild_ids.txt") -> List[int]:
+    print("Loading guild IDs...")
+    # Create missing directories
+    makedirs("file_name", exist_ok=True)
+    guild_ids: List[int] = []
+    read_mode: str = "a+"
+    if not exists(file_name):
+        read_mode = "w+"
+    else:
+        read_mode = "r+"
+    with open(file_name, read_mode) as file:
+        for line in file:
+            guild_id = int(line.strip())
+            print(f"Adding guild ID {guild_id} from file to the list...")
+            guild_ids.append(guild_id)
+        for guild in bot.guilds:
+            guild_id: int = guild.id
+            if not guild_id in guild_ids:
+                print(f"Adding guild ID {guild_id} to the list and the file...")
+                file.write(f"{guild_id}\n")
+                guild_ids.append(guild_id)
+    print("Guild IDs loaded.")
+    return guild_ids
+# endregion
+
 # region Flask
 if __name__ == "__main__":
     print("Starting blockchain flask app thread...")
@@ -857,7 +938,7 @@ print("Initializing log...")
 log = Log(time_zone="Canada/Central")
 print("Log initialized.")
 
-slot_machine.set_rtp_multiplier()
+# slot_machine.set_rtp_multiplier()
 
 @bot.event
 async def on_ready() -> None:
@@ -868,14 +949,21 @@ async def on_ready() -> None:
 
     # await process_missed_messages()
 
+    # global guild_ids
+    # guild_ids = load_guild_ids()
+    print(f"Guild IDs: {guild_ids}")
+    for guild in bot.guilds:
+        print(f"- {guild.name} ({guild.id})")
+
     # Sync the commands to Discord
-    print("Syncing commands...")
+    print("Syncing global commands...")
     try:
         await bot.tree.sync()
         print(f"Synced commands for bot {bot.user}.")
         print(f"Bot is ready!")
     except Exception as e:
         print(f"Error syncing commands: {e}")
+
 # endregion
 
 
@@ -1050,11 +1138,13 @@ async def balance(interaction: Interaction, user: Member | None = None) -> None:
 @app_commands.describe(amount="Amount of symbols to add")
 @app_commands.describe(remove_symbol="Remove a symbol from the reels")
 @app_commands.describe(reel="The reel to modify")
+@app_commands.describe(report="Report the current configuration")
 async def reels(interaction: Interaction,
                 add_symbol: str | None = None,
                 remove_symbol: str | None = None,
                 amount: int | None = None,
-                reel: str | None = None) -> None:
+                reel: str | None = None,
+                report: bool | None = None) -> None:
     """
     Design the slot machine reels by adding and removing symbols.
 
@@ -1062,20 +1152,35 @@ async def reels(interaction: Interaction,
         interaction (Interaction): The interaction object representing the
         command invocation.
 
-        add (str, optional): add_symbol a symbol to the reels. Defaults to None.
+        addS_symbol (str, optional): add_symbol a symbol to the reels. Defaults to None.
 
         remove_symbol (str, optional): Remove a symbol from the reels. Defaults to None.
     """
     # XXX
     # TODO Calculate RTP
-    # TODO Send message
     # TODO Set max amount of symbols
+    # Check if user has the necessary role
+    invoker: User | Member = interaction.user
+    invoker_roles: List[Role] = cast(Member, invoker).roles
+    administrator_role: Role | None = (
+        utils.get(invoker_roles, name="Administrator"))
+    technician_role: Role | None = (
+        utils.get(invoker_roles, name="Slot Machine Technician"))
+    if administrator_role is None and technician_role is None:
+        # TODO Maybe let other users see the reels
+        message: str = ("Only slot machine technicians may look at the reels.")
+        await interaction.response.send_message(message)
+        return
     if amount is None:
         if reel is None:
             amount = 3
         else:
             amount = 1
     new_reels: Dict[str, Dict[str, int]] = slot_machine.reels
+    if add_symbol and remove_symbol:
+        await interaction.response.send_message("You can only add or remove a "
+                                                "symbol at a time.")
+        return
     if add_symbol and reel is None:
         if amount % 3 != 0:
             await interaction.response.send_message("The amount of symbols to "
@@ -1105,9 +1210,28 @@ async def reels(interaction: Interaction,
             print(f"Error: Invalid symbol '{add_symbol}'")
         print(slot_machine.reels)
         # if amount 
-    if remove_symbol is not None:
-        # TODO Add remove symbol
-        print(f"Removing symbol: {remove_symbol} (TBA)")
+    elif remove_symbol and reel:
+        print(f"Removing symbol: {remove_symbol}")
+        print(f"Amount: {amount}")
+        print(f"Reel: {reel}")
+        if reel in slot_machine.reels and remove_symbol in slot_machine.reels[reel]:
+            slot_machine.reels[reel][remove_symbol] -= amount
+        else:
+            print(f"Error: Invalid reel or symbol '{reel}' or '{remove_symbol}'")
+    elif remove_symbol:
+        print(f"Removing symbol: {remove_symbol}")
+        print(f"Amount: {amount}")
+        if remove_symbol in slot_machine.reels['reel_1']:
+            per_reel_amount: int = int(amount / 3)
+            new_reels['reel_1'][remove_symbol] -= per_reel_amount
+            new_reels['reel_2'][remove_symbol] -= per_reel_amount
+            new_reels['reel_3'][remove_symbol] -= per_reel_amount
+
+            slot_machine.reels = new_reels
+            print(f"Removed {per_reel_amount} {remove_symbol} from each reel.")
+        else:
+            print(f"Error: Invalid symbol '{remove_symbol}'")
+        print(slot_machine.reels)
 
     print("Saving reels...")
 
