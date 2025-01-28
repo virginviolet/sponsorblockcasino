@@ -3,4 +3,5 @@ waitress
 requests
 discord.py
 python-dotenv
+sympy
 pandas
