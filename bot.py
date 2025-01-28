@@ -12,11 +12,12 @@ from datetime import datetime
 from discord import Guild, Intents, Interaction, Member, Message, Client, Emoji, PartialEmoji, Role, User, TextChannel, app_commands, utils
 from discord.ext import commands
 from discord.raw_models import RawReactionActionEvent
-from os import environ as os_environ, getenv, makedirs, name
+from os import environ as os_environ, getenv, makedirs
 from os.path import exists
 from dotenv import load_dotenv
 from hashlib import sha256
 from sys import exit as sys_exit
+from sympy import symbols, expand, Expr, Add, Mul, Float, Integer, Rational, simplify
 from collections import namedtuple
 from typing import Dict, List, NoReturn, TextIO, cast, NamedTuple
 
@@ -51,8 +52,8 @@ class ChannelCheckpoints:
         self.guild_id: int = guild_id
         self.channel_name: str = channel_name
         self.channel_id: int = channel_id
-        self.directory: str = (
-            f"data/checkpoints/guilds/{self.guild_id}/channels/{self.channel_id}")
+        self.directory: str = (f"data/checkpoints/guilds/{self.guild_id}"
+                               f"/channels/{self.channel_id}")
         self.file_name: str = f"{self.directory}/channel_checkpoints.json"
         self.entry_count: int = self.count_lines()
         self.last_message_ids: List[Dict[str, int]] | None = self.load()
@@ -197,7 +198,8 @@ class Log:
 class BotConfiguration:
     def __init__(self, file_name: str = "data/bot_configuration.json") -> None:
         self.file_name: str = file_name
-        self.configuration: Dict[str, str | Dict[str, Dict[str, int]]] = self.read()
+        self.configuration: Dict[str, str | Dict[str, Dict[str, int]]] = (
+            self.read())
         self.coin: str = str(self.configuration["COIN"])
         self.coins: str = str(self.configuration["COINS"])
         self.coin_emoji_id: int = int(str(self.configuration["COIN_EMOJI_ID"]))
@@ -238,7 +240,8 @@ class BotConfiguration:
             self.create()
 
         with open(self.file_name, "r") as file:
-            configuration: Dict[str, str | Dict[str, Dict[str, int]]] = json.loads(file.read())
+            configuration: Dict[str, str | Dict[str, Dict[str, int]]] = (
+                json.loads(file.read()))
             # Override the configuration with environment variables
             env_vars: Dict[str, str] = {
                 "COIN": "coin",
@@ -260,25 +263,30 @@ class BotConfiguration:
 class SlotMachine:
     def __init__(self, file_name: str = "data/slot_machine.json") -> None:
         self.file_name: str = file_name
-        self.configuration: Dict[str, Dict[str, Dict[str, int | float]] | Dict[str, int]] = self.load_config()
+        self.configuration: (
+            Dict[str, Dict[str, Dict[str, int | float]] | Dict[str, int]]) = (
+                self.load_config())
         self._reels: Dict[str, Dict[str, int]] = self.load_reels()
         # self.emoji_ids: Dict[str, int] = cast(Dict[str, int], self.configuration["emoji_ids"])
-        self._probabilities: Dict[str, float] = self.calculate_all_probabilities()
+        self._probabilities: Dict[str, float] = (
+            self.calculate_all_probabilities())
 
     def load_reels(self) -> Dict[str, Dict[str, int]]:
         print("Getting reels...")
         self.configuration = self.load_config()
-        reels: Dict[str, Dict[str, int]] = cast(Dict[str, Dict[str, int]], self.configuration["reels"])
+        reels: Dict[str, Dict[str, int]] = (
+            cast(Dict[str, Dict[str, int]], self.configuration["reels"]))
         return reels
-    
+
     @property
     def reels(self) -> Dict[str, Dict[str, int]]:
         return self._reels
-    
+
     @reels.setter
     def reels(self, value: Dict[str, Dict[str, int]]) -> None:
         self._reels = value
-        self.configuration["reels"] = cast(Dict[str, Dict[str, int | float]], self._reels)
+        self.configuration["reels"] = (
+            cast(Dict[str, Dict[str, int | float]], self._reels))
         self.save_config()
 
     @property
@@ -301,80 +309,73 @@ class SlotMachine:
             float
         ] = {
             "awards": {
-            "lose_wager": {
-                "emoji": 0,
-                "amount": 0,
-                "multiplier": -1.0,
-                "multiplier_adjusted": -1.0
-            },
-            "small_win": {
-                "emoji": 0,
-                "amount": 1,
-                "multiplier": 0.0,
-                "multiplier_adjusted": 0.0
-            },
-            "medium_win": {
-                "emoji": 0,
-                "amount": 0,
-                "multiplier": 2.0,
-                "multiplier_adjusted": 2.0
-            },
-            "high_win": {
-                "emoji": 0,
-                "amount": 1000,
-                "multiplier": 0.0,
-                "multiplier_adjusted": 0.0
-            },
-            "very_high_win": {
-                "emoji": 0,
-                "amount": 0,
-                "multiplier": 10.0,
-                "multiplier_adjusted": 10.0
-            },
-            "jackpot": {
-                "emoji": 0,
-                "amount": 0,
-                "multiplier": 0.0,
-                "multiplier_adjusted": 0.0
-            }
+                "lose_wager": {
+                    "emoji": 0,
+                    "coin_profit": 0,
+                    "wager_multiplier": -1.0
+                },
+                "small_win": {
+                    "emoji": 0,
+                    "coin_profit": 1,
+                    "wager_multiplier": 1.0
+                },
+                "medium_win": {
+                    "emoji": 0,
+                    "coin_profit": 0,
+                    "wager_multiplier": 2.0
+                },
+                "high_win": {
+                    "emoji": 0,
+                    "coin_profit": 0,
+                    "wager_multiplier": 500.0
+                },
+                "very_high_win": {
+                    "emoji": 0,
+                    "coin_profit": 0,
+                    "wager_multiplier": 1000.0
+                },
+                "jackpot": {
+                    "emoji": 0,
+                    "coin_profit": 0,
+                    "wager_multiplier": 1.0
+                }
             },
             "reels": {
-            "reel_1": {
-                "lose_wager": 0,
-                "small_win": 0,
-                "medium_win": 0,
-                "high_win": 0,
-                "very_high_win": 0,
-                "jackpot": 0
-            },
-            "reel_2": {
-                "lose_wager": 0,
-                "small_win": 0,
-                "medium_win": 0,
-                "high_win": 0,
-                "very_high_win": 0,
-                "jackpot": 0
-            },
-            "reel_3": {
-                "lose_wager": 0,
-                "small_win": 0,
-                "medium_win": 0,
-                "high_win": 0,
-                "very_high_win": 0,
-                "jackpot": 0
-            }
+                "reel_1": {
+                    "lose_wager": 1,
+                    "small_win": 8,
+                    "medium_win": 8,
+                    "high_win": 2,
+                    "very_high_win": 1,
+                    "jackpot": 0
+                },
+                "reel_2": {
+                    "lose_wager": 1,
+                    "small_win": 8,
+                    "medium_win": 8,
+                    "high_win": 2,
+                    "very_high_win": 1,
+                    "jackpot": 0
+                },
+                "reel_3": {
+                    "lose_wager": 1,
+                    "small_win": 8,
+                    "medium_win": 8,
+                    "high_win": 2,
+                    "very_high_win": 1,
+                    "jackpot": 0
+                }
             },
             "max_reel_symbols": 20,
-            "jackpot_amount": 0,
-            "desired_rtp": 0.8,
-            "rtp_multiplier": 0.8
+            "jackpot_amount": 0
         }
         # Save the configuration to the file
         with open(self.file_name, "w") as file:
             file.write(json.dumps(configuration))
         print("Template slot machine configuration file created.")
-        
-    def load_config(self) -> Dict[str, Dict[str, Dict[str, int | float]] | Dict[str, int]]:
+
+    def load_config(self) -> (
+            Dict[str, Dict[str, Dict[str, int | float]] | Dict[str, int]]):
         if not exists(self.file_name):
             self.create_config()
 
@@ -383,160 +384,132 @@ class SlotMachine:
                 str,
                 Dict[str, Dict[str, int | float]] |
                 Dict[str, int]
-                ]) = json.loads(file.read())
+            ]) = json.loads(file.read())
             return configuration
-    
+
     def save_config(self) -> None:
         print("Saving slot machine configuration...")
         with open(self.file_name, "w") as file:
             file.write(json.dumps(self.configuration))
         print("Slot machine configuration saved.")
-    
+
     def calculate_probability(self, symbol: str) -> float:
-        number_of_symbol_on_reel: int = 0
-        total_reel_symbols: int = 0
         overall_probability: float = 1.0
-        probability_for_wheel: float
         for reel in self.reels:
-            number_of_symbol_on_reel += self.reels[reel][symbol]
-            total_reel_symbols += sum(self.reels[reel].values())
+            number_of_symbol_on_reel: int = self.reels[reel][symbol]
+            total_reel_symbols: int = sum(self.reels[reel].values())
             if total_reel_symbols != 0 and number_of_symbol_on_reel != 0:
-                probability_for_wheel = (
+                probability_for_reel: float = (
                     number_of_symbol_on_reel / total_reel_symbols)
             else:
-                probability_for_wheel = 0.0
-            overall_probability *= probability_for_wheel
+                probability_for_reel = 0.0
+            overall_probability *= probability_for_reel
         return overall_probability
-    
-    def calculate_chance_of_losing(self) -> float:
+
+    def calculate_losing_probabilities(self) -> tuple[float, float]:
         print("Calculating chance of losing...")
-        no_award_probability: float = 1.0
+
+        # No symbols match
+        standard_lose_probability: float = 1.0
+
+        # Either lose_wager symbols match or no symbols match
+        any_lose_probability: float = 1.0
+
         symbols: List[str] = [symbol for symbol in self.reels["reel_1"]]
         for symbol in symbols:
             symbols_match_probability: float = (
                 self.calculate_probability(symbol))
             symbols_no_match_probability: float = 1 - symbols_match_probability
+            standard_lose_probability *= symbols_no_match_probability
             if symbol != "lose_wager":
-                no_award_probability *= symbols_no_match_probability
-            else:
-                no_award_probability *= symbols_match_probability
-                
-        print(f"Chance of losing: {no_award_probability}")
-        return no_award_probability
-    
+                any_lose_probability *= symbols_no_match_probability
+        return (any_lose_probability, standard_lose_probability)
+
     def calculate_all_probabilities(self) -> Dict[str, float]:
         self.reels = self.load_reels()
         probabilities: Dict[str, float] = {}
         for symbol in self.reels["reel_1"]:
             probability: float = self.calculate_probability(symbol)
             probabilities[symbol] = probability
-        lose_probability: float = self.calculate_chance_of_losing()
-        probabilities["lose"] = lose_probability
-        win_probability: float = 1 - lose_probability
-        probabilities["win"] = win_probability
+        any_lose_probability: float
+        standard_lose_probability: float
+        any_lose_probability, standard_lose_probability = (
+            self.calculate_losing_probabilities())
+        probabilities["standard_lose"] = standard_lose_probability
+        probabilities["any_lose"] = any_lose_probability
+        probabilities["win"] = 1 - any_lose_probability
         return probabilities
-    
+
     def count_symbols(self, reel: str | None = None) -> int:
         if reel is None:
             return sum([sum(reel.values()) for reel in self.reels.values()])
         else:
             return sum(self.reels[reel].values())
-        
-    def set_rtp_multiplier(self) -> None:
+
+    def calculate_total_return(self) -> Expr:
         # Adjust the targeted RTP so that it accounts for losses from fixed
         # awards
+        # TODO Calculate EV
         self.configuration = self.load_config()
         probabilities: Dict[str, float] = self.calculate_all_probabilities()
-        awards: Dict[str, Dict[str, int | float]] = cast(Dict[str, Dict[str, int | float]], self.configuration["awards"])
-        desired_rtp: float = cast(float, self.configuration["desired_rtp"])
-        expected_rtp_static_awards: float = 1.0
-        # expected_house_loss_from_fixed_awards: float = 0
+        awards: Dict[str, Dict[str, int | float]] = cast(
+            Dict[str, Dict[str, int | float]], self.configuration["awards"])
+        W: Expr = symbols('W')  # wager
+        total_return: Expr = Integer(0)
+        event_total_return: Expr
         for event in awards:
-            if event == "win":
-                continue
             print(f"----\nEvent: {event}")
-            event_probability: float = probabilities[event]
-            print(f"Event probability: {event_probability}")
-            if event == "lose":
-                expected_rtp_static_awards += event_probability
+            p_event_float: float = probabilities[event]
+            p_event: Expr = Float(p_event_float)
+            print(f"Event probability: {p_event}")
+            if p_event_float == 0.0:
                 continue
-            amount: int | float = awards[event]["amount"]
-            print(f"Amount: {amount}")
-            award_multiplier: float = awards[event]["multiplier"]
-            print(f"Multiplier: {award_multiplier}")
-            if amount > 0 and award_multiplier == 0.0:
-                # print(f"Event: {event}")
-                # print(f"Amount: {amount}")
-                event_probability: float = probabilities[event]
-                event_expected_rtp: float = (event_probability * amount)
-                print(f"Event expected RTP: {event_expected_rtp} (amount * probability)")
-                expected_rtp_static_awards += event_expected_rtp
-                # expected_house_loss_from_fixed_awards += event_expected_rtp
-                # print(f"Accumulated expected loss: {expected_house_loss_from_fixed_awards} (sum of all excepted RTP losses)")
-        # adjusted_rtp: float = desired_rtp - expected_house_loss_from_fixed_awards
-        print(f"Desired RTP: {desired_rtp}")
-        print(f"\nExpected RTP from fixed amount prices: {expected_rtp_static_awards}")
-        adjusted_rtp: float = 0.0 # Initialize variable
-        if expected_rtp_static_awards > desired_rtp:
-            print(f"Players are expected to earn {expected_rtp_static_awards} {COINS} from static awards for every {COIN} spent.")
-            excess_rtp: float = expected_rtp_static_awards - desired_rtp
-            print(f"Excess RTP: {excess_rtp}")
-            adjusted_rtp = desired_rtp - excess_rtp
-            print(f"Adjusted RTP: {adjusted_rtp} (Desired RTP - Excess RTP)")
-        elif expected_rtp_static_awards < desired_rtp:
-            print(f"Players are expected to earn {expected_rtp_static_awards} {COINS} from static awards for every {COIN} spent.")
-            deficit_rtp: float = desired_rtp - expected_rtp_static_awards
-            print(f"Deficit RTP: {deficit_rtp}")
-            adjusted_rtp = desired_rtp + deficit_rtp
-            print(f"Adjusted RTP: {adjusted_rtp} (Desired RTP + Deficit RTP)")
-        else:
-            print("No adjustment needed.")
-            adjusted_rtp = desired_rtp
-            print(f"Adjusted RTP: {adjusted_rtp} (Desired RTP)")
-        print(f"If a player wagers 1 {COIN} and wins a 2x award, with the adjusted RTP, the player will earn ~{round(1 * 2 * adjusted_rtp, 4)} {COINS}.")
-        print(f"If a player wagers 10 {COINS} and wins a 2x award, with the adjusted RTP, the player will earn ~{round(10 * 2 * adjusted_rtp)} {COINS}.")
-        # print(f"Total expected loss: {expected_house_loss_from_fixed_awards}")
-        # print(f"Adjusted RTP: {adjusted_rtp} (Desired RTP - Total expected loss)")
-        # input("Press Enter to continue...")
-        print("Estimated RTP type: ", type(self.configuration["rtp_multiplier"]))
-        self.configuration["rtp_multiplier"] = adjusted_rtp
-        self.save_config()
+            amount: Expr
+            wager_multiplier_float: float
+            wager_multiplier: Expr
 
-    def adjust_award_multipliers(self) -> None:
-        # Set adjusted values for the multipliers of the awards.
-        # The adjusted values are the original values multiplied by the RTP
-        # multiplier.
+            if event == "standard_lose":
+                # You end up with your wager minus 1 coin
+                amount = Integer(-1)
+                print(f"Amount: {amount}")
+                wager_multiplier_float = 1.0
+                wager_multiplier = Float(wager_multiplier_float)
+            else:
+                amount_float: float = awards[event]["coin_profit"]
+                amount = Integer(amount_float)
+                print(f"Amount: {amount}")
+                wager_multiplier_float = awards[event]["wager_multiplier"]
+                wager_multiplier = Float(wager_multiplier_float)
+            print(f"Multiplier: {wager_multiplier}")
+            event_total_return: Expr = (
+                Mul(p_event, Add(Mul(W, wager_multiplier), amount)))
+            print(f"Event total return: {event_total_return} "
+                  f"(probability * (wager * multiplier) + amount)")
+            total_return = Add(total_return, event_total_return)
+        print(f"Total return: {total_return}")
+        # total_return_expanded: Expr = cast(Expr, expand(total_return))
+        # print(f"Total return expanded: {total_return_expanded}")
 
-        # Load the configuration
-        self.configuration = self.load_config()
+        # coefficient = total_return.coeff(W, 1)
+        # constant = total_return.coeff(W, 0)
+        # print(f"Total return coefficient: {coefficient}")
+        # print(f"Total return constant: {constant}")
+        return total_return
 
-        # Get the RTP multiplier
-        rtp_multiplier: float = cast(float, self.configuration["rtp_multiplier"])
-
-        # Get the awards
-        awards: Dict[str, Dict[str, int | float]] = cast(Dict[str, Dict[str, int | float]], self.configuration["awards"])
-
-        # Adjust the multipliers
-        for award in awards:
-            if award == "lose_wager":
-                continue
-            award_multiplier: float = cast(float, awards[award]["multiplier"])
-            adjusted_multiplier: float = award_multiplier * rtp_multiplier
-            awards[award]["multiplier_adjusted"] = adjusted_multiplier
-        
-        # Save the configuration
-        self.configuration["awards"] = awards
-        
-        awards_table: str = ""
-        for award in awards:
-            awards_table += f"{award}: {awards[award]}\n"
-        print(f"Awards table:\n{awards_table}")
-
-        self.save_config()
-
+    def calculate_rtp(self, wager: int):
+        # TODO Fix problems reported by Pylance
+        total_return: Expr = self.calculate_total_return()
+        evaluated_total_return: Expr = total_return.subs(symbols('W'), wager)
+        rtp = Rational(evaluated_total_return, wager)
+        rtp_decimal = rtp.evalf()
+        print(f"RTP: {rtp}")
+        print(f"RTP decimal: {rtp_decimal}")
+        return rtp_decimal
 # endregion
 
 # region UserSaveData
+
+
 class UserSaveData:
     def __init__(self, user_id: int, user_name: str) -> None:
         self.user_id: int = user_id
@@ -556,10 +529,10 @@ class UserSaveData:
                 with open(name_file_name, "w") as file:
                     file.write(json.dumps(
                         {"user_name": self.user_name,
-                        "user_id": self.user_id,
-                        "starting_bonus_received": (
-                            self.starting_bonus_received)
-                        }))
+                         "user_id": self.user_id,
+                         "starting_bonus_received": (
+                             self.starting_bonus_received)
+                         }))
                     pass
 
         # Create the save data file
@@ -786,7 +759,8 @@ async def process_reaction(emoji: PartialEmoji | Emoji | str,
         last_block_timestamp: float | None = None
         try:
             # Get the last block's timestamp for logging
-            last_block: None | sb_blockchain.Block = blockchain.get_last_block()
+            last_block: None | sb_blockchain.Block = (
+                blockchain.get_last_block())
             if last_block is not None:
                 last_block_timestamp = last_block.timestamp
                 del last_block
@@ -801,7 +775,7 @@ async def process_reaction(emoji: PartialEmoji | Emoji | str,
         try:
             if last_block_timestamp is not None:
                 mined_message: str = (f"{sender} ({sender_id}) mined 1 {COIN} "
-                                        f"for {receiver} ({receiver_id}).")
+                                      f"for {receiver} ({receiver_id}).")
                 log.log(line=mined_message, timestamp=last_block_timestamp)
         except Exception as e:
             print(f"Error logging mining: {e}")
@@ -844,7 +818,7 @@ async def add_block_transaction(
                 "receiver": receiver_id_hash,
                 "amount": amount,
                 "method": method
-                }}])
+            }}])
         data_casted: List[str | Dict[str, sb_blockchain.TransactionDict]] = (
             cast(List[str | Dict[str, sb_blockchain.TransactionDict]], data))
         blockchain.add_block(data=data_casted, difficulty=0)
@@ -875,6 +849,8 @@ async def terminate_bot() -> NoReturn:
 # endregion
 
 # region Guild list
+
+
 def load_guild_ids(file_name: str = "data/guild_ids.txt") -> List[int]:
     print("Loading guild IDs...")
     # Create missing directories
@@ -893,12 +869,14 @@ def load_guild_ids(file_name: str = "data/guild_ids.txt") -> List[int]:
         for guild in bot.guilds:
             guild_id: int = guild.id
             if not guild_id in guild_ids:
-                print(f"Adding guild ID {guild_id} to the list and the file...")
+                print(f"Adding guild ID {guild_id} "
+                      "to the list and the file...")
                 file.write(f"{guild_id}\n")
                 guild_ids.append(guild_id)
     print("Guild IDs loaded.")
     return guild_ids
 # endregion
+
 
 # region Flask
 if __name__ == "__main__":
@@ -938,7 +916,6 @@ print("Initializing log...")
 log = Log(time_zone="Canada/Central")
 print("Log initialized.")
 
-# slot_machine.set_rtp_multiplier()
 
 @bot.event
 async def on_ready() -> None:
@@ -1090,7 +1067,7 @@ async def transfer(interaction: Interaction, amount: int, user: Member) -> None:
     timestamp: float = last_block.timestamp
     log.log(line=f"{sender} ({sender_id}) transferred {amount} {COINS} "
             f"to {receiver} ({receiver_id}).",
-                timestamp=timestamp)
+            timestamp=timestamp)
     await interaction.response.send_message(f"{sender.mention} transferred "
                                             f"{amount} {COINS} "
                                             f"to {receiver.mention}.")
@@ -1132,6 +1109,8 @@ async def balance(interaction: Interaction, user: Member | None = None) -> None:
                                                 f"{balance} {COINS}.")
 
 # region Reels
+
+
 @bot.tree.command(name="reels",
                   description="Design the slot machine reels")
 @app_commands.describe(add_symbol="Add a symbol to the reels")
@@ -1152,9 +1131,11 @@ async def reels(interaction: Interaction,
         interaction (Interaction): The interaction object representing the
         command invocation.
 
-        addS_symbol (str, optional): add_symbol a symbol to the reels. Defaults to None.
+        add_symbol (str, optional): add_symbol a symbol to the reels.
+        Defaults to None.
 
-        remove_symbol (str, optional): Remove a symbol from the reels. Defaults to None.
+        remove_symbol (str, optional): Remove a symbol from the reels.
+        Defaults to None.
     """
     # XXX
     # TODO Calculate RTP
@@ -1191,7 +1172,8 @@ async def reels(interaction: Interaction,
         print(f"add_symboling symbol: {add_symbol}")
         print(f"Amount: {amount}")
         print(f"Reel: {reel}")
-        if reel in slot_machine.reels and add_symbol in slot_machine.reels[reel]:
+        if (reel in slot_machine.reels and
+                add_symbol in slot_machine.reels[reel]):
             slot_machine.reels[reel][add_symbol] += amount
         else:
             print(f"Error: Invalid reel or symbol '{reel}' or '{add_symbol}'")
@@ -1209,15 +1191,16 @@ async def reels(interaction: Interaction,
         else:
             print(f"Error: Invalid symbol '{add_symbol}'")
         print(slot_machine.reels)
-        # if amount 
+        # if amount
     elif remove_symbol and reel:
         print(f"Removing symbol: {remove_symbol}")
         print(f"Amount: {amount}")
         print(f"Reel: {reel}")
-        if reel in slot_machine.reels and remove_symbol in slot_machine.reels[reel]:
+        if (reel in slot_machine.reels and
+                remove_symbol in slot_machine.reels[reel]):
             slot_machine.reels[reel][remove_symbol] -= amount
         else:
-            print(f"Error: Invalid reel or symbol '{reel}' or '{remove_symbol}'")
+            print(f"Error: Invalid reel '{reel}' or symbol '{remove_symbol}'")
     elif remove_symbol:
         print(f"Removing symbol: {remove_symbol}")
         print(f"Amount: {amount}")
@@ -1236,12 +1219,10 @@ async def reels(interaction: Interaction,
     print("Saving reels...")
 
     slot_machine.reels = new_reels
-    slot_machine.set_rtp_multiplier()
-    slot_machine.adjust_award_multipliers()
+    slot_machine.calculate_total_return()
     new_reels = slot_machine.reels
     # print(f"Reels: {slot_machine.configuration}")
     print(f"Probabilities saved.")
-    print("Preparing message...")
 
     amount_of_symbols: int = slot_machine.count_symbols()
     reel_amount_of_symbols: int
@@ -1251,9 +1232,10 @@ async def reels(interaction: Interaction,
         for symbol, amount in symbols.items():
             symbols_table += f"{symbol}: {amount}\n"
         reel_amount_of_symbols = sum(symbols.values())
-        reels_table += (f"{reel}:\n"
+        reels_table += (f"**{reel}**\n"
                         f"{symbols_table}"
-                        f"Total: {reel_amount_of_symbols}\n\n")
+                        "\n**Total**\n"
+                        f"{reel_amount_of_symbols}\n\n")
     probabilities: Dict[str, float] = slot_machine.probabilities
     probabilities_table: str = ""
     max_digits: int = 4
@@ -1271,28 +1253,42 @@ async def reels(interaction: Interaction,
             probability_display = f"<{str(lowest_number)}%"
         probabilities_table += f"{symbol}: {probability_display}\n"
 
-    desired_rtp: float = slot_machine.configuration["desired_rtp"]
-    desired_rtp_percentage: float = desired_rtp * 100
-    desired_rtp_percentage_rounded: float = round(desired_rtp_percentage, max_digits)
-    adjusted_rtp: float = slot_machine.configuration["rtp_multiplier"]
-    adjusted_rtp_percentage: float = adjusted_rtp * 100
-    adjusted_rtp_percentage_rounded: float = round(adjusted_rtp_percentage, max_digits)
-    message: str = ("Reels:\n"
-        f"{reels_table}\n"
-        "Symbols total:\n"
-        f"{amount_of_symbols}\n\n"
-        "Probabilities:\n"
-        f"{probabilities_table}\n"
-        "Desired RTP:\n"
-        f"{desired_rtp_percentage_rounded}%\n\n"
-        "RTP multiplier:\n"
-        f"{adjusted_rtp_percentage_rounded}%")
-    print("Message prepared.")
+    total_returns: Expr = slot_machine.calculate_total_return()
+    wagers = [1, 5, 10, 50, 100, 500, 1000, 10000, 100000, 1000000]
+    rtp_dict = {}
+    rtp_display: str | None = None
+    for wager in wagers:
+        rtp = slot_machine.calculate_rtp(wager)
+        rtp_percentage = Mul(rtp, 100.0)
+        rtp_rounded = round(rtp_percentage, max_digits)
+        if rtp == rtp_rounded:
+            rtp_display = f"{str(rtp_percentage)}%"
+        elif simplify(rtp_percentage) > lowest_number:
+            rtp_display = "~{}%".format(str(rtp_rounded))
+        else:
+            rtp_display = f"<{str(lowest_number)}%"
+        rtp_dict[wager] = rtp_display
+
+    rtp_table: str = ""
+    for wager, rtp in rtp_dict.items():
+        rtp_table += f"{wager}: {rtp}\n"
+
+    message: str = ("### Reels\n"
+                    f"{reels_table}\n"
+                    "### Symbols total\n"
+                    f"{amount_of_symbols}\n\n\n"
+                    "### Probabilities\n"
+                    f"{probabilities_table}\n\n"
+                    "### Total returns\n"
+                    f"{str(total_returns).replace("*", "\\*")}%\n"
+                    '-# "W" means wager\n\n'
+                    "### RTP\n"
+                    "Wager: RTP\n"
+                    f"{rtp_table}")
     # TODO Win/lose and RTP multiplier doesn't seem right
     # TODO Per symbol RTP
     await interaction.response.send_message(message)
 
-    
 
 # endregion
 
@@ -1316,15 +1312,17 @@ async def pull(interaction: Interaction, wager: int | None = None) -> None:
         Clamp a value between a minimum and a maximum value.
         '''
         return max(lower_bound, min(value, upper_bound))
-    
+
     if wager is None:
         wager = 1
     user: User | Member = interaction.user
     user_id: int = user.id
     user_name: str = user.name
-    save_data: UserSaveData = UserSaveData(user_id=user_id, user_name=user_name)
+    save_data: UserSaveData = (
+        UserSaveData(user_id=user_id, user_name=user_name))
     starting_bonus_received: bool = (
         save_data.load("starting_bonus_received") == "True")
+
     class Award(NamedTuple):
         emoji: int | str
         min: int
@@ -1333,7 +1331,7 @@ async def pull(interaction: Interaction, wager: int | None = None) -> None:
 
     return_to_player: float = 0.95
     symbols_per_reel: int = 20
-    
+
     # lose = Award(emoji=AWARD_LOSE_WAGER_EMOJI,
     #              min=-1,
     #              max=-wager,
@@ -1355,14 +1353,14 @@ async def pull(interaction: Interaction, wager: int | None = None) -> None:
     #                  chance=)
     # very_high_win = Award(emoji=AWARD_VERY_HIGH_WIN_EMOJI,
     #                       min=85,
-    #                       max=200, 
+    #                       max=200,
     #                       chance=)
     """ jackpot = Award(emoji=AWARD_JACKPOT_EMOJI,
                     min=,
                     max=,
                     chance=) """
-    
-    slot_results: List[Award]= []
+
+    slot_results: List[Award] = []
     slot_results_emojis: List[PartialEmoji | Emoji | str] = []
     reward_amount: int = 0
     message_one_sent: bool = False
@@ -1374,7 +1372,9 @@ async def pull(interaction: Interaction, wager: int | None = None) -> None:
         slot_results = [very_high_win, very_high_win, very_high_win]
     else:
         for _ in range(3):
-            slot_results.append(random.choice([lose, small_win, medium_win, high_win, very_high_win]))
+            slot_results.append(
+                random.choice(
+                    [lose, small_win, medium_win, high_win, very_high_win]))
     # convert emoji id to emoji
     print(f"Slot results: {slot_results}")
     for slot in slot_results:
@@ -1396,7 +1396,8 @@ async def pull(interaction: Interaction, wager: int | None = None) -> None:
             slot_results_emojis.append(slot.emoji)
     print(slot_results_emojis)
     if slot_results[0] == slot_results[1] == slot_results[2]:
-        reward_amount = random.randint(slot_results[0].min, slot_results[0].max)
+        reward_amount = (
+            random.randint(slot_results[0].min, slot_results[0].max))
     message = f"{user.mention} Sorry, you lost {wager} {COINS}."
     timestamp: float = time()
     if not starting_bonus_received:
@@ -1404,12 +1405,12 @@ async def pull(interaction: Interaction, wager: int | None = None) -> None:
         message = f"You won {reward_amount} {COINS}!"
         log.log(
             line=f"{user_name} ({user_id}) pulled the lever "
-                f"and received a starting bonus of {reward_amount} {COINS}.",
+            f"and received a starting bonus of {reward_amount} {COINS}.",
             timestamp=timestamp)
     elif reward_amount < 1:
         log.log(
             line=f"{user_name} ({user_id}) pulled the lever "
-                 f"and lost {wager} {COINS}.",
+            f"and lost {wager} {COINS}.",
             timestamp=timestamp)
     # TODO Add proper timestamp
     # TODO Send gif of slot machine
