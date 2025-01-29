@@ -1,3 +1,4 @@
+# region Imports
 import sb_blockchain
 import threading
 import subprocess
@@ -17,12 +18,12 @@ from os.path import exists
 from dotenv import load_dotenv
 from hashlib import sha256
 from sys import exit as sys_exit
-from sympy import symbols, expand, Expr, Add, Mul, Float, Integer, Rational, simplify
+from sympy import symbols, Expr, Add, Mul, Float, Integer, Rational, simplify
 from collections import namedtuple
 from typing import Dict, List, NoReturn, TextIO, cast, NamedTuple
+# endregion
 
 
-# region Variables
 # Intents and bot setup
 intents: Intents = Intents.default()
 intents.message_content = True
@@ -322,48 +323,40 @@ class SlotMachine:
                 "medium_win": {
                     "emoji": 0,
                     "coin_profit": 0,
-                    "wager_multiplier": 2.0
+                    "wager_multiplier": 5.0
                 },
                 "high_win": {
                     "emoji": 0,
                     "coin_profit": 0,
                     "wager_multiplier": 500.0
                 },
-                "very_high_win": {
-                    "emoji": 0,
-                    "coin_profit": 0,
-                    "wager_multiplier": 1000.0
-                },
                 "jackpot": {
                     "emoji": 0,
-                    "coin_profit": 0,
+                    "coin_profit": 2000,
                     "wager_multiplier": 1.0
                 }
             },
             "reels": {
                 "reel_1": {
                     "lose_wager": 1,
-                    "small_win": 8,
-                    "medium_win": 8,
+                    "small_win": 3,
+                    "medium_win": 7,
                     "high_win": 2,
-                    "very_high_win": 1,
-                    "jackpot": 0
+                    "jackpot": 1
                 },
                 "reel_2": {
                     "lose_wager": 1,
-                    "small_win": 8,
-                    "medium_win": 8,
+                    "small_win": 3,
+                    "medium_win": 7,
                     "high_win": 2,
-                    "very_high_win": 1,
-                    "jackpot": 0
+                    "jackpot": 1
                 },
                 "reel_3": {
                     "lose_wager": 1,
-                    "small_win": 8,
-                    "medium_win": 8,
+                    "small_win": 3,
+                    "medium_win": 7,
                     "high_win": 2,
-                    "very_high_win": 1,
-                    "jackpot": 0
+                    "jackpot": 1
                 }
             },
             "max_reel_symbols": 20,
@@ -456,14 +449,14 @@ class SlotMachine:
             Dict[str, Dict[str, int | float]], self.configuration["awards"])
         W: Expr = symbols('W')  # wager
         total_return: Expr = Integer(0)
-        event_total_return: Expr
+        event_total_return: Expr = Integer(0)
         for event in awards:
             print(f"----\nEvent: {event}")
             p_event_float: float = probabilities[event]
             p_event: Expr = Float(p_event_float)
-            print(f"Event probability: {p_event}")
             if p_event_float == 0.0:
                 continue
+            amount_int: int
             amount: Expr
             wager_multiplier_float: float
             wager_multiplier: Expr
@@ -475,17 +468,51 @@ class SlotMachine:
                 wager_multiplier_float = 1.0
                 wager_multiplier = Float(wager_multiplier_float)
             else:
-                amount_float: float = awards[event]["coin_profit"]
-                amount = Integer(amount_float)
-                print(f"Amount: {amount}")
+                amount_int: int = cast(int, awards[event]["coin_profit"])
+                amount = Integer(amount_int)
                 wager_multiplier_float = awards[event]["wager_multiplier"]
                 wager_multiplier = Float(wager_multiplier_float)
-            print(f"Multiplier: {wager_multiplier}")
-            event_total_return: Expr = (
-                Mul(p_event, Add(Mul(W, wager_multiplier), amount)))
-            print(f"Event total return: {event_total_return} "
-                  f"(probability * (wager * multiplier) + amount)")
-            total_return = Add(total_return, event_total_return)
+                print(f"Multiplier: {wager_multiplier}")
+                jackpot_average: float
+                p_event = Float(probabilities[event])
+                print(f"Event probability: {p_event}")
+                if event == "jackpot":
+                    for f in range(-1, 1):
+                        # when the player pays more than 1 coin (fee is -1),
+                        # they are eligible for and contributing to the jackpot
+                        jackpot_fee: int = f
+                        print(f"Jackpot fee loss: {jackpot_fee}")
+                        if f == -1:
+                            # If the player pays the 1 coin jackpot fee
+                            jackpot_seed_int: int = amount_int
+                            jackpot_average: float = (
+                                self.calculate_average_jackpot(jackpot_seed_int))
+                            print(f"Jackpot average: {jackpot_average}")
+                            jackpot_seed = Integer(jackpot_seed_int)
+                            print(f"Jackpot seed: {jackpot_seed}")
+                            event_total_return = (
+                                Add(Mul(p_event, jackpot_average), jackpot_fee))
+                            print(f"Event total return: {event_total_return} "
+                                  "((probability * jackpot_average) - jackpot_fee)")
+                            total_return = Add(
+                                total_return, event_total_return)
+                            continue
+                        else:
+                            jackpot_award: int = 0
+                            event_total_return = (
+                                Add(Mul(p_event, jackpot_award), jackpot_fee))
+                            print(f"Event total return: {event_total_return} "
+                                  "(probability * jackpot_award - jackpot_fee)")
+                            total_return = Add(
+                                total_return, event_total_return)
+                            continue
+                else:
+                    print(f"Amount: {amount}")
+                    event_total_return: Expr = (
+                        Mul(p_event, Add(Mul(W, wager_multiplier), amount)))
+                    print(f"Event total return: {event_total_return} "
+                          f"(probability * (wager * multiplier) + amount)")
+                total_return = Add(total_return, event_total_return)
         print(f"Total return: {total_return}")
         # total_return_expanded: Expr = cast(Expr, expand(total_return))
         # print(f"Total return expanded: {total_return_expanded}")
@@ -495,6 +522,18 @@ class SlotMachine:
         # print(f"Total return coefficient: {coefficient}")
         # print(f"Total return constant: {constant}")
         return total_return
+
+    def calculate_average_jackpot(self, seed: int) -> float:
+        # 1 coin is added to the jackpot for every spin
+        contribution_per_spin: int = 1
+        probabilities: Dict[str, float] = self.calculate_all_probabilities()
+        average_spins_to_win: float = 1 / probabilities["jackpot"]
+        jackpot_cycle_growth: float = (
+            contribution_per_spin * average_spins_to_win)
+        # min + max / 2
+        mean_jackpot: float = (0 + jackpot_cycle_growth) / 2
+        average_jackpot: float = seed + mean_jackpot
+        return average_jackpot
 
     def calculate_rtp(self, wager: int):
         # TODO Fix problems reported by Pylance
@@ -1107,7 +1146,7 @@ async def balance(interaction: Interaction, user: Member | None = None) -> None:
     else:
         await interaction.response.send_message(f"{user_to_check} has "
                                                 f"{balance} {COINS}.")
-
+# endregion
 # region Reels
 
 
@@ -1254,7 +1293,8 @@ async def reels(interaction: Interaction,
         probabilities_table += f"{symbol}: {probability_display}\n"
 
     total_returns: Expr = slot_machine.calculate_total_return()
-    wagers = [1, 5, 10, 50, 100, 500, 1000, 10000, 100000, 1000000]
+    wagers: List[int] = [
+        1, 2, 5, 10, 50, 100, 500, 1000, 10000, 100000, 1000000]
     rtp_dict = {}
     rtp_display: str | None = None
     for wager in wagers:
