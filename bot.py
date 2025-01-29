@@ -11,6 +11,8 @@ import math
 from time import sleep, time
 from datetime import datetime
 from discord import Guild, Intents, Interaction, Member, Message, Client, Emoji, PartialEmoji, Role, User, TextChannel, app_commands, utils
+from discord.ui import View, Button
+from discord.enums import ButtonStyle
 from discord.ext import commands
 from discord.raw_models import RawReactionActionEvent
 from os import environ as os_environ, getenv, makedirs
@@ -21,6 +23,15 @@ from sys import exit as sys_exit
 from sympy import symbols, Expr, Add, Mul, Float, Integer, Rational, simplify
 from collections import namedtuple
 from typing import Dict, List, NoReturn, TextIO, cast, NamedTuple
+# endregion
+
+# region Named tuples
+
+
+class StartingBonusMessage(NamedTuple):
+    message_id: int
+    invoker_id: int
+    invoker_name: str
 # endregion
 
 
@@ -35,6 +46,7 @@ load_dotenv()
 DISCORD_TOKEN: str | None = getenv('DISCORD_TOKEN')
 channel_checkpoint_limit: int = 3
 guild_ids: List[int] = []
+starting_bonus_messages_waiting: Dict[int, StartingBonusMessage] = {}
 # endregion
 
 # region Checkpoints
@@ -758,6 +770,7 @@ async def process_reaction(emoji: PartialEmoji | Emoji | str,
                            sender: Member | User,
                            receiver: Member | User | None = None,
                            receiver_id: int | None = None) -> None:
+    # TODO Add "if reaction.message.author.id != user.id" to prevent self-mining
 
     emoji_id: int | str | None = 0
     match emoji:
@@ -1029,7 +1042,6 @@ async def on_message(message: Message) -> None:
 # region Reaction
 @bot.event
 async def on_raw_reaction_add(payload: RawReactionActionEvent) -> None:
-    # TODO Add "if reaction.message.author.id != user.id" to prevent self-mining
     # `payload` is an instance of the RawReactionActionEvent class from the
     # discord.raw_models module that contains the data of the reaction event.
     if payload.guild_id is None:
@@ -1038,6 +1050,17 @@ async def on_raw_reaction_add(payload: RawReactionActionEvent) -> None:
     if payload.event_type == "REACTION_ADD":
         if payload.message_author_id is None:
             return
+
+        # Look for slot machine reactions
+        message_id: int = payload.message_id
+        reacter_id: int = payload.user_id
+        if message_id in starting_bonus_messages_waiting:
+            if (payload.emoji.name == "🎲" and
+                    (starting_bonus_messages_waiting[message_id].invoker_id
+                     == reacter_id)):
+                print("Die rolled!")
+
+        # Look for coin emoji
         if payload.emoji.id is None:
             return
         sender: Member | None = payload.member
@@ -1363,95 +1386,79 @@ async def pull(interaction: Interaction, wager: int | None = None) -> None:
     starting_bonus_received: bool = (
         save_data.load("starting_bonus_received") == "True")
 
-    class Award(NamedTuple):
-        emoji: int | str
-        min: int
-        max: int
-        chance: float
-
-    return_to_player: float = 0.95
-    symbols_per_reel: int = 20
-
-    # lose = Award(emoji=AWARD_LOSE_WAGER_EMOJI,
-    #              min=-1,
-    #              max=-wager,
-    #              chance=)
-    # # frequent small wins
-    # small_win = Award(emoji=AWARD_SMALL_WIN_EMOJI,
-    #                   min=1,
-    #                   max=1,
-    #                   chance=)
-    # medium_win = Award(emoji=AWARD_MEDIUM_WIN_EMOJI,
-    #                    min=2,
-    #                    max=5,
-    #                    # if wager is really high, this breaks and become negative for some reason
-    #                    chance=min(0.3, 0.15 * (800 - wager_logarithm * 0.01)) * return_to_player)
-    # # min and max values are affected by wager
-    # high_win = Award(emoji=AWARD_HIGH_WIN_EMOJI,
-    #                  min=,
-    #                  max=,
-    #                  chance=)
-    # very_high_win = Award(emoji=AWARD_VERY_HIGH_WIN_EMOJI,
-    #                       min=85,
-    #                       max=200,
-    #                       chance=)
-    """ jackpot = Award(emoji=AWARD_JACKPOT_EMOJI,
-                    min=,
-                    max=,
-                    chance=) """
-
-    slot_results: List[Award] = []
-    slot_results_emojis: List[PartialEmoji | Emoji | str] = []
-    reward_amount: int = 0
-    message_one_sent: bool = False
     if not starting_bonus_received:
         # Send message to inform user of starting bonus
-        await interaction.response.send_message(
-            f"The first time you play, you are guaranteed to win!")
-        message_one_sent = True
-        slot_results = [very_high_win, very_high_win, very_high_win]
-    else:
-        for _ in range(3):
-            slot_results.append(
-                random.choice(
-                    [lose, small_win, medium_win, high_win, very_high_win]))
-    # convert emoji id to emoji
-    print(f"Slot results: {slot_results}")
-    for slot in slot_results:
-        if isinstance(slot.emoji, int):
-            emoji: Emoji | None = bot.get_emoji(slot.emoji)
-            if emoji is not None:
-                slot_results_emojis.append(emoji)
-            else:
-                # TODO Refactor into function
-                print(f"Error: Emoji not found for {slot.emoji}")
-                administrator: User = (
-                    await bot.fetch_user(ADMINISTRATOR_ID))
-                await interaction.response.send_message(
-                    f"Error: Emoji not found for {slot.emoji}. "
-                    f"{administrator.mention} pls fix.")
-                return
+        starting_bonus_awards: Dict[int, int] = {
+            1: 50, 2: 100, 3: 200, 5: 300, 6: 500}
+        starting_bonus_table: str = "Die roll: Amount\n"
+        for die_roll, amount in starting_bonus_awards.items():
+            starting_bonus_table += f"{die_roll}:\t{amount}\n"
+        # TODO Divide into separate messages
+        message: str = (f"Welcome to the {COIN} Casino! This seems to be your "
+                        "first time here.\n"
+                        "A standard 6-sided die will decide your starting "
+                        "bonus.\n"
+                        "Here are the possible starting bonuses:"
+                        f"{starting_bonus_table}")
 
-        else:
-            slot_results_emojis.append(slot.emoji)
-    print(slot_results_emojis)
-    if slot_results[0] == slot_results[1] == slot_results[2]:
-        reward_amount = (
-            random.randint(slot_results[0].min, slot_results[0].max))
-    message = f"{user.mention} Sorry, you lost {wager} {COINS}."
-    timestamp: float = time()
-    if not starting_bonus_received:
-        await interaction.followup.send("You won a starting bonus!")
-        message = f"You won {reward_amount} {COINS}!"
-        log.log(
-            line=f"{user_name} ({user_id}) pulled the lever "
-            f"and received a starting bonus of {reward_amount} {COINS}.",
-            timestamp=timestamp)
-    elif reward_amount < 1:
-        log.log(
-            line=f"{user_name} ({user_id}) pulled the lever "
-            f"and lost {wager} {COINS}.",
-            timestamp=timestamp)
+        await interaction.response.send_message(message)
+        response_message: Message = await interaction.original_response()
+        await response_message.add_reaction("🎲")
+        # XXX
+        starting_bonus_message_id: int = response_message.id
+        starting_bonus_message: StartingBonusMessage = StartingBonusMessage(
+            invoker_id=user_id,
+            invoker_name=user_name,
+            message_id=starting_bonus_message_id
+        )
+        starting_bonus_messages_waiting[starting_bonus_message_id] = starting_bonus_message
+        # starting_bonus: int
+
+    #     message_one_sent = True
+    #     slot_results = [very_high_win, very_high_win, very_high_win]
+    else:
+        print("Starting bonus already received.")
+    #     for _ in range(3):
+    #         slot_results.append(
+    #             random.choice(
+    #                 [lose, small_win, medium_win, high_win, very_high_win]))
+    # # convert emoji id to emoji
+    # print(f"Slot results: {slot_results}")
+    # for slot in slot_results:
+    #     if isinstance(slot.emoji, int):
+    #         emoji: Emoji | None = bot.get_emoji(slot.emoji)
+    #         if emoji is not None:
+    #             slot_results_emojis.append(emoji)
+    #         else:
+    #             # TODO Refactor into function
+    #             print(f"Error: Emoji not found for {slot.emoji}")
+    #             administrator: User = (
+    #                 await bot.fetch_user(ADMINISTRATOR_ID))
+    #             await interaction.response.send_message(
+    #                 f"Error: Emoji not found for {slot.emoji}. "
+    #                 f"{administrator.mention} pls fix.")
+    #             return
+
+    #     else:
+    #         slot_results_emojis.append(slot.emoji)
+    # print(slot_results_emojis)
+    # if slot_results[0] == slot_results[1] == slot_results[2]:
+    #     reward_amount = (
+    #         random.randint(slot_results[0].min, slot_results[0].max))
+    # message = f"{user.mention} Sorry, you lost {wager} {COINS}."
+    # timestamp: float = time()
+    # if not starting_bonus_received:
+    #     await interaction.followup.send("You won a starting bonus!")
+    #     message = f"You won {reward_amount} {COINS}!"
+    #     log.log(
+    #         line=f"{user_name} ({user_id}) pulled the lever "
+    #         f"and received a starting bonus of {reward_amount} {COINS}.",
+    #         timestamp=timestamp)
+    # elif reward_amount < 1:
+    #     log.log(
+    #         line=f"{user_name} ({user_id}) pulled the lever "
+    #         f"and lost {wager} {COINS}.",
+    #         timestamp=timestamp)
     # TODO Add proper timestamp
     # TODO Send gif of slot machine
     # else:
@@ -1459,10 +1466,10 @@ async def pull(interaction: Interaction, wager: int | None = None) -> None:
     # else:
     #     reward_amount_positive: int = abs(reward_amount)
     #     message: str = f"Sorry, you lost {reward_amount_positive} {COINS}."
-    await interaction.response.send_message(message)
+    # await interaction.response.send_message(message)
 
-    if not starting_bonus_received:
-        save_data.save("starting_bonus_received", "True")
+    # if not starting_bonus_received:
+    #     save_data.save("starting_bonus_received", "True")
 
 # endregion
 
