@@ -223,6 +223,8 @@ class BotConfiguration:
                   "in the environment variables.")
         self.administrator_id: int = int(
             str(self.configuration["ADMINISTRATOR_ID"]))
+        self.casino_house_id: int = int(
+            str(self.configuration["CASINO_HOUSE_ID"]))
         if self.administrator_id == 0:
             print("WARNING: ADMINISTRATOR_ID has not set "
                   "in bot_configuration.json nor "
@@ -259,7 +261,8 @@ class BotConfiguration:
             env_vars: Dict[str, str] = {
                 "COIN": "coin",
                 "COINS": "coins",
-                "COIN_EMOJI_ID": "COIN_EMOJI_ID"
+                "COIN_EMOJI_ID": "COIN_EMOJI_ID",
+                "CASINO_HOUSE_ID": "CASINO_HOUSE_ID",
             }
             # TODO add reels env vars
 
@@ -316,34 +319,39 @@ class SlotMachine:
         # Default configuration
         configuration: Dict[
             str,
-            Dict[str, Dict[str, int | float]] |
+            Dict[str, Dict[str, int | str | float]] |
             Dict[str, int] |
             int |
             float
         ] = {
             "awards": {
                 "lose_wager": {
-                    "emoji": 0,
+                    "emoji_id": 0,
+                    "emoji_name": "",
                     "coin_profit": 0,
                     "wager_multiplier": -1.0
                 },
                 "small_win": {
-                    "emoji": 0,
+                    "emoji_id": 0,
+                    "emoji_name": "",
                     "coin_profit": 1,
                     "wager_multiplier": 1.0
                 },
                 "medium_win": {
-                    "emoji": 0,
+                    "emoji_id": 0,
+                    "emoji_name": "",
                     "coin_profit": 0,
                     "wager_multiplier": 5.0
                 },
                 "high_win": {
-                    "emoji": 0,
+                    "emoji_id": 0,
+                    "emoji_name": "",
                     "coin_profit": 0,
                     "wager_multiplier": 500.0
                 },
                 "jackpot": {
-                    "emoji": 0,
+                    "emoji_id": 0,
+                    "emoji_name": "",
                     "coin_profit": 2000,
                     "wager_multiplier": 1.0
                 }
@@ -556,6 +564,18 @@ class SlotMachine:
         print(f"RTP: {rtp}")
         print(f"RTP decimal: {rtp_decimal}")
         return rtp_decimal
+    
+    def pull_lever(self):
+        symbols_landed = []
+        for reel in self.reels:
+            symbol = self.stop_reel(reel)
+            symbols_landed.append(symbol)
+        return symbols_landed
+    
+    def stop_reel(self, reel: str):
+        reel_symbols = list(self.reels[reel].keys())
+        symbol: str = random.choice(reel_symbols)
+        return symbol
 # endregion
 
 # region UserSaveData
@@ -807,28 +827,15 @@ async def process_reaction(emoji: PartialEmoji | Emoji | str,
         )
 
         # Log the mining
-        block_retrieval_success: bool | None = None
-        last_block_timestamp: float | None = None
-        try:
-            # Get the last block's timestamp for logging
-            last_block: None | sb_blockchain.Block = (
-                blockchain.get_last_block())
-            if last_block is not None:
-                last_block_timestamp = last_block.timestamp
-                del last_block
-            else:
-                block_retrieval_success = False
-        except Exception as e:
-            print(f"Error getting last block: {e}")
-            block_retrieval_success = False
-        if block_retrieval_success is False:
+        last_block_timestamp: float | None = get_last_block_timestamp()
+        if last_block_timestamp is None:
+            print("ERROR: Could not get last block timestamp.")
             await terminate_bot()
 
         try:
-            if last_block_timestamp is not None:
-                mined_message: str = (f"{sender} ({sender_id}) mined 1 {COIN} "
-                                      f"for {receiver} ({receiver_id}).")
-                log.log(line=mined_message, timestamp=last_block_timestamp)
+            mined_message: str = (f"{sender} ({sender_id}) mined 1 {COIN} "
+                                    f"for {receiver} ({receiver_id}).")
+            log.log(line=mined_message, timestamp=last_block_timestamp)
         except Exception as e:
             print(f"Error logging mining: {e}")
             await terminate_bot()
@@ -846,17 +853,42 @@ async def process_reaction(emoji: PartialEmoji | Emoji | str,
             await terminate_bot()
 # endregion
 
+# region Get timestamp
+def get_last_block_timestamp() -> float | None:
+    last_block_timestamp: float | None = None
+    try:
+        # Get the last block's timestamp for logging
+        last_block: None | sb_blockchain.Block = blockchain.get_last_block()
+        if last_block is not None:
+            last_block_timestamp = last_block.timestamp
+            del last_block
+        else:
+            print("ERROR: Last block is None.")
+            return None
+    except Exception as e:
+        print(f"ERROR: Error getting last block: {e}")
+        return None
+    return last_block_timestamp
+
+
+
+# endregion
+
 # region Add tx
 
 
 async def add_block_transaction(
     blockchain: sb_blockchain.Blockchain,
-    sender: Member | User,
+    sender: Member | User | int,
     receiver: Member | User,
     amount: int,
     method: str
 ) -> None:
-    sender_id_unhashed: int = sender.id
+    if isinstance(sender, int):
+        sender_id = sender
+    else:
+        sender_id: int = sender.id
+    sender_id_unhashed: int = sender_id
     receiver_id_unhashed: int = receiver.id
     sender_id_hash: str = (
         sha256(str(sender_id_unhashed).encode()).hexdigest())
@@ -960,6 +992,7 @@ configuration = BotConfiguration()
 COIN: str = configuration.coin
 COINS: str = configuration.coins
 COIN_EMOJI_ID: int = configuration.coin_emoji_id
+CASINO_HOUSE_ID: int = configuration.casino_house_id
 ADMINISTRATOR_ID: int = configuration.administrator_id
 slot_machine = SlotMachine()
 print("Bot configuration loaded.")
@@ -1389,88 +1422,177 @@ async def pull(interaction: Interaction, wager: int | None = None) -> None:
     if not starting_bonus_received:
         # Send message to inform user of starting bonus
         starting_bonus_awards: Dict[int, int] = {
-            1: 50, 2: 100, 3: 200, 5: 300, 6: 500}
-        starting_bonus_table: str = "Die roll: Amount\n"
+            1: 50, 2: 100, 3: 200, 4: 300, 5: 400, 6: 500}
+        starting_bonus_table: str = "> **Die roll**\t**Amount**\n"
         for die_roll, amount in starting_bonus_awards.items():
-            starting_bonus_table += f"{die_roll}:\t{amount}\n"
+            starting_bonus_table += f"> {die_roll}\t\t\t\t{amount}\n"
         # TODO Divide into separate messages
         message: str = (f"Welcome to the {COIN} Casino! This seems to be your "
                         "first time here.\n"
                         "A standard 6-sided die will decide your starting "
                         "bonus.\n"
-                        "Here are the possible starting bonuses:"
+                        "The possible outcomes are displayed below.\n\n"
                         f"{starting_bonus_table}")
-
-        await interaction.response.send_message(message)
-        response_message: Message = await interaction.original_response()
-        await response_message.add_reaction("🎲")
-        # XXX
-        starting_bonus_message_id: int = response_message.id
-        starting_bonus_message: StartingBonusMessage = StartingBonusMessage(
-            invoker_id=user_id,
-            invoker_name=user_name,
-            message_id=starting_bonus_message_id
+        die_button: Button[View] = Button(
+            style=ButtonStyle.secondary,
+            label="🎲",
+            custom_id="starting_bonus_die"
         )
-        starting_bonus_messages_waiting[starting_bonus_message_id] = starting_bonus_message
-        # starting_bonus: int
+        
+        async def die_button_callback(interaction: Interaction) -> None:
+            clicker_id: int = interaction.user.id
+            if clicker_id == user_id:
+                die_button.disabled = True
 
-    #     message_one_sent = True
-    #     slot_results = [very_high_win, very_high_win, very_high_win]
+                disabled_die_button_view = View()
+                disabled_die_button_view.add_item(die_button)
+
+                await interaction.response.edit_message(view=disabled_die_button_view)
+
+                die_roll: int = random.randint(1, 6)
+                starting_bonus: int = starting_bonus_awards[die_roll]
+                message: str = (f"You rolled a {die_roll} and won a starting bonus "
+                                f"of {starting_bonus} {COINS}!\n"
+                                "You may now pull the lever. Good luck!")
+                await interaction.followup.send(message)
+                await add_block_transaction(
+                    blockchain=blockchain,
+                    sender=CASINO_HOUSE_ID,
+                    receiver=user,
+                    amount=starting_bonus,
+                    method="starting_bonus"
+                )
+                save_data.save("starting_bonus_received", "True")
+                last_block_timestamp: float | None = get_last_block_timestamp()
+                if last_block_timestamp is None:
+                    print("ERROR: Could not get last block timestamp.")
+                    await terminate_bot()
+                log.log(
+                    line=f"{user_name} ({user_id}) received a starting bonus "
+                    f"of {starting_bonus} {COINS}.",
+                    timestamp=last_block_timestamp)
+                disabled_die_button_view.stop()
+                enabled_button_view.stop()
+            else: 
+                message = "You can't roll the die for someone else!"
+                await interaction.followup.send(message, ephemeral=True)
+        
+        async def die_button_timeout_callback() -> None:
+            die_button.disabled = True
+            timeout_die_button_view = View()
+            timeout_die_button_view.add_item(die_button)
+            await interaction.edit_original_response(view=timeout_die_button_view)
+            message = "You took too long to roll the die. Please try again."
+            await interaction.followup.send(message)
+
+        die_button.callback = die_button_callback
+        enabled_button_view = View(timeout=60)
+        enabled_button_view.add_item(die_button)
+        enabled_button_view.on_timeout = die_button_timeout_callback
+        await interaction.response.send_message(message, view=enabled_button_view)
+        timed_out: bool = await enabled_button_view.wait()
+        if timed_out:
+            print("User took too long to roll the die.")
+            return
+        else:
+            return
     else:
         print("Starting bonus already received.")
-    #     for _ in range(3):
-    #         slot_results.append(
-    #             random.choice(
-    #                 [lose, small_win, medium_win, high_win, very_high_win]))
-    # # convert emoji id to emoji
-    # print(f"Slot results: {slot_results}")
-    # for slot in slot_results:
-    #     if isinstance(slot.emoji, int):
-    #         emoji: Emoji | None = bot.get_emoji(slot.emoji)
-    #         if emoji is not None:
-    #             slot_results_emojis.append(emoji)
-    #         else:
-    #             # TODO Refactor into function
-    #             print(f"Error: Emoji not found for {slot.emoji}")
-    #             administrator: User = (
-    #                 await bot.fetch_user(ADMINISTRATOR_ID))
-    #             await interaction.response.send_message(
-    #                 f"Error: Emoji not found for {slot.emoji}. "
-    #                 f"{administrator.mention} pls fix.")
-    #             return
+        
+    stop_button_1: Button[View] = Button(
+        style=ButtonStyle.primary,
+        label="STOP",
+        custom_id="stop_button_1"
+    )
+    stop_button_2: Button[View] = Button(
+        style=ButtonStyle.primary,
+        label="STOP",
+        custom_id="stop_button_2"
+    )
+    stop_button_3: Button[View] = Button(
+        style=ButtonStyle.primary,
+        label="STOP",
+        custom_id="stop_button_3"
+    )
+    message: str = "The reels are spinning!\n"
+    reel_number: int = 1
+    result: List[PartialEmoji] = []
+    # TODO add awards property to SlotMachine
+    # TODO Make a get_emoji method in SlotMachine
+    awards: Dict[str, Dict[str, int | float]] = cast(
+            Dict[str, Dict[str, int | float]], slot_machine.configuration["awards"])
 
-    #     else:
-    #         slot_results_emojis.append(slot.emoji)
-    # print(slot_results_emojis)
-    # if slot_results[0] == slot_results[1] == slot_results[2]:
-    #     reward_amount = (
-    #         random.randint(slot_results[0].min, slot_results[0].max))
-    # message = f"{user.mention} Sorry, you lost {wager} {COINS}."
-    # timestamp: float = time()
-    # if not starting_bonus_received:
-    #     await interaction.followup.send("You won a starting bonus!")
-    #     message = f"You won {reward_amount} {COINS}!"
-    #     log.log(
-    #         line=f"{user_name} ({user_id}) pulled the lever "
-    #         f"and received a starting bonus of {reward_amount} {COINS}.",
-    #         timestamp=timestamp)
-    # elif reward_amount < 1:
-    #     log.log(
-    #         line=f"{user_name} ({user_id}) pulled the lever "
-    #         f"and lost {wager} {COINS}.",
-    #         timestamp=timestamp)
-    # TODO Add proper timestamp
+    async def stop_reel():
+        nonlocal reel_number, message
+        # TODO Replace reel names
+        reel_name: str = f"reel_{reel_number}"
+        symbol: str = slot_machine.stop_reel(reel=reel_name)
+        symbol_emoji_name: str = cast(str, awards[symbol]["emoji_name"])
+        symbol_emoji_id: int = cast(int, awards[symbol]["emoji_id"])
+        symbol_emoji: PartialEmoji = PartialEmoji(name=symbol_emoji_name,
+                                            id=symbol_emoji_id)
+        result.append(symbol_emoji)
+        if reel_number < 2:
+            message += f"{symbol_emoji} "
+            reel_number += 1
+        else:
+            message = ("The reels have stopped.\n"
+                        f"{result[0]} {result[1]} {result[2]}\n")
+
+    async def stop_button_callback(interaction: Interaction) -> None:
+        nonlocal message
+        clicker_id: int = interaction.user.id
+        if clicker_id == user_id:
+            stop_button_1.disabled = True
+            disabled_button_view = View()
+            disabled_button_view.add_item(stop_button_1)
+            await stop_reel()
+            await interaction.response.edit_message(content=message,
+                                                    view=disabled_button_view)
+            # await interaction.response.edit_message(view=disabled_button_view)
+            disabled_button_view.stop()
+            enabled_button_view.stop()
+        else:
+            message = ("Someone else is playing on this slot machine. Please "
+            "take another one.")
+            await interaction.followup.send(message, ephemeral=True)
+
+    async def on_timeout_callback() -> None:
+        stop_button_1.disabled = True
+        disabled_button_view = View()
+        disabled_button_view.add_item(stop_button_1)
+        await stop_reel()
+        await interaction.edit_original_response(content=message, view=disabled_button_view)
+
+    stop_button_1: Button[View] = stop_button_1
+    enabled_button_view = View(timeout=3)
+    stop_button_1.callback = stop_button_callback
+    enabled_button_view.on_timeout = on_timeout_callback
+    enabled_button_view.add_item(stop_button_1)
+    await interaction.response.send_message(message, view=enabled_button_view)
+    timed_out = await enabled_button_view.wait()
+
+    # XXX
+    print("Creating a new button view...")
+    stop_button_2: Button[View] = stop_button_1
+    enabled_button_view.add_item(stop_button_2)
+    stop_button_2.callback = stop_button_callback
+    enabled_button_view.on_timeout = on_timeout_callback
+    print("Adding stop_button_2 to the view...")
+    enabled_button_view.add_item(stop_button_2)
+    print("Sending the message...")
+    await interaction.followup.send(message)
+    print("Waiting for the button to be clicked...")
+    timed_out = await enabled_button_view.wait()
+    print("Waiting finished.")
+
+    # stop_button_3: Button[View] = stop_button
+    print(result)
+
+
+    # slot_results = slot_machine.pull_lever()
+    # print(f"Slot results: [{slot_results}]")
     # TODO Send gif of slot machine
-    # else:
-    #     message = f"Congratulations! You won {reward_amount} {COINS}!"
-    # else:
-    #     reward_amount_positive: int = abs(reward_amount)
-    #     message: str = f"Sorry, you lost {reward_amount_positive} {COINS}."
-    # await interaction.response.send_message(message)
-
-    # if not starting_bonus_received:
-    #     save_data.save("starting_bonus_received", "True")
-
 # endregion
 
 
