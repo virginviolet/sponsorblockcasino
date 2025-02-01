@@ -633,6 +633,214 @@ class UserSaveData:
             return all_data[key]
 # endregion
 
+# region Bonus die button
+class StartingBonusView(View):
+    def __init__(self,
+                invoker: User | Member,
+                starting_bonus_awards: Dict[int, int],
+                save_data: UserSaveData,
+                log: Log,
+                interaction: Interaction) -> None:
+        super().__init__(timeout=5)
+        self.invoker: User | Member = invoker
+        self.invoker_id: int = invoker.id
+        self.starting_bonus_awards: Dict[int, int] = starting_bonus_awards
+        self.save_data: UserSaveData = save_data
+        self.log: Log = log
+        self.interaction: Interaction = interaction
+        self.button_clicked: bool = False
+        self.die_button: Button[View] = Button(
+            disabled=False,
+            emoji="🎲",
+            custom_id="starting_bonus_die")
+        self.die_button.callback = self.on_button_click
+        self.add_item(self.die_button)
+
+    async def on_button_click(self, interaction: Interaction) -> None:
+        clicker_id: int = interaction.user.id
+        if clicker_id != self.invoker_id:
+            await interaction.response.send_message(
+                "You cannot role the die for someone else!", ephemeral=True)
+        else:
+            self.button_clicked = True
+            self.die_button.disabled = True
+            await interaction.response.edit_message(
+                view=self)
+            
+            die_roll: int = random.randint(1, 6)
+            starting_bonus: int = self.starting_bonus_awards[die_roll]
+            message: str = (
+                f"You rolled a {die_roll} and won {starting_bonus} {coins}!\n"
+                "You may now play on the slot machines. Good luck!")
+            await interaction.followup.send(message)
+            del message
+            await add_block_transaction(
+                blockchain=blockchain,
+                sender=CASINO_HOUSE_ID,
+                receiver=self.invoker,
+                amount=starting_bonus,
+                method="starting_bonus"
+            )
+            self.save_data.save("starting_bonus_received", "True")
+            last_block_timestamp: float | None = get_last_block_timestamp()
+            if last_block_timestamp is None:
+                print("ERROR: Could not get last block timestamp.")
+                await terminate_bot()
+            log.log(
+                line=(f"{self.invoker} ({self.invoker_id}) won "
+                    f"{starting_bonus} {coins} from the starting bonus."),
+                timestamp=last_block_timestamp)
+            self.stop()
+
+    async def on_timeout(self) -> None:
+        self.die_button.disabled = True
+        message = ("You took too long to roll the die. When you're "
+                    "ready, you may run the command again.")
+        await self.interaction.edit_original_response(content=message,
+                                                    view=self)
+# endregion
+
+# region Slots buttons
+class SlotMachineView(View):
+    def __init__(self,
+                invoker: User | Member,
+                slot_machine: SlotMachine,
+                interaction: Interaction) -> None:
+        super().__init__(timeout=3)
+        self.current_reel_number: int = 1
+        self.reels_stopped: int = 0
+        self.invoker: User | Member = invoker
+        self.invoker_id: int = invoker.id
+        self.message: str = ""
+        self.slot_machine: SlotMachine = slot_machine
+        self.awards: (
+            Dict[str, Dict[str, int | float]]) = cast(
+                Dict[str, Dict[str, int | float]],
+            self.slot_machine.configuration["awards"])
+        self.interaction: Interaction = interaction
+        blank_emoji: PartialEmoji = PartialEmoji.from_str("🔳")
+        self.reels_results: Dict[str, Dict[str, int | float | PartialEmoji]] = (
+            {
+                "1": {"emoji": blank_emoji},
+                "2": {"emoji": blank_emoji},
+                "3": {"emoji": blank_emoji}
+            }
+        )
+        self.button_clicked: bool = False
+        self.stop_reel_buttons: List[Button[View]] = []
+        # Create stop reel buttons
+        for i in range(1, 4):
+            button: Button[View] = Button(
+                disabled=False,
+                label="STOP",
+                custom_id=f"stop_reel_{i}"
+            )
+            button.callback = lambda interaction, button_id=f"stop_reel_{i}": (
+                self.on_button_click(interaction, button_id)
+            )
+            self.stop_reel_buttons.append(button)
+            self.add_item(button)
+
+    async def invoke_reel_stop(self, button_id: str) -> None:
+        """
+        Stops a reel and edits the message with the result.
+        """
+        # reel_number: int = self.current_reel_number
+        # Result that will be added to reels_results
+        reel_result: Dict[str, int | float | PartialEmoji]
+        # Map button IDs to reel key names
+        reel_stop_button_map: Dict[str, str] = {
+            "stop_reel_1": "1",
+            "stop_reel_2": "2",
+            "stop_reel_3": "3"
+        }
+        # Pick reel based on button ID
+        reel_number: str = reel_stop_button_map[button_id]
+        reel_name = str(reel_number)
+        # Stop the reel and get the symbol
+        symbol: str = self.slot_machine.stop_reel(reel=reel_name)
+        # Get the emoji for the symbol (using the awards dictionary)
+        symbol_emoji_name: str = cast(str, self.awards[symbol]["emoji_name"])
+        symbol_emoji_id: int = cast(int, self.awards[symbol]["emoji_id"])
+        # Create a PartialEmoji object (for the message)
+        symbol_emoji: PartialEmoji = PartialEmoji(name=symbol_emoji_name,
+                                                id=symbol_emoji_id)
+        # Copy keys and values from the appropriate sub-dictionary in awards
+        reel_result = {**self.awards[symbol]}
+        # Add the emoji to the result
+        reel_result["emoji"] = symbol_emoji
+        self.reels_results[reel_number] = reel_result
+        self.reels_stopped += 1
+        reel_status: str = (
+            "The reels are spinning..." if self.reels_stopped < 3 else
+            "The reels have stopped.")
+        empty_space: LiteralString = "\N{HANGUL FILLER}" * 11
+        self.message = (f"### {Coin} Slot Machine\n"
+                        f"{reel_status}\n"
+                        "\n"
+                        f"{self.reels_results['1']['emoji']}\t\t"
+                        f"{self.reels_results['2']['emoji']}\t\t"
+                        f"{self.reels_results['3']['emoji']}"
+                        f"\n{empty_space}")
+        
+    # stop_button_callback
+    async def on_button_click(self,
+                            interaction: Interaction,
+                            button_id: str) -> None:
+        """
+        Events to occur when a stop reel button is clicked.
+        """
+        clicker_id: int = interaction.user.id
+        if clicker_id != self.invoker_id:
+            await interaction.response.send_message(
+                "Someone else is playing this slot machine. Please take "
+                "another one.", ephemeral=True)
+        else:
+            self.button_clicked = True
+            if self.timeout is not None and self.reels_stopped != 3:
+                # Increase the timeout
+                self.timeout += 1
+            # Turn the clickable button into a disabled button,
+            # stop the corresponding reel and edit the message with the result
+            self.stop_reel_buttons[int(button_id[-1]) - 1].disabled = True
+            print(f"Button clicked: {button_id}")
+            # The self.halt_reel() method updates self.message
+            await self.invoke_reel_stop(button_id=button_id)
+            await interaction.response.edit_message(content=self.message,
+                                                    view=self)
+            if self.reels_stopped == 3:
+                self.stop()
+
+    async def on_timeout(self) -> None:
+        """
+        Events to occur when the view times out.
+        """
+        if self.reels_stopped == 3:
+            return
+        
+        # IMPROVE Add per-reel consecutive timers
+        # (so that the invoker can click button 2 and 3 after button 1's
+        # timer has run out)
+        # Disable all buttons
+        unclicked_buttons: List[str] = []
+        for button in self.stop_reel_buttons:
+            if not button.disabled:
+                button_id: str = cast(str, button.custom_id)
+                unclicked_buttons.append(button_id)
+                button.disabled = True
+            
+        # Stop the remaining reels
+        for button_id in unclicked_buttons:
+            await self.invoke_reel_stop(button_id=button_id)
+            await self.interaction.edit_original_response(
+                content=self.message,
+                view=self)
+            if self.reels_stopped < 3:
+                await asyncio.sleep(1)
+        # The self.halt_reel() method stops the view if
+        # all reels are stopped
+# endregion
+
 # region Flask funcs
 
 
@@ -965,7 +1173,6 @@ def load_guild_ids(file_name: str = "data/guild_ids.txt") -> List[int]:
     print("Guild IDs loaded.")
     return guild_ids
 # endregion
-
 
 # region Flask
 if __name__ == "__main__":
@@ -1442,77 +1649,6 @@ async def pull(interaction: Interaction, wager: int | None = None) -> None:
                         "bonus.\n"
                         "The possible outcomes are displayed below.\n\n"
                         f"{starting_bonus_table}")
-# endregion
-        
-        # region Bonus die button
-        class StartingBonusView(View):
-            def __init__(self,
-                        invoker: User | Member,
-                        starting_bonus_awards: Dict[int, int],
-                        save_data: UserSaveData,
-                        log: Log,
-                        interaction: Interaction) -> None:
-                super().__init__(timeout=5)
-                self.invoker: User | Member = invoker
-                self.invoker_id: int = invoker.id
-                self.starting_bonus_awards: Dict[int, int] = starting_bonus_awards
-                self.save_data: UserSaveData = save_data
-                self.log: Log = log
-                self.interaction: Interaction = interaction
-                self.button_clicked: bool = False
-                self.die_button: Button[View] = Button(
-                    disabled=False,
-                    emoji="🎲",
-                    custom_id="starting_bonus_die")
-                self.die_button.callback = self.on_button_click
-                self.add_item(self.die_button)
-
-            async def on_button_click(self, interaction: Interaction) -> None:
-                clicker_id: int = interaction.user.id
-                if clicker_id != self.invoker_id:
-                    await interaction.response.send_message(
-                        "You cannot role the die for someone else!", ephemeral=True)
-                else:
-                    self.button_clicked = True
-                    self.die_button.disabled = True
-                    await interaction.response.edit_message(
-                        view=self)
-                    # await interaction.response.send_message(
-                    #     "You clicked the button!")
-
-                    die_roll: int = random.randint(1, 6)
-                    starting_bonus: int = self.starting_bonus_awards[die_roll]
-                    message: str = (
-                        f"You rolled a {die_roll} and won {starting_bonus} {coins}!\n"
-                        "You may now play on the slot machines. Good luck!")
-                    await interaction.followup.send(message)
-                    del message
-                    await add_block_transaction(
-                        blockchain=blockchain,
-                        sender=CASINO_HOUSE_ID,
-                        receiver=self.invoker,
-                        amount=starting_bonus,
-                        method="starting_bonus"
-                    )
-                    self.save_data.save("starting_bonus_received", "True")
-                    last_block_timestamp: float | None = get_last_block_timestamp()
-                    if last_block_timestamp is None:
-                        print("ERROR: Could not get last block timestamp.")
-                        await terminate_bot()
-                    log.log(
-                        line=(f"{self.invoker} ({self.invoker_id}) won "
-                            f"{starting_bonus} {coins} from the starting bonus."),
-                        timestamp=last_block_timestamp)
-                    self.stop()
-
-            # die_button_timeout_callback
-            async def on_timeout(self) -> None:
-                self.die_button.disabled = True
-                message = ("You took too long to roll the die. When you're "
-                           "ready, you may run the command again.")
-                await self.interaction.edit_original_response(content=message,
-                                                            view=self)
-        # endregion
 
         view = StartingBonusView(invoker=user, starting_bonus_awards=starting_bonus_awards,
                                  save_data=save_data, log=log, interaction=interaction)
@@ -1520,161 +1656,7 @@ async def pull(interaction: Interaction, wager: int | None = None) -> None:
     else:
         print("Starting bonus already received.")
 
-    # region Slots buttons
-    class SlotMachineView(View):
-        def __init__(self,
-                    invoker: User | Member,
-                    slot_machine: SlotMachine,
-                    interaction: Interaction) -> None:
-            super().__init__(timeout=3)
-            self.current_reel_number: int = 1
-            self.reels_stopped: int = 0
-            self.invoker: User | Member = invoker
-            self.invoker_id: int = invoker.id
-            # self.wager: int = wager
-            self.message: str = ""
-            self.slot_machine: SlotMachine = slot_machine
-            self.awards: (
-                Dict[str, Dict[str, int | float]]) = cast(
-                    Dict[str, Dict[str, int | float]],
-                self.slot_machine.configuration["awards"])
-            self.interaction: Interaction = interaction
-            blank_emoji: PartialEmoji = PartialEmoji.from_str("🔳")
-            self.reels_results: Dict[str, Dict[str, int | float | PartialEmoji]] = (
-                {
-                    "1": {"emoji": blank_emoji},
-                    "2": {"emoji": blank_emoji},
-                    "3": {"emoji": blank_emoji}
-                }
-            )
-            # self.interaction: Interaction = interaction
-            self.button_clicked: bool = False
-            self.stop_reel_buttons: List[Button[View]] = []
-            # Create stop reel buttons
-            # (stop_button_1,
-            # stop_button_2,
-            # stop_button_3)
-            for i in range(1, 4):
-                button: Button[View] = Button(
-                    disabled=False,
-                    label="STOP",
-                    custom_id=f"stop_reel_{i}"
-                )
-                button.callback = lambda interaction, button_id=f"stop_reel_{i}": (
-                    self.on_button_click(interaction, button_id)
-                )
-                self.stop_reel_buttons.append(button)
-                self.add_item(button)
 
-        # stop_reel
-        async def invoke_reel_stop(self, button_id: str) -> None:
-            """
-            Stops a reel and edits the message with the result.
-            """
-            # reel_number: int = self.current_reel_number
-            # Result that will be added to reels_results
-            reel_result: Dict[str, int | float | PartialEmoji]
-            # Map button IDs to reel key names
-            reel_stop_button_map: Dict[str, str] = {
-                "stop_reel_1": "1",
-                "stop_reel_2": "2",
-                "stop_reel_3": "3"
-            }
-            # Pick reel based on button ID
-            reel_number: str = reel_stop_button_map[button_id]
-            reel_name = str(reel_number)
-            # Stop the reel and get the symbol
-            symbol: str = self.slot_machine.stop_reel(reel=reel_name)
-            # Get the emoji for the symbol (using the awards dictionary)
-            symbol_emoji_name: str = cast(str, self.awards[symbol]["emoji_name"])
-            symbol_emoji_id: int = cast(int, self.awards[symbol]["emoji_id"])
-            # Create a PartialEmoji object (for the message)
-            symbol_emoji: PartialEmoji = PartialEmoji(name=symbol_emoji_name,
-                                                    id=symbol_emoji_id)
-            # Copy keys and values from the appropriate sub-dictionary in awards
-            reel_result = {**self.awards[symbol]}
-            # Add the emoji to the result
-            reel_result["emoji"] = symbol_emoji
-            self.reels_results[reel_number] = reel_result
-            self.reels_stopped += 1
-            reel_status: str = (
-                "The reels are spinning..." if self.reels_stopped < 3 else
-                "The reels have stopped.")
-            empty_space: LiteralString = "\N{HANGUL FILLER}" * 11
-            self.message = (f"### {Coin} Slot Machine\n"
-                            f"{reel_status}\n"
-                            "\n"
-                            f"{self.reels_results['1']['emoji']}\t\t"
-                            f"{self.reels_results['2']['emoji']}\t\t"
-                            f"{self.reels_results['3']['emoji']}"
-                            f"\n{empty_space}")
-            
-        # stop_button_callback
-        async def on_button_click(self,
-                                interaction: Interaction,
-                                button_id: str) -> None:
-            """
-            Events to occur when a stop reel button is clicked.
-            """
-            clicker_id: int = interaction.user.id
-            if clicker_id != self.invoker_id:
-                await interaction.response.send_message(
-                    "Someone else is playing this slot machine. Please take "
-                    "another one.", ephemeral=True)
-            else:
-                self.button_clicked = True
-                if self.timeout is not None and self.reels_stopped != 3:
-                    # Increase the timeout
-                    self.timeout += 1
-                # Turn the clickable button into a disabled button,
-                # stop the corresponding reel and edit the message with the result
-                self.stop_reel_buttons[int(button_id[-1]) - 1].disabled = True
-                print(f"Button clicked: {button_id}")
-                # The self.halt_reel() method updates self.message
-                await self.invoke_reel_stop(button_id=button_id)
-                await interaction.response.edit_message(content=self.message,
-                                                        view=self)
-                if self.reels_stopped == 3:
-                    self.stop()
-
-        # async def on_timeout_callback() -> None:
-        async def on_timeout(self) -> None:
-            """
-            Events to occur when the view times out.
-            """
-            if self.reels_stopped == 3:
-                return
-            
-            # IMPROVE Add per-reel consecutive timers
-            # (so that the invoker can click button 2 and 3 after button 1's
-            # timer has run out)
-            # Disable all buttons
-            unclicked_buttons: List[str] = []
-            for button in self.stop_reel_buttons:
-                if not button.disabled:
-                    button_id: str = cast(str, button.custom_id)
-                    unclicked_buttons.append(button_id)
-                    # stop_button_1.disabled = True
-                    button.disabled = True
-                
-            # Stop the remaining reels
-            for button_id in unclicked_buttons:
-                # await stop_reel()
-                await self.invoke_reel_stop(button_id=button_id)
-                await self.interaction.edit_original_response(
-                    content=self.message,
-                    view=self)
-                if self.reels_stopped < 3:
-                    await asyncio.sleep(1)
-            # The self.halt_reel() method stops the view if
-            # all reels are stopped
-    # endregion
-
-    # region Slots (cont.)
-    
-    """
-    stop_button_1: Button[View] = stop_button_1
-    """
     view = SlotMachineView(invoker=user,
                            slot_machine=slot_machine,
                            interaction=interaction)
@@ -1691,21 +1673,6 @@ async def pull(interaction: Interaction, wager: int | None = None) -> None:
     if timed_out:
         # Wait until all reels have stopped
         await asyncio.sleep(7)
-    
-    """
-    print("Creating a new button view...")
-    stop_button_2: Button[View] = stop_button_1
-    enabled_button_view.add_item(stop_button_2)
-    stop_button_2.callback = stop_button_callback
-    enabled_button_view.on_timeout = on_timeout_callback
-    print("Adding stop_button_2 to the view...")
-    enabled_button_view.add_item(stop_button_2)
-    print("Sending the message...")
-    await interaction.followup.send(message)
-    print("Waiting for the button to be clicked...")
-    timed_out = await enabled_button_view.wait()
-    print("Waiting finished.")
-    """
 
 # endregion
 
