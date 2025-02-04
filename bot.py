@@ -14,7 +14,6 @@ from discord import (Guild, Intents, Interaction, Member, Message, Client,
                      Emoji, PartialEmoji, Role, User, TextChannel, app_commands,
                      utils)
 from discord.ui import View, Button
-from discord.enums import ButtonStyle
 from discord.ext import commands
 from discord.raw_models import RawReactionActionEvent
 from os import environ as os_environ, getenv, makedirs
@@ -23,7 +22,8 @@ from dotenv import load_dotenv
 from hashlib import sha256
 from sys import exit as sys_exit
 from sympy import symbols, Expr, Add, Mul, Float, Integer, Rational, simplify
-from typing import Dict, List, LiteralString, NoReturn, TextIO, cast, NamedTuple
+from typing import (
+    Dict, List, LiteralString, NoReturn, TextIO, cast, NamedTuple, Literal)
 # endregion
 
 # region Named tuples
@@ -61,7 +61,6 @@ class ChannelCheckpoints:
                  channel_id: int,
                  number: int = 10) -> None:
         self.number: int = number
-        # TODO Add a file in directories that state the names of guilds/channels
         self.guild_name: str = guild_name
         self.guild_id: int = guild_id
         self.channel_name: str = channel_name
@@ -270,7 +269,7 @@ class BotConfiguration:
                 "COIN_EMOJI_ID": "COIN_EMOJI_ID",
                 "CASINO_HOUSE_ID": "CASINO_HOUSE_ID",
             }
-            # TODO add reels env vars
+            # TODO Add reels env vars
 
             for env_var, config_key in env_vars.items():
                 if os_environ.get(env_var):
@@ -281,16 +280,17 @@ class BotConfiguration:
 
 # endregion
 
-# region Slot machine
 class SlotMachine:
+    # region Slot config
     def __init__(self, file_name: str = "data/slot_machine.json") -> None:
         self.file_name: str = file_name
         self.configuration: (
             Dict[str,
                  Dict[str, Dict[str, int | float]] | Dict[str, int] | int]) = (
-                self.load_config())
+            self.load_config())
         self._reels: Dict[str, Dict[str, int]] = self.load_reels()
-        # self.emoji_ids: Dict[str, int] = cast(Dict[str, int], self.configuration["emoji_ids"])
+        # self.emoji_ids: Dict[str, int] = cast(Dict[str, int],
+        #                                       self.configuration["emoji_ids"])
         self._probabilities: Dict[str, float] = (
             self.calculate_all_probabilities())
         self._jackpot: int = self.load_jackpot()
@@ -316,11 +316,11 @@ class SlotMachine:
     @property
     def probabilities(self) -> Dict[str, float]:
         return self.calculate_all_probabilities()
-    
+
     @property
     def jackpot(self) -> int:
         return self._jackpot
-    
+
     @jackpot.setter
     def jackpot(self, value: int) -> None:
         self._jackpot = value
@@ -329,9 +329,10 @@ class SlotMachine:
 
     def load_jackpot(self) -> int:
         self.configuration = self.load_config()
-        awards: Dict[str, Dict[str, int | float]] = cast(Dict[str, Dict[str, int | float]], self.configuration["awards"])
-        jackpot_seed: int = cast(int, awards["jackpot"]["coin_profit"])
-        jackpot_size: int = cast(int, awards["jackpot"]["coin_profit"])
+        events: Dict[str, Dict[str, int | float]] = cast(
+            Dict[str, Dict[str, int | float]], self.configuration["events"])
+        jackpot_seed: int = cast(int, events["jackpot"]["fixed_amount"])
+        jackpot_size: int = cast(int, events["jackpot"]["fixed_amount"])
         if jackpot_size < jackpot_seed:
             jackpot: int = jackpot_seed
         else:
@@ -352,64 +353,9 @@ class SlotMachine:
             Dict[str, int] |
             int |
             float
-        ] = {
-            "awards": {
-                "lose_wager": {
-                    "emoji_id": 0,
-                    "emoji_name": "",
-                    "coin_profit": 0,
-                    "wager_multiplier": -1.0
-                },
-                "small_win": {
-                    "emoji_id": 0,
-                    "emoji_name": "",
-                    "coin_profit": 1,
-                    "wager_multiplier": 1.0
-                },
-                "medium_win": {
-                    "emoji_id": 0,
-                    "emoji_name": "",
-                    "coin_profit": 0,
-                    "wager_multiplier": 5.0
-                },
-                "high_win": {
-                    "emoji_id": 0,
-                    "emoji_name": "",
-                    "coin_profit": 0,
-                    "wager_multiplier": 500.0
-                },
-                "jackpot": {
-                    "emoji_id": 0,
-                    "emoji_name": "",
-                    "coin_profit": 2000,
-                    "wager_multiplier": 1.0
-                }
-            },
-            "reels": {
-                "1": {
-                    "lose_wager": 1,
-                    "small_win": 3,
-                    "medium_win": 7,
-                    "high_win": 2,
-                    "jackpot": 1
-                },
-                "2": {
-                    "lose_wager": 1,
-                    "small_win": 3,
-                    "medium_win": 7,
-                    "high_win": 2,
-                    "jackpot": 1
-                },
-                "3": {
-                    "lose_wager": 1,
-                    "small_win": 3,
-                    "medium_win": 7,
-                    "high_win": 2,
-                    "jackpot": 1
-                }
-            },
-            "jackpot_amount": 0
-        }
+            # jackpot_amount will automatically be set to the jackpot event's
+            # fixed_amount value if the latter is higher than the former
+        ] = {}
         # Save the configuration to the file
         with open(self.file_name, "w") as file:
             file.write(json.dumps(configuration))
@@ -424,7 +370,7 @@ class SlotMachine:
         with open(self.file_name, "r") as file:
             configuration: (Dict[
                 str, Dict[str, Dict[str, int | float]] | Dict[str, int] | int
-                ]) = json.loads(file.read())
+            ]) = json.loads(file.read())
             return configuration
 
     def save_config(self) -> None:
@@ -432,17 +378,27 @@ class SlotMachine:
         with open(self.file_name, "w") as file:
             file.write(json.dumps(self.configuration))
         # print("Slot machine configuration saved.")
+    # endregion
 
-    def calculate_probability(self, symbol: str) -> float:
+    # region Slot probability
+
+    def calculate_reel_symbol_probability(self,
+                                          reel: str,
+                                          symbol: str) -> float:
+        number_of_symbol_on_reel: int = self.reels[reel][symbol]
+        total_reel_symbols: int = sum(self.reels[reel].values())
+        if total_reel_symbols != 0 and number_of_symbol_on_reel != 0:
+            probability_for_reel: float = (
+                number_of_symbol_on_reel / total_reel_symbols)
+        else:
+            probability_for_reel = 0.0
+        return probability_for_reel
+
+    def calculate_event_probability(self, symbol: str) -> float:
         overall_probability: float = 1.0
         for reel in self.reels:
-            number_of_symbol_on_reel: int = self.reels[reel][symbol]
-            total_reel_symbols: int = sum(self.reels[reel].values())
-            if total_reel_symbols != 0 and number_of_symbol_on_reel != 0:
-                probability_for_reel: float = (
-                    number_of_symbol_on_reel / total_reel_symbols)
-            else:
-                probability_for_reel = 0.0
+            probability_for_reel: float = (
+                self.calculate_reel_symbol_probability(reel, symbol))
             overall_probability *= probability_for_reel
         return overall_probability
 
@@ -458,7 +414,7 @@ class SlotMachine:
         symbols: List[str] = [symbol for symbol in self.reels["1"]]
         for symbol in symbols:
             symbols_match_probability: float = (
-                self.calculate_probability(symbol))
+                self.calculate_event_probability(symbol))
             symbols_no_match_probability: float = 1 - symbols_match_probability
             standard_lose_probability *= symbols_no_match_probability
             if symbol != "lose_wager":
@@ -469,7 +425,7 @@ class SlotMachine:
         self.reels = self.load_reels()
         probabilities: Dict[str, float] = {}
         for symbol in self.reels["1"]:
-            probability: float = self.calculate_probability(symbol)
+            probability: float = self.calculate_event_probability(symbol)
             probabilities[symbol] = probability
         any_lose_probability: float
         standard_lose_probability: float
@@ -479,148 +435,219 @@ class SlotMachine:
         probabilities["any_lose"] = any_lose_probability
         probabilities["win"] = 1 - any_lose_probability
         return probabilities
+    # endregion
 
+    # region Slot count
     def count_symbols(self, reel: str | None = None) -> int:
         if reel is None:
             return sum([sum(reel.values()) for reel in self.reels.values()])
         else:
             return sum(self.reels[reel].values())
+    # endregion
 
-    # TODO Add TOS
-    # TODO Make it don't give back the 1 coin standard fee on win
-        # TODO Calculate EV
-    def calculate_total_return(self) -> Expr:
-        # When the player pays the 1 coin jackpot fee by setting their wager
-        # to a value higher than 1, they are eligible for and contributing to 
-        # the jackpot.
-        # Main game is the game with the jackpot excluded.
-        # Main game wager = wager - jackpot_fee
-        # Jackpot wager = wager
-        # Players keep their main game wager in all win events
-        # (including the jackpot fail event, when the player
-        # didn't pay the jackpot fee).
-        # Players keep the jackpot fee in the jackpot win event.
+    # region Slot total return
+    def calculate_expected_total_return_or_profit(self,
+                                                  jackpot_mode: bool,
+                                                  return_or_profit: (
+                                                      Literal[
+                                                          "return",
+                                                          "profit"])) -> Expr:
+        # From the UX perspective, there is only the wager, which can be 1 or
+        # anything above. However,
+        # each spin costs 1 coin. The player will not keep this coin in any
+        # win event.
+        # If the player sets their wager to 2 or more, one of those coins is
+        # the jackpot fee. It goes directly to the jackpot. The player will not
+        # keep this coin in any win event.
+        # If the player does not strike a combo, they win nothing, so the net
+        # return for that spin is either -1 (the spin fee) or -2 (the spin fee
+        # and the jackpot fee).
+
+        # Jackpot mode is when the player pays the 1 coin jackpot fee by setting
+        # their wager to a value higher than 1. In this mode, the player is
+        # eligible for and contributing to the jackpot.
+        # If they player gets the jackpot combo but didn't pay the jackpot fee,
+        # it's equivalent to getting a standard lose (no combo).
+
         self.configuration = self.load_config()
         probabilities: Dict[str, float] = self.calculate_all_probabilities()
-        awards: Dict[str, Dict[str, int | float]] = cast(
-            Dict[str, Dict[str, int | float]], self.configuration["awards"])
+        events: Dict[str, Dict[str, int | float]] = cast(
+            Dict[str, Dict[str, int | float]], self.configuration["events"])
         W: Expr = symbols('W')  # wager
-        total_return: Expr = Integer(0)
+        event_return: Expr = Integer(0)
         event_total_return: Expr = Integer(0)
-        for f in range(-1, 1):
-            jackpot_fee_int: int = f
-            jackpot_fee: Expr = Integer(jackpot_fee_int)
-            print(f"Jackpot fee loss: {jackpot_fee_int}")
-            for event in awards:
-                print(f"----\nEvent: {event}")
-                p_event_float: float = probabilities[event]
-                if p_event_float == 0.0:
-                    continue
-                p_event: Expr = Float(p_event_float)
-                amount_int: int
-                amount: Expr
-                wager_multiplier_float: float
-                wager_multiplier: Expr
-                if event == "standard_lose":
-                    if jackpot_fee_int == -1:
-                        # If the player pays the 1 coin jackpot fee and loses
-                        # He ends up with his wager minus 1 coin minus
-                        # the jackpot fee
-                        amount = Integer(-1)
-                        print(f"Amount: {amount}")
-                        wager_multiplier_float = 1.0
-                        wager_multiplier = Float(wager_multiplier_float)
-                        event_total_return = (
-                            Add(Mul(p_event, Add(Mul(W, wager_multiplier), amount, jackpot_fee)))
-                        )
-                        print(f"Event total return: {event_total_return} "
-                              "(probability * "
-                              "(wager * multiplier - amount - jackpot_fee))")
-                    else:
-                        # If the player doesn't pay the 1 coin jackpot fee and
-                        # loses
-                        # He ends up with his wager minus 1 coin
-                        amount = Integer(-1)
-                        print(f"Amount: {amount}")
-                        wager_multiplier_float = 1.0
-                        wager_multiplier = Float(wager_multiplier_float)
-                        event_total_return = (
-                            Add(Mul(p_event, Add(Mul(W, wager_multiplier), amount)))
-                        )
-                        print(f"Event total return: {event_total_return} "
-                              "(probability * (wager * multiplier - amount))")
-                else:
-                    amount_int: int = cast(int, awards[event]["coin_profit"])
-                    amount = Integer(amount_int)
-                    wager_multiplier_float = awards[event]["wager_multiplier"]
-                    wager_multiplier = Float(wager_multiplier_float)
-                    print(f"Multiplier: {wager_multiplier}")
-                    jackpot_average: float
-                    p_event = Float(probabilities[event])
-                    print(f"Event probability: {p_event}")
-                    if event == "jackpot":
-                        if f == -1:
-                            # If the player pays the 1 coin jackpot fee
-                            # and wins the jackpot
-                            # He ends up with his wager plus jackpot
-                            jackpot_seed_int: int = amount_int
-                            jackpot_average: float = (
-                                self.calculate_average_jackpot(
-                                    seed=jackpot_seed_int))
-                            print(f"Jackpot average: {jackpot_average}")
-                            jackpot_seed = Integer(jackpot_seed_int)
-                            print(f"Jackpot seed: {jackpot_seed}")
-                            event_total_return = (
-                                Add(Mul(p_event, jackpot_average), W))
-                            print(f"Event total return: {event_total_return} "
-                                "((probability * jackpot_average) + wager)")
-                        else:
-                            # If the player doesn't pay the 1 coin jackpot fee
-                            # and "wins"
-                            jackpot_award_int: int = 0
-                            jackpot_award = Integer(jackpot_award_int)
-                            event_total_return = (
-                                Add(Mul(p_event, jackpot_award)))
-                            print(f"Event total return: {event_total_return} "
-                                "((probability * 0)")
-                    else:
-                        print(f"Amount: {amount}")
-                        if f == -1:
-                            # If the player pays the 1 coin jackpot fee and
-                            # wins a non-jackpot award
-                            # He ends up with his wager plus award minus
-                            # the jackpot fee
-                            event_total_return = (
-                                Mul(p_event,
-                                    Add(
-                                        Mul(W, wager_multiplier),
-                                        amount,
-                                        jackpot_fee)))
-                            print(f"Event total return: {event_total_return} "
-                                "(probability * "
-                                "(wager * multiplier) + amount - jackpot_fee)")
-                        else:
-                            # If the player doesn't pay the 1 coin jackpot fee and
-                            # wins a non-jackpot award
-                            # He ends up with his wager plus award
-                            event_total_return: Expr = (
-                                Mul(
-                                    p_event,
-                                    Add(Mul(W, wager_multiplier), amount)))
-                            print(f"Event total return: {event_total_return} "
-                                  "(probability * "
-                                  "(wager * multiplier) + amount)")
-                total_return = Add(total_return, event_total_return)
-        print(f"Total return: {total_return}")
-        # total_return_expanded: Expr = cast(Expr, expand(total_return))
-        # print(f"Total return expanded: {total_return_expanded}")
+        expected_total_return_contribution: Expr = Integer(0)
+        expected_profit_contribution: Expr = Integer(0)
+        expected_total_return: Expr = Integer(0)
+        expected_profit: Expr = Integer(0)
+        main_fee_int: int = 1
+        main_fee: Expr = Integer(main_fee_int)
+        jackpot_fee_int: int = 1
+        jackpot_fee: Expr = Integer(jackpot_fee_int)
+        print(f"Main fee: {main_fee_int}")
+        if jackpot_mode is True:
+            print("----------JACKPOT MODE----------")
+            print(f"Jackpot fee: {jackpot_fee_int}")
+        else:
+            print("----------STANDARD MODE----------")
+        for event in events:
+            print(f"----\nEVENT: {event}")
+            # Get the probability of this event
+            p_event_float: float = probabilities[event]
+            p_event = Float(p_event_float)
+            print(f"Event probability: {p_event_float}")
+            if p_event_float == 0.0:
+                continue
+            # Initialize variables
+            fixed_amount_int: int = 0
+            fixed_amount: Expr = Integer(fixed_amount_int)
+            wager_multiplier_float: float
+            wager_multiplier: Expr
+            if ((event == "standard_lose") or
+                    (event == "jackpot" and jackpot_mode is False)):
+                # If the player doesn't pay the 1 coin jackpot fee and
+                # loses,
+                # he ends up with 0 coins (he only paid the 1 coin spin fee and
+                # didn't win anything)
+                #
+                # If the player pays the 1 coin jackpot fee and loses,
+                # he ends up with his wager minus the standard fee minus the
+                # jackpot fee
+                #
+                # If the player doesn't pay the 1 coin jackpot fee
+                # and gets the jackpot combo,
+                # he ends up with 0 coins (he only paid the
+                # 1 coin spin fee and since he didn't pay the
+                # jackpot fee, he doesn't get the jackpot)
+                # This is equivalent to a standard lose (no combo)
+                wager_multiplier_float = 1.0
+                wager_multiplier = Float(wager_multiplier_float)
+                fixed_amount_int = 0
+            elif event == "jackpot" and jackpot_mode is True:
+                # If the player pays the 1 coin jackpot fee
+                # and wins the jackpot,
+                # he ends up with his wager minus the standard fee and the
+                # jackpot fee, plus the jackpot
+                # Variables
+                fixed_amount_int = cast(int, events[event]["fixed_amount"])
+                jackpot_seed: int = fixed_amount_int
+                print(f"Jackpot seed: {jackpot_seed}")
+                jackpot_average: float = (
+                    self.calculate_average_jackpot(
+                        seed=jackpot_seed))
+                print(f"Jackpot average: {jackpot_average}")
+                # I expect wager multiplier to be 1.0 for the jackpot,
+                # but let's include it in the calculation anyway,
+                # in case someone wants to use a different value
+                wager_multiplier_float = events[event]["wager_multiplier"]
+                wager_multiplier = Float(wager_multiplier_float)
+                # Calculations
+                event_total_return = Add(
+                    Mul(W, wager_multiplier),
+                    jackpot_average,
+                    -main_fee,
+                    -jackpot_fee)
+                event_return = Add(
+                    event_total_return,
+                    -W)
+                expected_total_return_contribution = (
+                    Mul(p_event, event_total_return))
+                expected_profit_contribution = (
+                    Mul(p_event, event_return))
+                print(f"Event total return: {event_total_return} "
+                      "[(w * k) + jackpot - main_fee - jackpot_fee(")
+                print(f"Event return: {event_return} "
+                      "[total return - w]")
+                print("Expected total return contribution: "
+                      f"{expected_total_return_contribution}")
+                print("Expected profit contribution: "
+                      f"{expected_profit_contribution}")
+                expected_total_return = Add(
+                    expected_total_return,
+                    expected_total_return_contribution)
+                expected_profit = Add(
+                    expected_profit,
+                    expected_profit_contribution)
+                continue
+            else:
+                # As of typing, this includes all remaining win events
+                # plus the lose_wager event
+                #
+                # Variables
+                fixed_amount_int = cast(int, events[event]["fixed_amount"])
+                fixed_amount = Integer(fixed_amount_int)
+                wager_multiplier_float = events[event]["wager_multiplier"]
+                wager_multiplier = Float(wager_multiplier_float)
+                print(f"Multiplier (k): {wager_multiplier_float}")
+                print(f"Fixed amount (x): {fixed_amount_int}")
+            # Calculations
+            #
+            # If the player doesn't pay the 1 coin jackpot fee and
+            # wins a non-jackpot award
+            # He ends up with his wager plus award
+            #
+            # The gross return amount the player gets back (i.e. including
+            # the wager)
+            # The net amount the player gets back (excluding the wager)
+            if jackpot_mode is True:
+                # If the player pays the 1 coin jackpot fee and
+                # wins a non-jackpot award
+                # He ends up with his wager plus award minus
+                # the jackpot fee
+                #
+                # Subtract the jackpot fee
+                event_total_return = Add(
+                    Mul(W, wager_multiplier),
+                    fixed_amount,
+                    -main_fee,
+                    -jackpot_fee)
+                print(f"Event total return: {event_total_return} "
+                      "[(w * k) + x - main_fee - jackpot_fee]")
+            else:
+                event_total_return = Add(
+                    Mul(W, wager_multiplier),
+                    fixed_amount,
+                    -main_fee)
+                print(f"Event total return: {event_total_return} "
+                      "[(w * k) + x - main_fee]")
+            event_return = Add(event_total_return, -W)
+            print(f"Event return: {event_return} "
+                  "[total return - w]")
+            # This event's contribution to
+            # the average total return over many plays
+            expected_total_return_contribution = (
+                Mul(p_event, event_total_return))
+            # This event's contribution to
+            # the average profit over many plays
+            expected_profit_contribution = (
+                Mul(p_event, event_return))
+            print("Expected total return contribution: "
+                  f"{expected_total_return_contribution}")
+            print("Expected profit contribution: "
+                  f"{expected_profit_contribution}")
+            expected_total_return = Add(
+                expected_total_return,
+                expected_total_return_contribution)
+            expected_profit = Add(
+                expected_profit,
+                expected_profit_contribution)
+        print(f"Expected total return: {expected_total_return}")
+        print(f"Expected profit: {expected_profit}")
+        # total_return_expanded: Expr = cast(Expr, expand(expected_total_return))
+        # print(f"Expected total return expanded: "
+        #       f"{expected_total_return_expanded}")
 
-        # coefficient = total_return.coeff(W, 1)
-        # constant = total_return.coeff(W, 0)
-        # print(f"Total return coefficient: {coefficient}")
-        # print(f"Total return constant: {constant}")
-        return total_return
+        # coefficient = expected_total_return.coeff(W, 1)
+        # constant = expected_total_return.coeff(W, 0)
+        # print(f"Expected total return coefficient: {coefficient}")
+        # print(f"Expected total return constant: {constant}")
+        if return_or_profit == "return":
+            return expected_total_return
+        elif return_or_profit == "profit":
+            return expected_profit
+    # endregion
 
+    # region Slot avg jackpot
     def calculate_average_jackpot(self, seed: int) -> float:
         # 1 coin is added to the jackpot for every spin
         contribution_per_spin: int = 1
@@ -632,17 +659,27 @@ class SlotMachine:
         mean_jackpot: float = (0 + jackpot_cycle_growth) / 2
         average_jackpot: float = seed + mean_jackpot
         return average_jackpot
+    # endregion
 
+    # region Slot RTP
     def calculate_rtp(self, wager: int):
         # TODO Fix problems reported by Pylance
-        total_return: Expr = self.calculate_total_return()
-        evaluated_total_return: Expr = total_return.subs(symbols('W'), wager)
+        jackpot_fee = 1
+        standard_fee = 1
+        jackpot_fee_paid: bool = wager >= (jackpot_fee + standard_fee)
+        jackpot_mode: bool = True if jackpot_fee_paid else False
+        expected_total_return: Expr = self.calculate_expected_total_return_or_profit(
+            jackpot_mode=jackpot_mode, return_or_profit="return")
+        evaluated_total_return: Expr = expected_total_return.subs(
+            symbols('W'), wager)
         rtp = Rational(evaluated_total_return, wager)
         rtp_decimal = rtp.evalf()
         print(f"RTP: {rtp}")
         print(f"RTP decimal: {rtp_decimal}")
         return rtp_decimal
+    # endregion
 
+    # region Slot stop reel
     """ def pull_lever(self):
         symbols_landed = []
         for reel in self.reels:
@@ -650,54 +687,72 @@ class SlotMachine:
             symbols_landed.append(symbol)
         return symbols_landed """
 
-    def stop_reel(self, reel: str):
-        reel_symbols = list(self.reels[reel].keys())
+    def stop_reel(self, reel: str) -> str:
+        # Create a list with all units of each symbol type on the reel
+        reel_symbols: List[str] = []
+        for symbol in self.reels[reel]:
+            reel_symbols.extend([symbol] * self.reels[reel][symbol])
+        # Randomly select a symbol from the list
         symbol: str = random.choice(reel_symbols)
         return symbol
-    
-    def calculate_award_money(self, wager: int, results: Dict[str, Dict[str, str | int | float | PartialEmoji]]) -> tuple[str, str, int]:
-        # TODO Figure out if aligned with total_return and RTP calculations
-        if not results["1"]["name"] == results["2"]["name"] == results["3"]["name"]:
+
+    # endregion
+
+    # region Slot money
+    def calculate_award_money(self,
+                              wager: int,
+                              results: (
+                                  Dict[str, Dict[
+                                      str,
+                                      str | int | float | PartialEmoji]])
+                              ) -> tuple[str, str, int]:
+
+        if (not (
+            results["1"]["name"] == results["2"]["name"] == results["3"]["name"]
+        )):
             return ("standard_lose", "No win", 0)
-        
+
+        standard_fee = 1
+        jackpot_fee = 1
+        jackpot_fee_paid: bool = wager >= (jackpot_fee + standard_fee)
+        jackpot_mode: bool = True if jackpot_fee_paid else False
         print("results: ", results)
-        award_name: str = cast(str, results["1"]["name"])
-        print(f"award_name: {award_name}")
-        award_multiplier: float = cast(float, results["1"]["wager_multiplier"])
-        award_coin_profit: int = cast(int, results["1"]["coin_profit"])
-        print(f"award_multiplier: {award_multiplier}")
-        print(f"award_coin_profit: {award_coin_profit}")
-        award_name_friendly: str = ""
+        event_name: str = cast(str, results["1"]["name"])
+        print(f"event_name: {event_name}")
+        wager_multiplier: float = cast(float, results["1"]["wager_multiplier"])
+        fixed_amount_payout: int = cast(int, results["1"]["fixed_amount"])
+        print(f"event_multiplier: {wager_multiplier}")
+        print(f"fixed_amount_payout: {fixed_amount_payout}")
+        event_name_friendly: str = ""
         win_money: float = 0.0
         win_money_rounded: int = 0
-        if award_name == "lose_wager":
-            award_name_friendly = "Lose wager"
-            return (award_name, award_name_friendly, 0)
-        elif award_name == "jackpot":
-            if wager == 0:
-                award_name = "jackpot_fail"
-                award_name_friendly = "No Jackpot"
+        if event_name == "lose_wager":
+            event_name_friendly = "Lose wager"
+            return (event_name, event_name_friendly, 0)
+        elif event_name == "jackpot":
+            if jackpot_mode is False:
+                event_name = "jackpot_fail"
+                event_name_friendly = "No Jackpot"
                 win_money_rounded = 0
             else:
-                award_name_friendly = "JACKPOT"
+                event_name_friendly = "JACKPOT"
                 win_money_rounded = self.jackpot
-            return (award_name, award_name_friendly, win_money_rounded)
-                
+            return (event_name, event_name_friendly, win_money_rounded)
         win_money = (
-            (wager * award_multiplier) + award_coin_profit)
+            (wager * wager_multiplier) + fixed_amount_payout)
         win_money_rounded: int = math.floor(win_money)
         # Get rid of ".0"
-        award_multiplier_friendly: str
-        award_multiplier_floored: int = math.floor(award_multiplier)
-        if award_multiplier == award_multiplier_floored:
-            award_multiplier_friendly = str(int(award_multiplier))
+        event_multiplier_friendly: str
+        event_multiplier_floored: int = math.floor(wager_multiplier)
+        if wager_multiplier == event_multiplier_floored:
+            event_multiplier_friendly = str(int(wager_multiplier))
         else:
-            award_multiplier_friendly = str(award_multiplier)
-        award_name_friendly += "{}X".format(award_multiplier_friendly)
-        if award_coin_profit > 0:
-            award_name_friendly = "+{}".format(award_coin_profit)
-        return (award_name, award_name_friendly, win_money_rounded)
-# endregion
+            event_multiplier_friendly = str(wager_multiplier)
+        event_name_friendly += "{}X".format(event_multiplier_friendly)
+        if fixed_amount_payout > 0:
+            event_name_friendly = "+{}".format(fixed_amount_payout)
+        return (event_name, event_name_friendly, win_money_rounded)
+    # endregion
 
 # region UserSaveData
 
@@ -751,13 +806,15 @@ class UserSaveData:
 # endregion
 
 # region Bonus die button
+
+
 class StartingBonusView(View):
     def __init__(self,
-                invoker: User | Member,
-                starting_bonus_awards: Dict[int, int],
-                save_data: UserSaveData,
-                log: Log,
-                interaction: Interaction) -> None:
+                 invoker: User | Member,
+                 starting_bonus_awards: Dict[int, int],
+                 save_data: UserSaveData,
+                 log: Log,
+                 interaction: Interaction) -> None:
         super().__init__(timeout=5)
         self.invoker: User | Member = invoker
         self.invoker_id: int = invoker.id
@@ -783,7 +840,7 @@ class StartingBonusView(View):
             self.die_button.disabled = True
             await interaction.response.edit_message(
                 view=self)
-            
+
             die_roll: int = random.randint(1, 6)
             starting_bonus: int = self.starting_bonus_awards[die_roll]
             message: str = (
@@ -805,26 +862,28 @@ class StartingBonusView(View):
                 await terminate_bot()
             log.log(
                 line=(f"{self.invoker} ({self.invoker_id}) won "
-                    f"{starting_bonus} {coins} from the starting bonus."),
+                      f"{starting_bonus} {coins} from the starting bonus."),
                 timestamp=last_block_timestamp)
             self.stop()
 
     async def on_timeout(self) -> None:
         self.die_button.disabled = True
         message = ("You took too long to roll the die. When you're "
-                    "ready, you may run the command again.")
+                   "ready, you may run the command again.")
         await self.interaction.edit_original_response(content=message,
-                                                    view=self)
+                                                      view=self)
 # endregion
 
 # region Slots buttons
+
+
 class SlotMachineView(View):
     def __init__(self,
-                invoker: User | Member,
-                slot_machine: SlotMachine,
-                wager: int,
-                interaction: Interaction) -> None:
-        super().__init__(timeout=3)
+                 invoker: User | Member,
+                 slot_machine: SlotMachine,
+                 wager: int,
+                 interaction: Interaction) -> None:
+        super().__init__(timeout=20)
         self.current_reel_number: int = 1
         self.reels_stopped: int = 0
         self.invoker: User | Member = invoker
@@ -838,16 +897,16 @@ class SlotMachineView(View):
         self.message_collect_screen: str = (f"-# Coin: {wager}\n"
                                             f"{self.empty_space}\n"
                                             f"{self.empty_space}")
-        self.reels_results_row: str = f"🔳\t\t🔳\t\t🔳"
+        self.message_results_row: str = f"🔳\t\t🔳\t\t🔳"
         self.message: str = (f"{self.message_header}\n"
                              f"{self.message_collect_screen}\n"
                              f"{self.message_reel_status}\n"
                              "\n"
                              f"{self.empty_space}")
-        self.awards: (
+        self.events: (
             Dict[str, Dict[str, int | float]]) = cast(
                 Dict[str, Dict[str, int | float]],
-            self.slot_machine.configuration["awards"])
+            self.slot_machine.configuration["events"])
         self.interaction: Interaction = interaction
         blank_emoji: PartialEmoji = PartialEmoji.from_str("🔳")
         self.reels_results: Dict[
@@ -857,10 +916,10 @@ class SlotMachineView(View):
             {
                 "1":
                 {"emoji": blank_emoji},
-                
+
                 "2":
                 {"emoji": blank_emoji},
-                
+
                 "3":
                 {"emoji": blank_emoji}
             }
@@ -896,17 +955,17 @@ class SlotMachineView(View):
         reel_name = str(reel_number)
         # Stop the reel and get the symbol
         symbol_name: str = self.slot_machine.stop_reel(reel=reel_name)
-        # Get the emoji for the symbol (using the awards dictionary)
-        symbol_emoji_name: str = cast(str, 
-                                      self.awards[symbol_name]["emoji_name"])
-        symbol_emoji_id: int = cast(int, 
-                                    self.awards[symbol_name]["emoji_id"])
+        # Get the emoji for the symbol (using the events dictionary)
+        symbol_emoji_name: str = cast(str,
+                                      self.events[symbol_name]["emoji_name"])
+        symbol_emoji_id: int = cast(int,
+                                    self.events[symbol_name]["emoji_id"])
         # Create a PartialEmoji object (for the message)
         symbol_emoji: PartialEmoji = PartialEmoji(name=symbol_emoji_name,
-                                                id=symbol_emoji_id)
-        # Copy keys and values from the appropriate sub-dictionary in awards
+                                                  id=symbol_emoji_id)
+        # Copy keys and values from the appropriate sub-dictionary in events
         symbol_properties: Dict[str, str | int | float | PartialEmoji]
-        symbol_properties = {**self.awards[symbol_name]}
+        symbol_properties = {**self.events[symbol_name]}
         symbol_properties["name"] = symbol_name
         symbol_properties["emoji"] = symbol_emoji
         # Add the emoji to the result
@@ -927,11 +986,11 @@ class SlotMachineView(View):
                         f"{self.empty_space}\n"
                         f"{self.message_results_row}\n"
                         f"{empty_space}")
-        
+
     # stop_button_callback
     async def on_button_click(self,
-                            interaction: Interaction,
-                            button_id: str) -> None:
+                              interaction: Interaction,
+                              button_id: str) -> None:
         """
         Events to occur when a stop reel button is clicked.
         """
@@ -956,16 +1015,14 @@ class SlotMachineView(View):
             if self.reels_stopped == 3:
                 self.stop()
 
-    async def on_timeout(self) -> None:
+    async def start_auto_stop(self) -> None:
         """
         Events to occur when the view times out.
         """
         if self.reels_stopped == 3:
+            self.stop()
             return
-        
-        # IMPROVE Add per-reel consecutive timers
-        # (so that the invoker can click button 2 and 3 after button 1's
-        # timer has run out)
+
         # Disable all buttons
         unclicked_buttons: List[str] = []
         for button in self.stop_reel_buttons:
@@ -973,7 +1030,7 @@ class SlotMachineView(View):
                 button_id: str = cast(str, button.custom_id)
                 unclicked_buttons.append(button_id)
                 button.disabled = True
-            
+
         # Stop the remaining reels
         for button_id in unclicked_buttons:
             await self.invoke_reel_stop(button_id=button_id)
@@ -1323,6 +1380,7 @@ def load_guild_ids(file_name: str = "data/guild_ids.txt") -> List[int]:
     return guild_ids
 # endregion
 
+
 # region Flask
 if __name__ == "__main__":
     print("Starting blockchain flask app thread...")
@@ -1598,9 +1656,6 @@ async def reels(interaction: Interaction,
         remove_symbol (str, optional): Remove a symbol from the reels.
         Defaults to None.
     """
-    # XXX
-    # TODO Calculate RTP
-    # TODO Set max amount of symbols
     # Check if user has the necessary role
     invoker: User | Member = interaction.user
     invoker_roles: List[Role] = cast(Member, invoker).roles
@@ -1618,6 +1673,8 @@ async def reels(interaction: Interaction,
             amount = 3
         else:
             amount = 1
+    # Refresh reels config from file
+    slot_machine.reels = slot_machine.load_reels()
     new_reels: Dict[str, Dict[str, int]] = slot_machine.reels
     if add_symbol and remove_symbol:
         await interaction.response.send_message("You can only add or remove a "
@@ -1680,25 +1737,26 @@ async def reels(interaction: Interaction,
     print("Saving reels...")
 
     slot_machine.reels = new_reels
-    slot_machine.calculate_total_return()
     new_reels = slot_machine.reels
     # print(f"Reels: {slot_machine.configuration}")
     print(f"Probabilities saved.")
 
+    # TODO Report payouts
     amount_of_symbols: int = slot_machine.count_symbols()
     reel_amount_of_symbols: int
-    reels_table: str = ""
+    reels_table: str = "### Reels\n"
     for reel, symbols in new_reels.items():
         symbols_table: str = ""
         for symbol, amount in symbols.items():
             symbols_table += f"{symbol}: {amount}\n"
         reel_amount_of_symbols = sum(symbols.values())
         reels_table += (f"**Reel {reel}**\n"
+                        f"**Symbol**: **Amount**\n"
                         f"{symbols_table}"
-                        "\n**Total**\n"
+                        "**Total**\n"
                         f"{reel_amount_of_symbols}\n\n")
     probabilities: Dict[str, float] = slot_machine.probabilities
-    probabilities_table: str = ""
+    probabilities_table: str = "**Outcome**: **Probability**\n"
     max_digits: int = 4
     lowest_number: float = float("0." + "0" * (max_digits - 1) + "1")
     for symbol, probability in probabilities.items():
@@ -1714,10 +1772,22 @@ async def reels(interaction: Interaction,
             probability_display = f"<{str(lowest_number)}%"
         probabilities_table += f"{symbol}: {probability_display}\n"
 
-    total_returns: Expr = slot_machine.calculate_total_return()
+    cheap_mode_etr: Expr = (
+        slot_machine.calculate_expected_total_return_or_profit(
+            jackpot_mode=False, return_or_profit="return"))
+    # TODO Suppress output
+    cheap_mode_etp: Expr = (
+        slot_machine.calculate_expected_total_return_or_profit(
+            jackpot_mode=False, return_or_profit="profit"))
+    jackpot_mode_etr: Expr = (
+        slot_machine.calculate_expected_total_return_or_profit(
+            jackpot_mode=True, return_or_profit="return"))
+    jackpot_mode_etp: Expr = (
+        slot_machine.calculate_expected_total_return_or_profit(
+            jackpot_mode=True, return_or_profit="profit"))
     wagers: List[int] = [
         1, 2, 5, 10, 50, 100, 500, 1000, 10000, 100000, 1000000]
-    rtp_dict = {}
+    rtp_dict: Dict[int, str] = {}
     rtp_display: str | None = None
     for wager in wagers:
         rtp = (
@@ -1732,7 +1802,7 @@ async def reels(interaction: Interaction,
             rtp_display = f"<{str(lowest_number)}%"
         rtp_dict[wager] = rtp_display
 
-    rtp_table: str = ""
+    rtp_table: str = "**Wager**: **RTP**\n"
     for wager, rtp in rtp_dict.items():
         rtp_table += f"{wager}: {rtp}\n"
 
@@ -1742,14 +1812,18 @@ async def reels(interaction: Interaction,
                     f"{amount_of_symbols}\n\n\n"
                     "### Probabilities\n"
                     f"{probabilities_table}\n\n"
-                    "### Total returns\n"
-                    f"{str(total_returns).replace("*", "\\*")}%\n"
+                    "### Expected values\n"
+                    "**Expected total return (Jackpot fee paid)**\n"
+                    f"{str(cheap_mode_etr).replace("*", "")}\n"
+                    "**Expected total return (Jackpot fee not paid)**\n"
+                    f"{str(jackpot_mode_etr).replace("*", "")}\n"
+                    "**Expected total profit (Jackpot fee paid)**\n"
+                    f"{str(cheap_mode_etp).replace('*', '')}\n"
+                    "**Expected total profit (Jackpot fee not paid)**\n"
+                    f"{str(jackpot_mode_etp).replace('*', '')}\n"
                     '-# "W" means wager\n\n'
                     "### RTP\n"
-                    "Wager: RTP\n"
                     f"{rtp_table}")
-    # TODO Win/lose and RTP multiplier doesn't seem right
-    # TODO Per symbol RTP
     await interaction.response.send_message(message)
 
 
@@ -1761,8 +1835,9 @@ async def reels(interaction: Interaction,
 
 @bot.tree.command(name="slots",
                   description="Play on a slot machine")
-@app_commands.describe(wager="Amount of coins to wager")
-async def slots(interaction: Interaction, wager: int | None = None) -> None:
+@app_commands.describe(insert_coins="Insert coins into the slot machine")
+async def slots(interaction: Interaction,
+                insert_coins: int | None = None) -> None:
     """
     Command to play a slot machine.
 
@@ -1771,10 +1846,14 @@ async def slots(interaction: Interaction, wager: int | None = None) -> None:
         command invocation.
     """
     # TODO Ensure you cannot wager 0 coins or negative
+    # TODO Add TOS
+    # TODO Add /help
+    wager: int | None = insert_coins
     if wager is None:
         wager = 1
     # TODO Ensure you cannot play if your balance is below wager
     # TODO Ensure you cannot play if you have a pending game
+    # TODO Log/stat outcomes (esp. wager amounts)
     user: User | Member = interaction.user
     user_id: int = user.id
     user_name: str = user.name
@@ -1798,11 +1877,12 @@ async def slots(interaction: Interaction, wager: int | None = None) -> None:
                         "The possible outcomes are displayed below.\n\n"
                         f"{starting_bonus_table}")
 
-        starting_bonus_view = StartingBonusView(invoker=user,
-                                 starting_bonus_awards=starting_bonus_awards,
-                                 save_data=save_data,
-                                 log=log,
-                                 interaction=interaction)
+        starting_bonus_view = (
+            StartingBonusView(invoker=user,
+                              starting_bonus_awards=starting_bonus_awards,
+                              save_data=save_data,
+                              log=log,
+                              interaction=interaction))
         await interaction.response.send_message(content=message,
                                                 view=starting_bonus_view)
         await starting_bonus_view.wait()
@@ -1810,193 +1890,288 @@ async def slots(interaction: Interaction, wager: int | None = None) -> None:
     """ else:
         print("Starting bonus already received.") """
 
-
     slot_machine_view = SlotMachineView(invoker=user,
-                           slot_machine=slot_machine,
-                           wager=wager,
-                           interaction=interaction)
+                                        slot_machine=slot_machine,
+                                        wager=wager,
+                                        interaction=interaction)
     # TODO Add animation
     # Workaround for Discord stripping trailing whitespaces
     empty_space: LiteralString = "\N{HANGUL FILLER}" * 11
-    
+
+    # TODO DRY
     slots_message: str = (f"### {Coin} Slot Machine\n"
-               f"-# Coin: {wager}\n"
-               f"{empty_space}\n"
-               f"{empty_space}\n"
-               "The reels are spinning...\n"
-               "\n"
-               f"🔳\t\t🔳\t\t🔳\n"
-               f"{empty_space}")
-    
+                          f"-# Coin: {wager}\n"
+                          f"{empty_space}\n"
+                          f"{empty_space}\n"
+                          "The reels are spinning...\n"
+                          "\n"
+                          f"🔳\t\t🔳\t\t🔳\n"
+                          f"{empty_space}")
+
     await interaction.response.send_message(content=slots_message,
                                             view=slot_machine_view)
-    timed_out: bool = await slot_machine_view.wait()
-    if timed_out:
-        # Wait until all reels have stopped
-        await asyncio.sleep(3)
-    del timed_out
-    
+    # Auto-stop-timer
+    # Wait 3 seconds and see if the user has manually pressed a stop button
+    # If not, stop the reels automatically
+    # Until all reels have been stopped, wait another 3 seconds if the user
+    # has clicked a button within the last 3 seconds
+    # Views have built-in timers that you can wait for with the wait() method,
+    # but since we have tasks to do when the timer runs out, that won't work
+    # There is probably a way to do it with just the view, but I don't
+    # know how
+    previous_buttons_clicked_count = 0
+    while True:
+        buttons_clicked_count = 0
+        await asyncio.sleep(3.0)
+        for button in slot_machine_view.stop_reel_buttons:
+            button_clicked: bool = button.disabled
+            if button_clicked:
+                buttons_clicked_count += 1
+        if ((buttons_clicked_count == 0) or
+            (buttons_clicked_count == previous_buttons_clicked_count) or
+                (buttons_clicked_count == 3)):
+            break
+        previous_buttons_clicked_count: int = buttons_clicked_count
+    await slot_machine_view.start_auto_stop()
+    # await asyncio.sleep(1.0)
+
     def generate_coin_label(number: int) -> str:
-        if number == 1:
+        if number == 1 or number == -1:
             return coin
         else:
             return coins
 
     # Get results
-    results: Dict[str, Dict[str, str | int | float | PartialEmoji]] = slot_machine_view.reels_results
-    
-    # Determine transfer amount
-    # and generate outcome messages and log lines
+    results: Dict[str, Dict[str, str | int | float |
+                            PartialEmoji]] = slot_machine_view.reels_results
+
+    # Create some variables for the outcome messages
     slot_machine_header: str = slot_machine_view.message_header
     slot_machine_results_row: str = slot_machine_view.message_results_row
+    print(f"slot_machine_results_row: '{slot_machine_results_row}'")
     del slot_machine_view
-    award_name: str
-    award_name_friendly: str
-    win_money: int
-    transfer_amount: int
-    if wager == 1:
-        # The jackpot game fee was not paid
-        main_game_wager = 1
-    else:
-        # Subtract the jackpot game fee
-        main_game_wager: int = wager - 1
-    award_name, award_name_friendly, win_money = (
-        slot_machine.calculate_award_money(wager=main_game_wager, results=results))
-    print(f"award_name: {award_name}")
-    print(f"award_name_friendly: {award_name_friendly}")
-    print(f"profit: {win_money}")
-    outcome_message_1: str | None = None
-    outcome_message_2: str | None = None
-    profited: bool = False
-    if award_name == "standard_lose":
-        transfer_amount = 1
-        if wager != 1:
-            # Subtract the jackpot fee
-            money_back: int = wager - 1
-            outcome_message_1 = (f"-# You collect "
-                               f"{money_back} {coins}.")
-        coin_label: str = generate_coin_label(transfer_amount)
-        log_line: str = (f"{user_name} ({user_id}) lost "
-                         f"{transfer_amount} {coin_label} "
-                         f"on the {Coin} slot machine.")
-        profited = False
-    elif award_name == "jackpot_fail":
-        transfer_amount = 1
-        jackpot_amount: int = slot_machine.jackpot
-        log_line = f"{user_name} ({user_id}) lost {transfer_amount} {coin} slot machine."
-        outcome_message_1 = (f"{award_name_friendly}! Unfortunately, you did "
-                             f"not pay the jackpot fee of 1 {coin}, meaning "
-                             f"that you did not win "
-                             f"the jackpot of {jackpot_amount} {coins}. "
-                             "Better luck next time!")
-        profited = False
-    elif award_name == "lose_wager":
-        coin_label = generate_coin_label(wager)
-        outcome_message_1 = (f"You lost your entire "
-                             f"bet of {wager} {coin_label}. "
-                             "Better luck next time!")
-        log_line = (f"{user_name} ({user_id}) lost their entire wager "
-                    f"of {wager} {coins} from "
-                    f"the {award_name} ({award_name_friendly}) award on "
-                    f"the {Coin} slot machine.")
-        transfer_amount = wager
-        profited = False
-    else:
-        # The rest of the possible awards are wins
-        coin_label: str = generate_coin_label(win_money)
-        outcome_message_1 = (f"{award_name_friendly}! "
-                             f"You won {win_money} {coins}!")
-        net_amount: int
-        if wager == 1:
-            # they keep their wager
-            net_amount: int = win_money
-            transfer_amount = win_money - 1
-        else:
-            net_amount = win_money - wager
-            transfer_amount = win_money - 1
-        print(f"wager: {wager}")
-        money_back: int
-        coin_label: str = generate_coin_label(net_amount)
-        if (net_amount > 0):
-            # TODO Maybe make small_win coin_profit 3 instead of 1
-            money_back = net_amount
-            print(f"money_back: {money_back}")
-            outcome_message_2 = (f"-# You collect {money_back} {coins}.")
-            log_line = (f"{user_name} ({user_id}) won "
-                        f"the {award_name} ({award_name_friendly}) reward "
-                        f"and gained {net_amount} {coin_label} on "
-                        f"the {Coin} slot machine.")
-            profited = True
-        elif (net_amount == 0):
-            profited = False
-        else:
-            # This can happen you win 1 coin and wagered 2 coins
-            # XXX
-            transfer_amount = wager - win_money
-            log_line = (f"{user_name} ({user_id}) won "
-                        f"the {award_name} ({award_name_friendly}) reward "
-                        f"and lost {net_amount} {coin_label} on "
-                        f"the {Coin} slot machine.")
-            profited = False
 
-    if outcome_message_1 or outcome_message_2:
+    # Calculate win amount
+    event_name: str
+    event_name_friendly: str
+    # Win money is the amount of money that the event will award
+    # (not usually the same as net profit or net return)
+    win_money: int
+    event_name, event_name_friendly, win_money = (
+        slot_machine.calculate_award_money(wager=wager,
+                                           results=results))
+
+    # Generate outcome messages
+    jackpot_fee: int = 1
+    event_message: str | None = None
+    print(f"event_name: '{event_name}'")
+    print(f"event_name_friendly: '{event_name_friendly}'")
+    # print(f"win money: '{win_money}'")
+    if event_name == "jackpot_fail":
+        jackpot_amount: int = slot_machine.jackpot
+        coin_label_fee: str = generate_coin_label(jackpot_amount)
+        coin_label_jackpot: str = generate_coin_label(jackpot_amount)
+        event_message = (f"{event_name_friendly}! Unfortunately, you did "
+                         "not pay the jackpot fee of "
+                         f"{jackpot_fee} {coin_label_fee}, meaning "
+                         "that you did not win the jackpot of "
+                         f"{jackpot_amount} {coin_label_jackpot}. "
+                         "Better luck next time!")
+    elif event_name == "standard_lose":
+        event_message = None
+    else:
+        # The rest of the possible events are win events
+        coin_label: str = generate_coin_label(win_money)
+        event_message = (f"{event_name_friendly}! "
+                         f"You won {win_money} {coin_label}!")
+        del coin_label
+
+    # Calculate net return to determine who should get money (house or player)
+    # and to generate collect screen message and an informative log line
+    # Net return is the loss or profit of the player (wager excluded)
+    net_return: int
+    # Total return is the total amount of money that the player will get
+    # get back (wager included)
+    total_return: int
+    standard_fee: int = 1
+    jackpot_fee_paid: bool = (
+        wager >= (jackpot_fee + standard_fee))
+    jackpot_mode: bool = True if jackpot_fee_paid else False
+    log_line: str = ""
+    if event_name == "lose_wager":
+        coin_label = generate_coin_label(wager)
+        event_message = (f"You lost your entire "
+                         f"stake of {wager} {coin_label}. "
+                         "Better luck next time!")
+        net_return = -wager
+        total_return = 0
+        # Remove variables with common names to prevent accidental use
+        del coin_label
+    elif jackpot_mode:
+        net_return = win_money - standard_fee - jackpot_fee
+        if win_money > 0:
+            # You don't keep any of your initial money on wins
+            total_return = win_money - standard_fee - jackpot_fee
+        else:
+            # You keep you wager minus fees on lose
+            total_return = wager - standard_fee - jackpot_fee
+    else:
+        net_return = win_money - standard_fee
+        if win_money > 0:
+            total_return = win_money - standard_fee
+        else:
+            total_return = wager - standard_fee
+    print(f"standard_fee: {standard_fee}")
+    print(f"jackpot_fee: {jackpot_fee}")
+    print(f"jackpot_fee_paid: {jackpot_fee_paid}")
+    print(f"jackpot_mode: {jackpot_mode}")
+    print(f"win_money: {win_money}")
+    print(f"net_return: {net_return}")
+    print(f"total_return: {total_return}")
+    coin_label_nr: str = generate_coin_label(net_return)
+    coin_label_wm: str = generate_coin_label(win_money)
+    if net_return > 0:
+        log_line = (f"{user_name} ({user_id}) won the {event_name} "
+                    f"({event_name_friendly}) reward "
+                    f"of {win_money} {coin_label_wm} and profited "
+                    f"{net_return} {coin_label_nr} on the {Coin} slot machine.")
+    elif net_return == 0:
+        if event_name == "jackpot_fail":
+            # This should not happen with default config
+            log_line = (f"{user_name} ({user_id}) got the {event_name} "
+                        f"({event_name_friendly}) event without paying the "
+                        "jackpot fee, so they did not win the jackpot, "
+                        "yet they neither lost any coins nor profited.")
+        elif event_name == "lose_wager":
+            # This should not happen with default config
+            log_line = (f"{user_name} ({user_id}) got "
+                        f"the {event_name} event ({event_name_friendly}) "
+                        "and lost their entire wager of "
+                        f"{wager} {coin_label_nr} on the {Coin} slot machine, "
+                        "yet they neither lost any coins nor profited.")
+        elif win_money > 0:
+            # With the default config, this will happen if the fees are higher
+            # than the win money
+            log_line = (f"{user_name} ({user_id}) won the {event_name} "
+                        f"({event_name_friendly}) reward "
+                        f"of {win_money} {coin_label_wm} on the {Coin} "
+                        "slot machine, but made no profit.")
+        else:
+            # This should not happen without win money with the default config
+            # (because of the fees)
+            log_line = (f"{user_name} ({user_id}) made no profit on the "
+                        f"{Coin} slot machine.")
+    else:
+        # if net return is negative, the user lost money
+        if event_name == "lose_wager":
+            log_line = (f"{user_name} ({user_id}) got the {event_name} event "
+                        f"({event_name_friendly}) and lost their entire wager "
+                        f"of {wager} {coin_label_nr} on the "
+                        f"{Coin} slot machine.")
+        if event_name == "jackpot_fail":
+            log_line = (f"{user_name} ({user_id}) lost {-net_return} "
+                        f"{coin_label_nr} on the {Coin} slot machine by "
+                        f"getting the {event_name} ({event_name_friendly}) "
+                        "event without paying the jackpot fee.")
+        elif win_money > 0:
+            # turn -net_return into a positive number
+            log_line = (f"{user_name} ({user_id}) won "
+                        f"{win_money} {coin_label_wm} on "
+                        f"the {event_name} ({event_name_friendly}) reward, "
+                        f"but lost {-net_return} {coin_label_nr} in net return "
+                        f"on the {Coin} slot machine.")
+        else:
+            log_line = (f"{user_name} ({user_id}) lost "
+                        f"{-net_return} {coin_label_nr} on "
+                        f"the {Coin} slot machine.")
+    del coin_label_wm
+
+    # Generate collect message
+    coin_label_tr: str = generate_coin_label(total_return)
+    collect_message: str | None = None
+    if (total_return > 0):
+        collect_message = (f"-# You collect {total_return} {coin_label_tr}.")
+    else:
+        collect_message = None
+    del coin_label_nr
+
+    if event_message or collect_message:
         # Display outcome messages
-        if not outcome_message_2:
-            outcome_message_2 = empty_space
-        slot_machine_collect_screen: str = (f"{outcome_message_1}\n"
-                                            f"{outcome_message_2}")
+        outcome_message_line_1: str = empty_space
+        outcome_message_line_2: str = empty_space
+        if event_message and not collect_message:
+            outcome_message_line_1 = event_message
+        elif collect_message and not event_message:
+            outcome_message_line_1 = collect_message
+        elif event_message and collect_message:
+            outcome_message_line_1 = event_message
+            outcome_message_line_2 = collect_message
+
         # edit original message
         slots_message_outcome: str = (f"{slot_machine_header}\n"
-                                    f"{slot_machine_collect_screen}\n"
-                                    f"{empty_space}\n"
-                                    "The reels have stopped.\n"
-                                    f"{empty_space}\n"
-                                    f"{slot_machine_results_row}\n"
-                                    f"{empty_space}")
+                                      f"{outcome_message_line_1}\n"
+                                      f"{outcome_message_line_2}\n"
+                                      f"{empty_space}\n"
+                                      "The reels have stopped.\n"
+                                      f"{empty_space}\n"
+                                      f"{slot_machine_results_row}\n"
+                                      f"{empty_space}")
         await interaction.edit_original_response(content=slots_message_outcome)
-    
+
     # Transfer and log
     sender: User | Member | int
     receiver: User | Member | int
     log_timestamp: float = 0.0
     last_block_error = False
-    if profited:
-        sender = CASINO_HOUSE_ID
-        receiver = user
-    else:
-        sender = user
-        receiver = CASINO_HOUSE_ID
-    if transfer_amount > 0:
-        await add_block_transaction(
-            blockchain=blockchain,
-            sender=sender,
-            receiver=receiver,
-            amount=transfer_amount,
-            method="slot_machine"
-        )
-        last_block_timestamp: float | None = get_last_block_timestamp()
-        if last_block_timestamp is None:
-            print("ERROR: Could not get last block timestamp.")
-            log_timestamp = time()
-            log_line += ("(COULD NOT GET LAST BLOCK TIMESTAMP; USING CURRENT TIME; "
-                        "WILL NOT RESET JACKPOT)")
-            last_block_error = True
+    transfer_amount: int
+    if net_return != 0:
+        if net_return > 0:
+            transfer_amount = net_return
+            sender = CASINO_HOUSE_ID
+            receiver = user
+        elif net_return < 0:
+            sender = user
+            receiver = CASINO_HOUSE_ID
+            # flip to positive value (transferring a negative amount would mean
+            # reducing the receiver's balance)
+            transfer_amount = -net_return
+            await add_block_transaction(
+                blockchain=blockchain,
+                sender=sender,
+                receiver=receiver,
+                amount=transfer_amount,
+                method="slot_machine"
+            )
+            last_block_timestamp: float | None = get_last_block_timestamp()
+            if last_block_timestamp is None:
+                print("ERROR: Could not get last block timestamp.")
+                log_timestamp = time()
+                log_line += ("(COULD NOT GET LAST BLOCK TIMESTAMP; "
+                             "USING CURRENT TIME; WILL NOT RESET JACKPOT)")
+                last_block_error = True
+            else:
+                log_timestamp = last_block_timestamp
         else:
-            log_timestamp = last_block_timestamp
-    else:
-        log_timestamp = time()
-    log.log(line=log_line, timestamp=log_timestamp)
-    if last_block_error:
-        await terminate_bot()
+            log_timestamp = time()
+        log.log(line=log_line, timestamp=log_timestamp)
+        if last_block_error:
+            # send message to admin
+            administrator: str = (
+                (await bot.fetch_user(ADMINISTRATOR_ID)).mention)
+            await interaction.response.send_message("An error occurred. "
+                                                    f"{administrator} pls fix.")
+            await terminate_bot()
 
-    if award_name == "jackpot":
-        # Reset the jackpot
-        awards: Dict[str, Dict[str, int | float]] = cast(Dict[str, Dict[str, int | float]], slot_machine.configuration["awards"])
-        jackpot_seed: int = cast(int, awards["jackpot"]["coin_profit"])
-        slot_machine.jackpot = jackpot_seed
-    else:
-        slot_machine.jackpot += 1
-    
+        if event_name == "jackpot":
+            # Reset the jackpot
+            events: Dict[str, Dict[str, int | float]] = cast(
+                Dict[str, Dict[str, int | float]],
+                slot_machine.configuration["events"])
+            jackpot_seed: int = cast(int, events["jackpot"]["fixed_amount"])
+            slot_machine.jackpot = jackpot_seed
+        else:
+            slot_machine.jackpot += 1
+
 
 # endregion
 
@@ -2020,9 +2195,7 @@ async def ping(interaction: Interaction) -> None:
 # TODO Prevent self-mining
 # TODO Track reaction removals
 # TODO Add "hide" parameters to commands
-# TODO Add transfer command
-# TODO Add gamble command
-# TODO Add help command
+# TODO Add more games
 
 # region Main
 if DISCORD_TOKEN:
