@@ -591,7 +591,7 @@ class SlotMachine:
                 jackpot_average: float = (
                     self.calculate_average_jackpot(
                         seed=jackpot_seed))
-                # TODO Parameter to return RTP with jackpot excluded
+                # TODO Add parameter to return RTP with jackpot excluded
                 # jackpot_average: float = 0.0
                 print(f"Jackpot average: {jackpot_average}")
                 # I expect wager multiplier to be 1.0 for the jackpot,
@@ -729,7 +729,7 @@ class SlotMachine:
         expected_total_return: Add = (
             self.calculate_expected_total_return_or_profit(
                 jackpot_mode=jackpot_mode, return_or_profit="return"))
-        # TODO Fix error reported by Pylance
+        # IMPROVE Fix error reported by Pylance
         evaluated_total_return: Float = (
             cast(Float, expected_total_return.subs(symbols('W'), wager)))
         rtp = Rational(evaluated_total_return, wager)
@@ -1244,8 +1244,6 @@ async def process_missed_messages() -> None:
                 print("WARNING: No channel messages found.")
             else:
                 if new_channel_messages_found > 0:
-                    # TODO Only save checkpoint if we read any messages beyond
-                    # the already saved checkpoint
                     print(f"Saving checkpoint: {fresh_last_message_id}")
                     all_channel_checkpoints[channel.id].save(
                         fresh_last_message_id)
@@ -1264,7 +1262,6 @@ async def process_reaction(emoji: PartialEmoji | Emoji | str,
                            sender: Member | User,
                            receiver: Member | User | None = None,
                            receiver_id: int | None = None) -> None:
-    # TODO Add "if reaction.message.author.id != user.id" to prevent self-mining
 
     emoji_id: int | str | None = 0
     match emoji:
@@ -1277,7 +1274,6 @@ async def process_reaction(emoji: PartialEmoji | Emoji | str,
         case str():
             return
     if emoji_id == COIN_EMOJI_ID:
-
         if receiver is None:
             # Get receiver from id
             if receiver_id is not None:
@@ -1287,8 +1283,10 @@ async def process_reaction(emoji: PartialEmoji | Emoji | str,
                 return
         else:
             receiver_id = receiver.id
-
         sender_id: int = sender.id
+
+        if sender_id == receiver_id:
+            return
 
         print(f"{sender} ({sender_id}) is mining 1 {coin} "
               f"for {receiver} ({receiver_id})...")
