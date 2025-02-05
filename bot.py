@@ -355,7 +355,64 @@ class SlotMachine:
             float
             # jackpot_amount will automatically be set to the jackpot event's
             # fixed_amount value if the latter is higher than the former
-        ] = {}
+        ] = {
+            "events": {
+                "lose_wager": {
+                    "emoji_name": "",
+                    "emoji_id": 0,
+                    "fixed_amount": 0,
+                    "wager_multiplier": -1.0
+                },
+                "small_win": {
+                    "emoji_name": "",
+                    "emoji_id": 0,
+                    "fixed_amount": 3,
+                    "wager_multiplier": 1.0
+                },
+                "medium_win": {
+                    "emoji_name": "",
+                    "emoji_id": 0,
+                    "fixed_amount": 0,
+                    "wager_multiplier": 2.0
+                },
+                "high_win": {
+                    "emoji_name": "",
+                    "emoji_id": 0,
+                    "fixed_amount": 0,
+                    "wager_multiplier": 69.0
+                },
+                "jackpot": {
+                    "emoji_name": "",
+                    "emoji_id": 0,
+                    "fixed_amount": 100,
+                    "wager_multiplier": 1.0
+                }
+            },
+            "reels": {
+                "1": {
+                    "lose_wager": 1,
+                    "small_win": 3,
+                    "medium_win": 11,
+                    "high_win": 4,
+                    "jackpot": 1
+                },
+                "2": {
+                    "lose_wager": 1,
+                    "small_win": 3,
+                    "medium_win": 11,
+                    "high_win": 4,
+                    "jackpot": 1
+                },
+                "3": {
+                    "lose_wager": 1,
+                    "small_win": 3,
+                    "medium_win": 11,
+                    "high_win": 4,
+                    "jackpot": 1
+                }
+            },
+            "jackpot_amount": 501
+        }
         # Save the configuration to the file
         with open(self.file_name, "w") as file:
             file.write(json.dumps(configuration))
@@ -451,7 +508,7 @@ class SlotMachine:
                                                   return_or_profit: (
                                                       Literal[
                                                           "return",
-                                                          "profit"])) -> Expr:
+                                                          "profit"])) -> Add:
         # From the UX perspective, there is only the wager, which can be 1 or
         # anything above. However,
         # each spin costs 1 coin. The player will not keep this coin in any
@@ -474,12 +531,12 @@ class SlotMachine:
         events: Dict[str, Dict[str, int | float]] = cast(
             Dict[str, Dict[str, int | float]], self.configuration["events"])
         W: Expr = symbols('W')  # wager
-        event_return: Expr = Integer(0)
-        event_total_return: Expr = Integer(0)
-        expected_total_return_contribution: Expr = Integer(0)
-        expected_profit_contribution: Expr = Integer(0)
-        expected_total_return: Expr = Integer(0)
-        expected_profit: Expr = Integer(0)
+        event_return: Integer | Add = Integer(0)
+        event_total_return: Integer | Add = Integer(0)
+        expected_total_return_contribution: Integer | Mul = Integer(0)
+        expected_profit_contribution: Integer | Mul = Integer(0)
+        expected_total_return: Integer | Add = Integer(0)
+        expected_profit: Integer | Add = Integer(0)
         main_fee_int: int = 1
         main_fee: Expr = Integer(main_fee_int)
         jackpot_fee_int: int = 1
@@ -521,7 +578,6 @@ class SlotMachine:
                 # jackpot fee, he doesn't get the jackpot)
                 # This is equivalent to a standard lose (no combo)
                 wager_multiplier_float = 1.0
-                wager_multiplier = Float(wager_multiplier_float)
                 fixed_amount_int = 0
             elif event == "jackpot" and jackpot_mode is True:
                 # If the player pays the 1 coin jackpot fee
@@ -535,12 +591,15 @@ class SlotMachine:
                 jackpot_average: float = (
                     self.calculate_average_jackpot(
                         seed=jackpot_seed))
+                # TODO Parameter to return RTP with jackpot excluded
+                # jackpot_average: float = 0.0
                 print(f"Jackpot average: {jackpot_average}")
                 # I expect wager multiplier to be 1.0 for the jackpot,
                 # but let's include it in the calculation anyway,
                 # in case someone wants to use a different value
                 wager_multiplier_float = events[event]["wager_multiplier"]
                 wager_multiplier = Float(wager_multiplier_float)
+
                 # Calculations
                 event_total_return = Add(
                     Mul(W, wager_multiplier),
@@ -575,11 +634,11 @@ class SlotMachine:
                 #
                 # Variables
                 fixed_amount_int = cast(int, events[event]["fixed_amount"])
-                fixed_amount = Integer(fixed_amount_int)
                 wager_multiplier_float = events[event]["wager_multiplier"]
-                wager_multiplier = Float(wager_multiplier_float)
                 print(f"Multiplier (k): {wager_multiplier_float}")
                 print(f"Fixed amount (x): {fixed_amount_int}")
+            wager_multiplier = Float(wager_multiplier_float)
+            fixed_amount = Integer(fixed_amount_int)
             # Calculations
             #
             # If the player doesn't pay the 1 coin jackpot fee and
@@ -642,9 +701,9 @@ class SlotMachine:
         # print(f"Expected total return coefficient: {coefficient}")
         # print(f"Expected total return constant: {constant}")
         if return_or_profit == "return":
-            return expected_total_return
+            return cast(Add, expected_total_return)
         elif return_or_profit == "profit":
-            return expected_profit
+            return cast(Add, expected_profit)
     # endregion
 
     # region Slot avg jackpot
@@ -662,18 +721,19 @@ class SlotMachine:
     # endregion
 
     # region Slot RTP
-    def calculate_rtp(self, wager: int):
-        # TODO Fix problems reported by Pylance
+    def calculate_rtp(self, wager: int) -> Float:
         jackpot_fee = 1
         standard_fee = 1
         jackpot_fee_paid: bool = wager >= (jackpot_fee + standard_fee)
         jackpot_mode: bool = True if jackpot_fee_paid else False
-        expected_total_return: Expr = self.calculate_expected_total_return_or_profit(
-            jackpot_mode=jackpot_mode, return_or_profit="return")
-        evaluated_total_return: Expr = expected_total_return.subs(
-            symbols('W'), wager)
+        expected_total_return: Add = (
+            self.calculate_expected_total_return_or_profit(
+                jackpot_mode=jackpot_mode, return_or_profit="return"))
+        # TODO Fix error reported by Pylance
+        evaluated_total_return: Float = (
+            cast(Float, expected_total_return.subs(symbols('W'), wager)))
         rtp = Rational(evaluated_total_return, wager)
-        rtp_decimal = rtp.evalf()
+        rtp_decimal: Float = cast(Float, rtp.evalf())
         print(f"RTP: {rtp}")
         print(f"RTP decimal: {rtp_decimal}")
         return rtp_decimal
