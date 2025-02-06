@@ -48,6 +48,7 @@ DISCORD_TOKEN: str | None = getenv('DISCORD_TOKEN')
 channel_checkpoint_limit: int = 3
 guild_ids: List[int] = []
 starting_bonus_messages_waiting: Dict[int, StartingBonusMessage] = {}
+active_slot_machine_players: set[int] = set()
 # endregion
 
 # region Checkpoints
@@ -1943,10 +1944,11 @@ async def reels(interaction: Interaction,
                   description="Play on a slot machine")
 @app_commands.describe(insert_coins="Insert coins into the slot machine")
 @app_commands.describe(private_room="Play in a private room")
-                       
+@app_commands.describe(reboot="Reboot the slot machine")
 async def slots(interaction: Interaction,
                 insert_coins: int | None = None,
-                private_room: bool = False) -> None:
+                private_room: bool = False,
+                reboot: bool = False) -> None:
     """
     Command to play a slot machine.
 
@@ -1959,11 +1961,38 @@ async def slots(interaction: Interaction,
     wager: int | None = insert_coins
     if wager is None:
         wager = 1
-    # TODO Ensure you cannot play if your balance is below wager
-    # TODO Ensure you cannot play if you have a pending game
     # TODO Log/stat outcomes (esp. wager amounts)
     user: User | Member = interaction.user
     user_id: int = user.id
+
+    if reboot:
+        message = (f"### {Coin} Slot Machine\n"
+                   f"-# The {Coin} slot machine is restarting...")
+        await interaction.response.send_message(message,
+                                                ephemeral=private_room)
+        del message
+        await asyncio.sleep(8)
+        if user_id in active_slot_machine_players:
+            active_slot_machine_players.remove(user_id)
+        message = (f"### {Coin} Slot Machine\n"
+                   f"-# Welcome to the {Coin} Casino!\n")
+        await interaction.edit_original_response(content=message)
+        del message
+        return
+        
+
+    # Check if user is already playing on a slot machine
+    if user_id in active_slot_machine_players:
+        await interaction.response.send_message(
+            "You are only allowed to play "
+            "on one slot machine at a time.\n"
+            "-# If you're having issues, please try rebooting the slot machine "
+            f"before contacting the {Coin} Casino staff.",
+            ephemeral=True)
+        return
+    else:
+        active_slot_machine_players.add(user_id)
+
     user_name: str = user.name
     save_data: UserSaveData = (
         UserSaveData(user_id=user_id, user_name=user_name))
@@ -2008,11 +2037,17 @@ async def slots(interaction: Interaction,
         # Would happen if the blockchain is deleted but not the save data
         message = ("This is odd. It appears you do not have an account.\n"
                    f"{administrator} should look into this.")
+        await interaction.response.send_message(content=message)
+        del message
+        if user_id in active_slot_machine_players:
+            active_slot_machine_players.remove(user_id)
         return
     elif user_balance == 0:
         message = (f"You're all out of {coins}!\n")
         await interaction.response.send_message(content=message)
         del message
+        if user_id in active_slot_machine_players:
+            active_slot_machine_players.remove(user_id)
         return
     elif user_balance < wager:
         coin_label_w: str = generate_coin_label(wager)
@@ -2024,6 +2059,8 @@ async def slots(interaction: Interaction,
         del coin_label_w
         del coin_label_b
         del message
+        if user_id in active_slot_machine_players:
+            active_slot_machine_players.remove(user_id)
         return
     
     slot_machine_view = SlotMachineView(invoker=user,
@@ -2311,6 +2348,10 @@ async def slots(interaction: Interaction,
         else:
             slot_machine.jackpot += 1
     del log_line
+    del last_block_error
+
+    if user_id in active_slot_machine_players:
+        active_slot_machine_players.remove(user_id)
 
 
 # endregion
