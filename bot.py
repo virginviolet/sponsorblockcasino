@@ -817,7 +817,7 @@ class SlotMachine:
                 win_money_rounded = self.jackpot
             return (event_name, event_name_friendly, win_money_rounded)
         win_money = (
-            (wager * wager_multiplier) + fixed_amount_payout)
+            (wager * wager_multiplier) + fixed_amount_payout) - wager
         win_money_rounded: int = math.floor(win_money)
         # Get rid of ".0"
         event_multiplier_friendly: str
@@ -2157,7 +2157,7 @@ async def slots(interaction: Interaction,
     # Generate outcome messages
     jackpot_fee: int = 1
     event_message: str | None = None
-    print(f"event_name: '{event_name}'")
+    # print(f"event_name: '{event_name}'")
     print(f"event_name_friendly: '{event_name_friendly}'")
     # print(f"win money: '{win_money}'")
     coin_label_wm: str = generate_coin_label(win_money)

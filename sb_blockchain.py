@@ -267,6 +267,7 @@ class Blockchain:
             user = hashlib.sha256(str(user).encode()).hexdigest()
         elif user_unhashed:
             user = hashlib.sha256(user_unhashed.encode()).hexdigest()
+        # print(f"Getting balance for {user}...")
         balance: int = 0
         transactions: pd.DataFrame = (
             pd.read_csv(self.transactions_file_name, sep="\t"))  # type: ignore
@@ -275,12 +276,12 @@ class Blockchain:
             sent: int = (transactions[(transactions["Sender"] == user) & (
                 # type: ignore
                 transactions["Method"] != "reaction")]["Amount"].sum())
-            print(f"Sent: {sent}")
+            print(f"Total amount sent by {user}: {sent}")
             # type: ignore
             received: int = (
                 transactions[transactions["Receiver"]
                              == user]["Amount"].sum())  # type: ignore
-            print(f"Received: {received}")
+            # print(f"Total amount received by {user}: {received}")
             balance = received - sent
             print(f"Balance for {user}: {balance}")
             return balance
