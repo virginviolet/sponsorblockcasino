@@ -23,7 +23,7 @@ from hashlib import sha256
 from sys import exit as sys_exit
 from sympy import symbols, Expr, Add, Mul, Float, Integer, Rational, simplify
 from typing import (
-    Dict, List, LiteralString, NoReturn, TextIO, cast, NamedTuple, Literal)
+    Dict, KeysView, List, LiteralString, NoReturn, TextIO, cast, NamedTuple, Literal, Any)
 # endregion
 
 # region Named tuples
@@ -361,11 +361,13 @@ class SlotMachine:
                 "lose_wager": {
                     "emoji_name": "",
                     "emoji_id": 0,
+                    "emoji_id": 0,
                     "fixed_amount": 0,
                     "wager_multiplier": -1.0
                 },
                 "small_win": {
                     "emoji_name": "",
+                    "emoji_id": 0,
                     "emoji_id": 0,
                     "fixed_amount": 3,
                     "wager_multiplier": 1.0
@@ -373,17 +375,18 @@ class SlotMachine:
                 "medium_win": {
                     "emoji_name": "",
                     "emoji_id": 0,
-                    "fixed_amount": 0,
-                    "wager_multiplier": 2.0
+                    "fixed_amount": 10,
+                    "wager_multiplier": 1.0
                 },
                 "high_win": {
                     "emoji_name": "",
                     "emoji_id": 0,
-                    "fixed_amount": 0,
-                    "wager_multiplier": 69.0
+                    "fixed_amount": 100,
+                    "wager_multiplier": 1.0
                 },
                 "jackpot": {
                     "emoji_name": "",
+                    "emoji_id": 0,
                     "emoji_id": 0,
                     "fixed_amount": 100,
                     "wager_multiplier": 1.0
@@ -391,28 +394,28 @@ class SlotMachine:
             },
             "reels": {
                 "1": {
-                    "lose_wager": 1,
-                    "small_win": 3,
-                    "medium_win": 11,
-                    "high_win": 4,
+                    "lose_wager": 2,
+                    "small_win": 9,
+                    "medium_win": 5,
+                    "high_win": 3,
                     "jackpot": 1
                 },
                 "2": {
-                    "lose_wager": 1,
-                    "small_win": 3,
-                    "medium_win": 11,
-                    "high_win": 4,
+                    "lose_wager": 2,
+                    "small_win": 9,
+                    "medium_win": 5,
+                    "high_win": 3,
                     "jackpot": 1
                 },
                 "3": {
-                    "lose_wager": 1,
-                    "small_win": 3,
-                    "medium_win": 11,
-                    "high_win": 4,
+                    "lose_wager": 2,
+                    "small_win": 9,
+                    "medium_win": 5,
+                    "high_win": 3,
                     "jackpot": 1
                 }
             },
-            "jackpot_amount": 501
+            "jackpot_amount": 0
         }
         # Save the configuration to the file
         with open(self.file_name, "w") as file:
@@ -504,12 +507,13 @@ class SlotMachine:
     # endregion
 
     # region Slot total return
-    def calculate_expected_total_return_or_profit(self,
+    def calculate_expected_return_or_total_return(self,
                                                   jackpot_mode: bool,
-                                                  return_or_profit: (
+                                                  return_or_total_return: (
                                                       Literal[
-                                                          "return",
-                                                          "profit"])) -> Add:
+                                                          "total_return",
+                                                          "return"]),
+                                                  silent: bool = False) -> Add:
         # From the UX perspective, there is only the wager, which can be 1 or
         # anything above. However,
         # each spin costs 1 coin. The player will not keep this coin in any
@@ -527,33 +531,40 @@ class SlotMachine:
         # If they player gets the jackpot combo but didn't pay the jackpot fee,
         # it's equivalent to getting a standard lose (no combo).
 
+        def print_if_not_silent(*args: Any, **kwargs: Any) -> None:
+            if not silent:
+                print(*args, **kwargs)
+
         self.configuration = self.load_config()
         probabilities: Dict[str, float] = self.calculate_all_probabilities()
-        events: Dict[str, Dict[str, int | float]] = cast(
+        events: KeysView[str] = probabilities.keys()
+        combo_events: Dict[str, Dict[str, int | float]] = cast(
             Dict[str, Dict[str, int | float]], self.configuration["events"])
         W: Expr = symbols('W')  # wager
         event_return: Integer | Add = Integer(0)
         event_total_return: Integer | Add = Integer(0)
         expected_total_return_contribution: Integer | Mul = Integer(0)
-        expected_profit_contribution: Integer | Mul = Integer(0)
+        expected_return_contribution: Integer | Mul = Integer(0)
         expected_total_return: Integer | Add = Integer(0)
-        expected_profit: Integer | Add = Integer(0)
+        expected_return: Integer | Add = Integer(0)
         main_fee_int: int = 1
         main_fee: Expr = Integer(main_fee_int)
         jackpot_fee_int: int = 1
         jackpot_fee: Expr = Integer(jackpot_fee_int)
-        print(f"Main fee: {main_fee_int}")
+        print_if_not_silent(f"Main fee: {main_fee_int}")
         if jackpot_mode is True:
-            print("----------JACKPOT MODE----------")
-            print(f"Jackpot fee: {jackpot_fee_int}")
+            print_if_not_silent("----------JACKPOT MODE----------")
+            print_if_not_silent(f"Jackpot fee: {jackpot_fee_int}")
         else:
-            print("----------STANDARD MODE----------")
+            print_if_not_silent("----------STANDARD MODE----------")
         for event in events:
-            print(f"----\nEVENT: {event}")
+            if event == "any_lose" or event == "win":
+                continue
+            print_if_not_silent(f"----\nEVENT: {event}")
             # Get the probability of this event
             p_event_float: float = probabilities[event]
             p_event = Float(p_event_float)
-            print(f"Event probability: {p_event_float}")
+            print_if_not_silent(f"Event probability: {p_event_float}")
             if p_event_float == 0.0:
                 continue
             # Initialize variables
@@ -586,19 +597,20 @@ class SlotMachine:
                 # he ends up with his wager minus the standard fee and the
                 # jackpot fee, plus the jackpot
                 # Variables
-                fixed_amount_int = cast(int, events[event]["fixed_amount"])
+                fixed_amount_int = cast(int,
+                                        combo_events[event]["fixed_amount"])
                 jackpot_seed: int = fixed_amount_int
-                print(f"Jackpot seed: {jackpot_seed}")
+                print_if_not_silent(f"Jackpot seed: {jackpot_seed}")
                 jackpot_average: float = (
                     self.calculate_average_jackpot(
                         seed=jackpot_seed))
                 # TODO Add parameter to return RTP with jackpot excluded
                 # jackpot_average: float = 0.0
-                print(f"Jackpot average: {jackpot_average}")
+                print_if_not_silent(f"Jackpot average: {jackpot_average}")
                 # I expect wager multiplier to be 1.0 for the jackpot,
                 # but let's include it in the calculation anyway,
                 # in case someone wants to use a different value
-                wager_multiplier_float = events[event]["wager_multiplier"]
+                wager_multiplier_float = combo_events[event]["wager_multiplier"]
                 wager_multiplier = Float(wager_multiplier_float)
 
                 # Calculations
@@ -612,32 +624,36 @@ class SlotMachine:
                     -W)
                 expected_total_return_contribution = (
                     Mul(p_event, event_total_return))
-                expected_profit_contribution = (
+                expected_return_contribution = (
                     Mul(p_event, event_return))
-                print(f"Event total return: {event_total_return} "
-                      "[(w * k) + jackpot - main_fee - jackpot_fee(")
-                print(f"Event return: {event_return} "
-                      "[total return - w]")
-                print("Expected total return contribution: "
-                      f"{expected_total_return_contribution}")
-                print("Expected profit contribution: "
-                      f"{expected_profit_contribution}")
+                print_if_not_silent(f"Event total return: {event_total_return} "
+                                    "["
+                                    "(w * k) + jackpot - main_fee - jackpot_fee"
+                                    "]")
+                print_if_not_silent(f"Event return: {event_return} "
+                                    "[total return - w]")
+                print_if_not_silent("Expected total return contribution: "
+                                    f"{expected_total_return_contribution}")
+                print_if_not_silent("Expected return contribution: "
+                                    f"{expected_return_contribution}")
                 expected_total_return = Add(
                     expected_total_return,
                     expected_total_return_contribution)
-                expected_profit = Add(
-                    expected_profit,
-                    expected_profit_contribution)
+                expected_return = Add(
+                    expected_return,
+                    expected_return_contribution)
                 continue
             else:
                 # As of typing, this includes all remaining win events
                 # plus the lose_wager event
                 #
                 # Variables
-                fixed_amount_int = cast(int, events[event]["fixed_amount"])
-                wager_multiplier_float = events[event]["wager_multiplier"]
-                print(f"Multiplier (k): {wager_multiplier_float}")
-                print(f"Fixed amount (x): {fixed_amount_int}")
+                fixed_amount_int = cast(int,
+                                        combo_events[event]["fixed_amount"])
+                wager_multiplier_float = combo_events[event]["wager_multiplier"]
+                print_if_not_silent(f"Multiplier (k): {
+                                    wager_multiplier_float}")
+                print_if_not_silent(f"Fixed amount (x): {fixed_amount_int}")
             wager_multiplier = Float(wager_multiplier_float)
             fixed_amount = Integer(fixed_amount_int)
             # Calculations
@@ -661,50 +677,50 @@ class SlotMachine:
                     fixed_amount,
                     -main_fee,
                     -jackpot_fee)
-                print(f"Event total return: {event_total_return} "
-                      "[(w * k) + x - main_fee - jackpot_fee]")
+                print_if_not_silent(f"Event total return: {event_total_return} "
+                                    "[(w * k) + x - main_fee - jackpot_fee]")
             else:
                 event_total_return = Add(
                     Mul(W, wager_multiplier),
                     fixed_amount,
                     -main_fee)
-                print(f"Event total return: {event_total_return} "
-                      "[(w * k) + x - main_fee]")
+                print_if_not_silent(f"Event total return: {event_total_return} "
+                                    "[(w * k) + x - main_fee]")
             event_return = Add(event_total_return, -W)
-            print(f"Event return: {event_return} "
-                  "[total return - w]")
+            print_if_not_silent(f"Event return: {event_return} "
+                                "[total return - w]")
             # This event's contribution to
             # the average total return over many plays
             expected_total_return_contribution = (
                 Mul(p_event, event_total_return))
             # This event's contribution to
-            # the average profit over many plays
-            expected_profit_contribution = (
+            # the average return (profit or loss) over many plays
+            expected_return_contribution = (
                 Mul(p_event, event_return))
-            print("Expected total return contribution: "
-                  f"{expected_total_return_contribution}")
-            print("Expected profit contribution: "
-                  f"{expected_profit_contribution}")
+            print_if_not_silent("Expected total return contribution: "
+                                f"{expected_total_return_contribution}")
+            print_if_not_silent("Expected return contribution: "
+                                f"{expected_return_contribution}")
             expected_total_return = Add(
                 expected_total_return,
                 expected_total_return_contribution)
-            expected_profit = Add(
-                expected_profit,
-                expected_profit_contribution)
-        print(f"Expected total return: {expected_total_return}")
-        print(f"Expected profit: {expected_profit}")
+            expected_return = Add(
+                expected_return,
+                expected_return_contribution)
+        print_if_not_silent(f"Expected total return: {expected_total_return}")
+        print_if_not_silent(f"Expected return: {expected_return}")
         # total_return_expanded: Expr = cast(Expr, expand(expected_total_return))
-        # print(f"Expected total return expanded: "
+        # print_if_not_silent(f"Expected total return expanded: "
         #       f"{expected_total_return_expanded}")
 
         # coefficient = expected_total_return.coeff(W, 1)
         # constant = expected_total_return.coeff(W, 0)
-        # print(f"Expected total return coefficient: {coefficient}")
-        # print(f"Expected total return constant: {constant}")
-        if return_or_profit == "return":
+        # print_if_not_silent(f"Expected total return coefficient: {coefficient}")
+        # print_if_not_silent(f"Expected total return constant: {constant}")
+        if return_or_total_return == "total_return":
             return cast(Add, expected_total_return)
-        elif return_or_profit == "profit":
-            return cast(Add, expected_profit)
+        elif return_or_total_return == "return":
+            return cast(Add, expected_return)
     # endregion
 
     # region Slot avg jackpot
@@ -728,8 +744,10 @@ class SlotMachine:
         jackpot_fee_paid: bool = wager >= (jackpot_fee + standard_fee)
         jackpot_mode: bool = True if jackpot_fee_paid else False
         expected_total_return: Add = (
-            self.calculate_expected_total_return_or_profit(
-                jackpot_mode=jackpot_mode, return_or_profit="return"))
+            self.calculate_expected_return_or_total_return(
+                jackpot_mode=jackpot_mode,
+                return_or_total_return="total_return",
+                silent=True))
         # IMPROVE Fix error reported by Pylance
         evaluated_total_return: Float = (
             cast(Float, expected_total_return.subs(symbols('W'), wager)))
@@ -777,7 +795,6 @@ class SlotMachine:
         jackpot_fee = 1
         jackpot_fee_paid: bool = wager >= (jackpot_fee + standard_fee)
         jackpot_mode: bool = True if jackpot_fee_paid else False
-        print("results: ", results)
         event_name: str = cast(str, results["1"]["name"])
         print(f"event_name: {event_name}")
         wager_multiplier: float = cast(float, results["1"]["wager_multiplier"])
@@ -1451,6 +1468,8 @@ def load_guild_ids(file_name: str = "data/guild_ids.txt") -> List[int]:
 # endregion
 
 # region Coin label
+
+
 def generate_coin_label(number: int) -> str:
     if number == 1 or number == -1:
         return coin
@@ -1722,8 +1741,8 @@ async def balance(interaction: Interaction,
     else:
         coin_label: str = generate_coin_label(balance)
         await interaction.response.send_message(f"{user_to_check} has "
-                                            f"{balance} {coin_label}.",
-                                            ephemeral=incognito)
+                                                f"{balance} {coin_label}.",
+                                                ephemeral=incognito)
         del coin_label
     del balance
 # endregion
@@ -1879,18 +1898,23 @@ async def reels(interaction: Interaction,
         probabilities_table += f"{symbol}: {probability_display}\n"
 
     cheap_mode_etr: Expr = (
-        slot_machine.calculate_expected_total_return_or_profit(
-            jackpot_mode=False, return_or_profit="return"))
+        slot_machine.calculate_expected_return_or_total_return(
+            jackpot_mode=False, return_or_total_return="total_return"))
     # TODO Suppress output
     cheap_mode_etp: Expr = (
-        slot_machine.calculate_expected_total_return_or_profit(
-            jackpot_mode=False, return_or_profit="profit"))
+        slot_machine.calculate_expected_return_or_total_return(
+            jackpot_mode=False,
+            return_or_total_return="return",
+            silent=True))
     jackpot_mode_etr: Expr = (
-        slot_machine.calculate_expected_total_return_or_profit(
-            jackpot_mode=True, return_or_profit="return"))
+        slot_machine.calculate_expected_return_or_total_return(
+            jackpot_mode=True,
+            return_or_total_return="total_return",
+            silent=True))
     jackpot_mode_etp: Expr = (
-        slot_machine.calculate_expected_total_return_or_profit(
-            jackpot_mode=True, return_or_profit="profit"))
+        slot_machine.calculate_expected_return_or_total_return(
+            jackpot_mode=True,
+            return_or_total_return="return"))
     wagers: List[int] = [
         1, 2, 5, 10, 50, 100, 500, 1000, 10000, 100000, 1000000]
     rtp_dict: Dict[int, str] = {}
@@ -1923,9 +1947,9 @@ async def reels(interaction: Interaction,
                     f"{str(cheap_mode_etr).replace("*", "")}\n"
                     "**Expected total return (Jackpot fee not paid)**\n"
                     f"{str(jackpot_mode_etr).replace("*", "")}\n"
-                    "**Expected total profit (Jackpot fee paid)**\n"
+                    "**Expected return (Jackpot fee paid)**\n"
                     f"{str(cheap_mode_etp).replace('*', '')}\n"
-                    "**Expected total profit (Jackpot fee not paid)**\n"
+                    "**Expected return (Jackpot fee not paid)**\n"
                     f"{str(jackpot_mode_etp).replace('*', '')}\n"
                     '-# "W" means wager\n\n'
                     "### RTP\n"
@@ -1979,7 +2003,6 @@ async def slots(interaction: Interaction,
         await interaction.edit_original_response(content=message)
         del message
         return
-        
 
     # Check if user is already playing on a slot machine
     if user_id in active_slot_machine_players:
@@ -2031,7 +2054,7 @@ async def slots(interaction: Interaction,
 
     administrator: str = (
         (await bot.fetch_user(ADMINISTRATOR_ID)).mention)
-    
+
     # Check balance
     user_id_hash: str = sha256(str(user_id).encode()).hexdigest()
     user_balance: int | None = blockchain.get_balance(user=user_id_hash)
@@ -2064,7 +2087,7 @@ async def slots(interaction: Interaction,
         if user_id in active_slot_machine_players:
             active_slot_machine_players.remove(user_id)
         return
-    
+
     slot_machine_view = SlotMachineView(invoker=user,
                                         slot_machine=slot_machine,
                                         wager=wager,
@@ -2119,7 +2142,6 @@ async def slots(interaction: Interaction,
     # Create some variables for the outcome messages
     slot_machine_header: str = slot_machine_view.message_header
     slot_machine_results_row: str = slot_machine_view.message_results_row
-    print(f"slot_machine_results_row: '{slot_machine_results_row}'")
     del slot_machine_view
 
     # Calculate win amount
@@ -2294,66 +2316,67 @@ async def slots(interaction: Interaction,
         del slots_message_outcome
 
     # Transfer and log
-    sender: User | Member | int
-    receiver: User | Member | int
-    log_timestamp: float = 0.0
     last_block_error = False
-    transfer_amount: int
     if net_return != 0:
+        sender: User | Member | int
+        receiver: User | Member | int
+        log_timestamp: float = 0.0
+        transfer_amount: int
         if net_return > 0:
             transfer_amount = net_return
             sender = CASINO_HOUSE_ID
             receiver = user
-        elif net_return < 0:
+        else:
             sender = user
             receiver = CASINO_HOUSE_ID
             # flip to positive value (transferring a negative amount would mean
             # reducing the receiver's balance)
             transfer_amount = -net_return
-            await add_block_transaction(
-                blockchain=blockchain,
-                sender=sender,
-                receiver=receiver,
-                amount=transfer_amount,
-                method="slot_machine"
-            )
-            del sender
-            del receiver
-            del transfer_amount
-            last_block_timestamp: float | None = get_last_block_timestamp()
-            if last_block_timestamp is None:
-                print("ERROR: Could not get last block timestamp.")
-                log_timestamp = time()
-                log_line += ("(COULD NOT GET LAST BLOCK TIMESTAMP; "
-                             "USING CURRENT TIME; WILL NOT RESET JACKPOT)")
-                last_block_error = True
-            else:
-                log_timestamp = last_block_timestamp
-            del last_block_timestamp
-        else:
+        await add_block_transaction(
+            blockchain=blockchain,
+            sender=sender,
+            receiver=receiver,
+            amount=transfer_amount,
+            method="slot_machine"
+        )
+        del sender
+        del receiver
+        del transfer_amount
+        last_block_timestamp: float | None = get_last_block_timestamp()
+        if last_block_timestamp is None:
+            print("ERROR: Could not get last block timestamp.")
             log_timestamp = time()
-        log.log(line=log_line, timestamp=log_timestamp)
-        del log_timestamp
-        if last_block_error:
-            # send message to admin
-            await interaction.response.send_message("An error occurred. "
-                                                    f"{administrator} pls fix.")
-            await terminate_bot()
-
-        if event_name == "jackpot":
-            # Reset the jackpot
-            events: Dict[str, Dict[str, int | float]] = cast(
-                Dict[str, Dict[str, int | float]],
-                slot_machine.configuration["events"])
-            jackpot_seed: int = cast(int, events["jackpot"]["fixed_amount"])
-            slot_machine.jackpot = jackpot_seed
+            log_line += ("(COULD NOT GET LAST BLOCK TIMESTAMP; "
+                         "USING CURRENT TIME; WILL NOT RESET JACKPOT)")
+            last_block_error = True
         else:
-            slot_machine.jackpot += 1
+            log_timestamp = last_block_timestamp
+        del last_block_timestamp
+    else:
+        log_timestamp = time()
+    log.log(line=log_line, timestamp=log_timestamp)
+    del log_timestamp
+
+    if event_name == "jackpot":
+        # Reset the jackpot
+        events: Dict[str, Dict[str, int | float]] = cast(
+            Dict[str, Dict[str, int | float]],
+            slot_machine.configuration["events"])
+        jackpot_seed: int = cast(int, events["jackpot"]["fixed_amount"])
+        slot_machine.jackpot = jackpot_seed
+    else:
+        slot_machine.jackpot += 1
     del log_line
-    del last_block_error
 
     if user_id in active_slot_machine_players:
         active_slot_machine_players.remove(user_id)
+
+    if last_block_error:
+        # send message to admin
+        await interaction.response.send_message("An error occurred. "
+                                                f"{administrator} pls fix.")
+        await terminate_bot()
+    del last_block_error
 
 
 # endregion
