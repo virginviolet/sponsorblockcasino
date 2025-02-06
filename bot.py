@@ -1512,7 +1512,7 @@ async def on_ready() -> None:
 
     # global guild_ids
     # guild_ids = load_guild_ids()
-    print(f"Guild IDs: {guild_ids}")
+    # print(f"Guild IDs: {guild_ids}")
     for guild in bot.guilds:
         print(f"- {guild.name} ({guild.id})")
 
@@ -1689,7 +1689,10 @@ async def transfer(interaction: Interaction, amount: int, user: Member) -> None:
 
 @bot.tree.command(name="balance", description="Check your balance")
 @app_commands.describe(user="User to check the balance")
-async def balance(interaction: Interaction, user: Member | None = None) -> None:
+@app_commands.describe(incognito="Do not display the balance publicly")
+async def balance(interaction: Interaction,
+                  user: Member | None = None,
+                  incognito: bool = False) -> None:
     """
     Check the balance of a user. If no user is specified, the balance of the
     user who invoked the command is checked.
@@ -1713,11 +1716,13 @@ async def balance(interaction: Interaction, user: Member | None = None) -> None:
     balance: int | None = blockchain.get_balance(user=user_id_hash)
     if balance is None:
         await interaction.response.send_message(f"{user_to_check} has 0 "
-                                                f"{coins}.")
+                                                f"{coins}.",
+                                                ephemeral=incognito)
     else:
         coin_label: str = generate_coin_label(balance)
         await interaction.response.send_message(f"{user_to_check} has "
-                                            f"{balance} {coin_label}.")
+                                            f"{balance} {coin_label}.",
+                                            ephemeral=incognito)
         del coin_label
     del balance
 # endregion
@@ -1730,13 +1735,16 @@ async def balance(interaction: Interaction, user: Member | None = None) -> None:
 @app_commands.describe(amount="Amount of symbols to add")
 @app_commands.describe(remove_symbol="Remove a symbol from the reels")
 @app_commands.describe(reel="The reel to modify")
-@app_commands.describe(report="Report the current configuration")
+@app_commands.describe(inspect="Inspect the reels")
+@app_commands.describe(close_off="Close off the area so that others cannot "
+                       "see the reels")
 async def reels(interaction: Interaction,
                 add_symbol: str | None = None,
                 remove_symbol: str | None = None,
                 amount: int | None = None,
                 reel: str | None = None,
-                report: bool | None = None) -> None:
+                close_off: bool = False,
+                inspect: bool | None = None) -> None:
     """
     Design the slot machine reels by adding and removing symbols.
 
@@ -1760,7 +1768,7 @@ async def reels(interaction: Interaction,
     if administrator_role is None and technician_role is None:
         # TODO Maybe let other users see the reels
         message: str = ("Only slot machine technicians may look at the reels.")
-        await interaction.response.send_message(message)
+        await interaction.response.send_message(message, ephemeral=True)
         del message
         return
     if amount is None:
@@ -1773,16 +1781,18 @@ async def reels(interaction: Interaction,
     new_reels: Dict[str, Dict[str, int]] = slot_machine.reels
     if add_symbol and remove_symbol:
         await interaction.response.send_message("You can only add or remove a "
-                                                "symbol at a time.")
+                                                "symbol at a time.",
+                                                ephemeral=True)
         return
     if add_symbol and reel is None:
         if amount % 3 != 0:
             await interaction.response.send_message("The amount of symbols to "
                                                     "add must be a multiple "
-                                                    "of 3.")
+                                                    "of 3.",
+                                                    ephemeral=True)
             return
     elif add_symbol and reel:
-        print(f"add_symboling symbol: {add_symbol}")
+        print(f"Adding symbol: {add_symbol}")
         print(f"Amount: {amount}")
         print(f"Reel: {reel}")
         if (reel in slot_machine.reels and
@@ -1919,7 +1929,7 @@ async def reels(interaction: Interaction,
                     '-# "W" means wager\n\n'
                     "### RTP\n"
                     f"{rtp_table}")
-    await interaction.response.send_message(message)
+    await interaction.response.send_message(message, ephemeral=close_off)
     del message
 
 
@@ -1932,8 +1942,11 @@ async def reels(interaction: Interaction,
 @bot.tree.command(name="slots",
                   description="Play on a slot machine")
 @app_commands.describe(insert_coins="Insert coins into the slot machine")
+@app_commands.describe(private_room="Play in a private room")
+                       
 async def slots(interaction: Interaction,
-                insert_coins: int | None = None) -> None:
+                insert_coins: int | None = None,
+                private_room: bool = False) -> None:
     """
     Command to play a slot machine.
 
@@ -1941,7 +1954,6 @@ async def slots(interaction: Interaction,
         interaction (Interaction): The interaction object representing the
         command invocation.
     """
-    # TODO Ensure you cannot wager 0 coins or negative
     # TODO Add TOS
     # TODO Add /help
     wager: int | None = insert_coins
@@ -2033,7 +2045,8 @@ async def slots(interaction: Interaction,
                           f"{empty_space}")
 
     await interaction.response.send_message(content=slots_message,
-                                            view=slot_machine_view)
+                                            view=slot_machine_view,
+                                            ephemeral=private_room)
     del slots_message
     # Auto-stop-timer
     # Wait 3 seconds and see if the user has manually pressed a stop button
@@ -2319,7 +2332,6 @@ async def ping(interaction: Interaction) -> None:
     await interaction.response.send_message("Pong!", ephemeral=True)
 # endregion
 
-# TODO Prevent self-mining
 # TODO Track reaction removals
 # TODO Add "hide" parameters to commands
 # TODO Add more games
