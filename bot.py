@@ -876,7 +876,7 @@ class StartingBonusView(View):
                  save_data: UserSaveData,
                  log: Log,
                  interaction: Interaction) -> None:
-        super().__init__(timeout=5)
+        super().__init__(timeout=30)
         self.invoker: User | Member = invoker
         self.invoker_id: int = invoker.id
         self.starting_bonus_awards: Dict[int, int] = starting_bonus_awards
@@ -1674,9 +1674,9 @@ async def transfer(interaction: Interaction, amount: int, user: Member) -> None:
     log.log(line=f"{sender} ({sender_id}) transferred {amount} {coin_label_a} "
             f"to {receiver} ({receiver_id}).",
             timestamp=timestamp)
-    await interaction.response.send_message(f"{sender.mention} transferred "
+    await interaction.response.send_message(f"{sender} transferred "
                                             f"{amount} {coin_label_a} "
-                                            f"to {receiver.mention}.")
+                                            f"to {receiver.mention}'s account.")
     del sender
     del sender_id
     del receiver
@@ -1706,10 +1706,10 @@ async def balance(interaction: Interaction,
     """
     user_to_check: Member | str
     if user is None:
-        user_to_check = interaction.user.mention
+        user_to_check = interaction.user.name
         user_id: int = interaction.user.id
     else:
-        user_to_check = user.mention
+        user_to_check = user.name
         user_id: int = user.id
 
     user_id_hash: str = sha256(str(user_id).encode()).hexdigest()
@@ -2023,7 +2023,9 @@ async def slots(interaction: Interaction,
         await interaction.response.send_message(content=message,
                                                 view=starting_bonus_view)
         await starting_bonus_view.wait()
-        del starting_bonus_view
+        if user_id in active_slot_machine_players:
+            active_slot_machine_players.remove(user_id)
+        return
     """ else:
         print("Starting bonus already received.") """
 
@@ -2374,7 +2376,6 @@ async def ping(interaction: Interaction) -> None:
 # endregion
 
 # TODO Track reaction removals
-# TODO Add "hide" parameters to commands
 # TODO Add more games
 
 # region Main
