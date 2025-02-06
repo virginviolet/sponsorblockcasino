@@ -924,6 +924,7 @@ class StartingBonusView(View):
                 line=(f"{self.invoker} ({self.invoker_id}) won "
                       f"{starting_bonus} {coins} from the starting bonus."),
                 timestamp=last_block_timestamp)
+            del last_block_timestamp
             self.stop()
 
     async def on_timeout(self) -> None:
@@ -932,6 +933,7 @@ class StartingBonusView(View):
                    "ready, you may run the command again.")
         await self.interaction.edit_original_response(content=message,
                                                       view=self)
+        del message
 # endregion
 
 # region Slots buttons
@@ -1229,13 +1231,15 @@ async def process_missed_messages() -> None:
                     if checkpoint_reached:
                         break
                     new_channel_messages_found += 1
+                    sender: Member | User
+                    receiver: User | Member
                     for reaction in message.reactions:
                         async for user in reaction.users():
                             # print(f"Reaction found: {reaction.emoji}: {user}.")
                             # print(f"Message ID: {message_id}.")
                             # print(f"{message.author}: {message.content}")
-                            sender: Member | User = user
-                            receiver: User | Member = message.author
+                            sender = user
+                            receiver = message.author
                             emoji: PartialEmoji | Emoji | str = reaction.emoji
                             await process_reaction(emoji, sender, receiver)
             print("Messages from "
@@ -1252,6 +1256,7 @@ async def process_missed_messages() -> None:
                           "no new messages were found.")
         print(f"Messages from guild {guild.id} ({guild}) fetched.")
     print(missed_messages_processed_message)
+    del missed_messages_processed_message
 
 # endregion
 
@@ -1308,6 +1313,8 @@ async def process_reaction(emoji: PartialEmoji | Emoji | str,
             mined_message: str = (f"{sender} ({sender_id}) mined 1 {coin} "
                                   f"for {receiver} ({receiver_id}).")
             log.log(line=mined_message, timestamp=last_block_timestamp)
+            del mined_message
+            del last_block_timestamp
         except Exception as e:
             print(f"Error logging mining: {e}")
             await terminate_bot()
@@ -1369,8 +1376,12 @@ async def add_block_transaction(
     receiver_id_unhashed: int = receiver_id
     sender_id_hash: str = (
         sha256(str(sender_id_unhashed).encode()).hexdigest())
+    del sender_id
+    del sender_id_unhashed
     receiver_id_hash: str = (
         sha256(str(receiver_id_unhashed).encode()).hexdigest())
+    del receiver_id
+    del receiver_id_unhashed
     print("Adding transaction to blockchain...")
     try:
         data: List[Dict[str, sb_blockchain.TransactionDict]] = (
@@ -1436,6 +1447,14 @@ def load_guild_ids(file_name: str = "data/guild_ids.txt") -> List[int]:
                 guild_ids.append(guild_id)
     print("Guild IDs loaded.")
     return guild_ids
+# endregion
+
+# region Coin label
+def generate_coin_label(number: int) -> str:
+    if number == 1 or number == -1:
+        return coin
+    else:
+        return coins
 # endregion
 
 
@@ -1572,6 +1591,8 @@ async def on_raw_reaction_add(payload: RawReactionActionEvent) -> None:
                     (starting_bonus_messages_waiting[message_id].invoker_id
                      == reacter_id)):
                 print("Die rolled!")
+        del message_id
+        del reacter_id
 
         # Look for coin emoji
         if payload.emoji.id is None:
@@ -1584,6 +1605,8 @@ async def on_raw_reaction_add(payload: RawReactionActionEvent) -> None:
         await process_reaction(emoji=payload.emoji,
                                sender=sender,
                                receiver_id=receiver_user_id)
+        del receiver_user_id
+        del sender
 # endregion
 
 
@@ -1604,8 +1627,9 @@ async def transfer(interaction: Interaction, amount: int, user: Member) -> None:
     sender_id: int = sender.id
     receiver: Member = user
     receiver_id: int = receiver.id
-    print(f"User {sender_id} is requesting to transfer {amount} {coins} to "
-          f"user {receiver_id}...")
+    coin_label_a: str = generate_coin_label(amount)
+    print(f"User {sender_id} is requesting to transfer "
+          f"{amount} {coin_label_a} to user {receiver_id}...")
     balance: int | None = None
     try:
         balance = blockchain.get_balance(user_unhashed=sender_id)
@@ -1620,12 +1644,17 @@ async def transfer(interaction: Interaction, amount: int, user: Member) -> None:
         return
     if balance < amount:
         print(f"{sender} ({sender_id}) does not have enough {coins} to "
-              f"transfer {amount} to {sender} ({sender_id}). "
+              f"transfer {amount} {coin_label_a} to {sender} ({sender_id}). "
               f"Balance: {balance}.")
+        coin_label_b: str = generate_coin_label(balance)
         await interaction.response.send_message(f"You do not have enough "
                                                 f"{coins}. You have {balance} "
-                                                f"{coins}.")
+                                                f"{coin_label_b}.",
+                                                ephemeral=True)
+        del coin_label_b
         return
+    del balance
+
     await add_block_transaction(
         blockchain=blockchain,
         sender=sender,
@@ -1637,16 +1666,22 @@ async def transfer(interaction: Interaction, amount: int, user: Member) -> None:
     if last_block is None:
         print("ERROR: Last block is None.")
         administrator: str = (await bot.fetch_user(ADMINISTRATOR_ID)).mention
-        await interaction.response.send_message("Error transferring coins. "
+        await interaction.response.send_message(f"Error transferring {coins}. "
                                                 f"{administrator} pls fix.")
         await terminate_bot()
     timestamp: float = last_block.timestamp
-    log.log(line=f"{sender} ({sender_id}) transferred {amount} {coins} "
+    log.log(line=f"{sender} ({sender_id}) transferred {amount} {coin_label_a} "
             f"to {receiver} ({receiver_id}).",
             timestamp=timestamp)
     await interaction.response.send_message(f"{sender.mention} transferred "
-                                            f"{amount} {coins} "
+                                            f"{amount} {coin_label_a} "
                                             f"to {receiver.mention}.")
+    del sender
+    del sender_id
+    del receiver
+    del receiver_id
+    del amount
+    del coin_label_a
 # endregion
 
 # region /balance
@@ -1674,16 +1709,17 @@ async def balance(interaction: Interaction, user: Member | None = None) -> None:
         user_id: int = user.id
 
     user_id_hash: str = sha256(str(user_id).encode()).hexdigest()
+    del user_id
     balance: int | None = blockchain.get_balance(user=user_id_hash)
     if balance is None:
         await interaction.response.send_message(f"{user_to_check} has 0 "
                                                 f"{coins}.")
-    elif balance == 1:
-        await interaction.response.send_message(f"{user_to_check} has 1 "
-                                                f"{coin}.")
     else:
+        coin_label: str = generate_coin_label(balance)
         await interaction.response.send_message(f"{user_to_check} has "
-                                                f"{balance} {coins}.")
+                                            f"{balance} {coin_label}.")
+        del coin_label
+    del balance
 # endregion
 # region /reels
 
@@ -1725,6 +1761,7 @@ async def reels(interaction: Interaction,
         # TODO Maybe let other users see the reels
         message: str = ("Only slot machine technicians may look at the reels.")
         await interaction.response.send_message(message)
+        del message
         return
     if amount is None:
         if reel is None:
@@ -1848,10 +1885,10 @@ async def reels(interaction: Interaction,
     rtp_dict: Dict[int, str] = {}
     rtp_display: str | None = None
     for wager in wagers:
-        rtp = (
+        rtp: Float = (
             slot_machine.calculate_rtp(wager))
         rtp_percentage = Mul(rtp, 100.0)
-        rtp_rounded = round(rtp_percentage, max_digits)
+        rtp_rounded: Float = round(rtp_percentage, max_digits)
         if rtp == rtp_rounded:
             rtp_display = f"{str(rtp_percentage)}%"
         elif simplify(rtp_percentage) > lowest_number:
@@ -1861,8 +1898,8 @@ async def reels(interaction: Interaction,
         rtp_dict[wager] = rtp_display
 
     rtp_table: str = "**Wager**: **RTP**\n"
-    for wager, rtp in rtp_dict.items():
-        rtp_table += f"{wager}: {rtp}\n"
+    for wager_sample, rtp_sample in rtp_dict.items():
+        rtp_table += f"{wager_sample}: {rtp_sample}\n"
 
     message: str = ("### Reels\n"
                     f"{reels_table}\n"
@@ -1883,6 +1920,7 @@ async def reels(interaction: Interaction,
                     "### RTP\n"
                     f"{rtp_table}")
     await interaction.response.send_message(message)
+    del message
 
 
 # endregion
@@ -1948,6 +1986,34 @@ async def slots(interaction: Interaction,
     """ else:
         print("Starting bonus already received.") """
 
+    administrator: str = (
+        (await bot.fetch_user(ADMINISTRATOR_ID)).mention)
+    
+    # Check balance
+    user_id_hash: str = sha256(str(user_id).encode()).hexdigest()
+    user_balance: int | None = blockchain.get_balance(user=user_id_hash)
+    if user_balance is None:
+        # Would happen if the blockchain is deleted but not the save data
+        message = ("This is odd. It appears you do not have an account.\n"
+                   f"{administrator} should look into this.")
+        return
+    elif user_balance == 0:
+        message = (f"You're all out of {coins}!\n")
+        await interaction.response.send_message(content=message)
+        del message
+        return
+    elif user_balance < wager:
+        coin_label_w: str = generate_coin_label(wager)
+        coin_label_b: str = generate_coin_label(user_balance)
+        message = (f"You do not have enough {coins} "
+                   f"to stake {wager} {coin_label_w}.\n"
+                   f"Your current balance is {user_balance} {coin_label_b}.")
+        await interaction.response.send_message(content=message, ephemeral=True)
+        del coin_label_w
+        del coin_label_b
+        del message
+        return
+    
     slot_machine_view = SlotMachineView(invoker=user,
                                         slot_machine=slot_machine,
                                         wager=wager,
@@ -1968,6 +2034,7 @@ async def slots(interaction: Interaction,
 
     await interaction.response.send_message(content=slots_message,
                                             view=slot_machine_view)
+    del slots_message
     # Auto-stop-timer
     # Wait 3 seconds and see if the user has manually pressed a stop button
     # If not, stop the reels automatically
@@ -1992,12 +2059,6 @@ async def slots(interaction: Interaction,
         previous_buttons_clicked_count: int = buttons_clicked_count
     await slot_machine_view.start_auto_stop()
     # await asyncio.sleep(1.0)
-
-    def generate_coin_label(number: int) -> str:
-        if number == 1 or number == -1:
-            return coin
-        else:
-            return coins
 
     # Get results
     results: Dict[str, Dict[str, str | int | float |
@@ -2025,6 +2086,7 @@ async def slots(interaction: Interaction,
     print(f"event_name: '{event_name}'")
     print(f"event_name_friendly: '{event_name_friendly}'")
     # print(f"win money: '{win_money}'")
+    coin_label_wm: str = generate_coin_label(win_money)
     if event_name == "jackpot_fail":
         jackpot_amount: int = slot_machine.jackpot
         coin_label_fee: str = generate_coin_label(jackpot_amount)
@@ -2035,14 +2097,14 @@ async def slots(interaction: Interaction,
                          "that you did not win the jackpot of "
                          f"{jackpot_amount} {coin_label_jackpot}. "
                          "Better luck next time!")
+        del coin_label_fee
+        del coin_label_jackpot
     elif event_name == "standard_lose":
         event_message = None
     else:
         # The rest of the possible events are win events
-        coin_label: str = generate_coin_label(win_money)
         event_message = (f"{event_name_friendly}! "
-                         f"You won {win_money} {coin_label}!")
-        del coin_label
+                         f"You won {win_money} {coin_label_wm}!")
 
     # Calculate net return to determine who should get money (house or player)
     # and to generate collect screen message and an informative log line
@@ -2057,14 +2119,12 @@ async def slots(interaction: Interaction,
     jackpot_mode: bool = True if jackpot_fee_paid else False
     log_line: str = ""
     if event_name == "lose_wager":
-        coin_label = generate_coin_label(wager)
         event_message = (f"You lost your entire "
-                         f"stake of {wager} {coin_label}. "
+                         f"stake of {wager} {coin_label_wm}. "
                          "Better luck next time!")
         net_return = -wager
         total_return = 0
         # Remove variables with common names to prevent accidental use
-        del coin_label
     elif jackpot_mode:
         net_return = win_money - standard_fee - jackpot_fee
         if win_money > 0:
@@ -2087,7 +2147,6 @@ async def slots(interaction: Interaction,
     print(f"net_return: {net_return}")
     print(f"total_return: {total_return}")
     coin_label_nr: str = generate_coin_label(net_return)
-    coin_label_wm: str = generate_coin_label(win_money)
     if net_return > 0:
         log_line = (f"{user_name} ({user_id}) won the {event_name} "
                     f"({event_name_friendly}) reward "
@@ -2164,6 +2223,8 @@ async def slots(interaction: Interaction,
         elif event_message and collect_message:
             outcome_message_line_1 = event_message
             outcome_message_line_2 = collect_message
+        del event_message
+        del collect_message
 
         # edit original message
         slots_message_outcome: str = (f"{slot_machine_header}\n"
@@ -2174,7 +2235,11 @@ async def slots(interaction: Interaction,
                                       f"{empty_space}\n"
                                       f"{slot_machine_results_row}\n"
                                       f"{empty_space}")
+        del outcome_message_line_1
+        del outcome_message_line_2
+        del slot_machine_results_row
         await interaction.edit_original_response(content=slots_message_outcome)
+        del slots_message_outcome
 
     # Transfer and log
     sender: User | Member | int
@@ -2200,6 +2265,9 @@ async def slots(interaction: Interaction,
                 amount=transfer_amount,
                 method="slot_machine"
             )
+            del sender
+            del receiver
+            del transfer_amount
             last_block_timestamp: float | None = get_last_block_timestamp()
             if last_block_timestamp is None:
                 print("ERROR: Could not get last block timestamp.")
@@ -2209,13 +2277,13 @@ async def slots(interaction: Interaction,
                 last_block_error = True
             else:
                 log_timestamp = last_block_timestamp
+            del last_block_timestamp
         else:
             log_timestamp = time()
         log.log(line=log_line, timestamp=log_timestamp)
+        del log_timestamp
         if last_block_error:
             # send message to admin
-            administrator: str = (
-                (await bot.fetch_user(ADMINISTRATOR_ID)).mention)
             await interaction.response.send_message("An error occurred. "
                                                     f"{administrator} pls fix.")
             await terminate_bot()
@@ -2229,6 +2297,7 @@ async def slots(interaction: Interaction,
             slot_machine.jackpot = jackpot_seed
         else:
             slot_machine.jackpot += 1
+    del log_line
 
 
 # endregion
