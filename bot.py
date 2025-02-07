@@ -21,9 +21,11 @@ from os.path import exists
 from dotenv import load_dotenv
 from hashlib import sha256
 from sys import exit as sys_exit
-from sympy import symbols, Expr, Add, Mul, Float, Integer, Rational, simplify
+from sympy import (symbols, Expr, Add, Mul, Float, Integer, Rational, simplify,
+                   Piecewise, pretty)
 from typing import (
-    Dict, KeysView, List, LiteralString, NoReturn, TextIO, cast, NamedTuple, Literal, Any)
+    Dict, KeysView, List, LiteralString, NoReturn, TextIO, cast, NamedTuple,
+    Literal, Any)
 # endregion
 
 # region Named tuples
@@ -375,14 +377,14 @@ class SlotMachine:
                 "medium_win": {
                     "emoji_name": "",
                     "emoji_id": 0,
-                    "fixed_amount": 10,
-                    "wager_multiplier": 1.0
+                    "fixed_amount": 0,
+                    "wager_multiplier": 2.0
                 },
                 "high_win": {
                     "emoji_name": "",
                     "emoji_id": 0,
-                    "fixed_amount": 100,
-                    "wager_multiplier": 1.0
+                    "fixed_amount": 0,
+                    "wager_multiplier": 3.0
                 },
                 "jackpot": {
                     "emoji_name": "",
@@ -395,27 +397,27 @@ class SlotMachine:
             "reels": {
                 "1": {
                     "lose_wager": 2,
-                    "small_win": 9,
-                    "medium_win": 5,
+                    "small_win": 8,
+                    "medium_win": 6,
                     "high_win": 3,
                     "jackpot": 1
                 },
                 "2": {
                     "lose_wager": 2,
-                    "small_win": 9,
-                    "medium_win": 5,
+                    "small_win": 8,
+                    "medium_win": 6,
                     "high_win": 3,
                     "jackpot": 1
                 },
                 "3": {
                     "lose_wager": 2,
-                    "small_win": 9,
-                    "medium_win": 5,
+                    "small_win": 8,
+                    "medium_win": 6,
                     "high_win": 3,
                     "jackpot": 1
                 }
             },
-            "jackpot_amount": 0
+            "jackpot_amount": 101
         }
         # Save the configuration to the file
         with open(self.file_name, "w") as file:
@@ -506,30 +508,47 @@ class SlotMachine:
             return sum(self.reels[reel].values())
     # endregion
 
-    # region Slot total return
+    # region Slot EV
     def calculate_expected_return_or_total_return(self,
                                                   jackpot_mode: bool,
                                                   return_or_total_return: (
                                                       Literal[
                                                           "total_return",
                                                           "return"]),
-                                                  silent: bool = False) -> Add:
-        # From the UX perspective, there is only the wager, which can be 1 or
-        # anything above. However,
-        # each spin costs 1 coin. The player will not keep this coin in any
-        # win event.
-        # If the player sets their wager to 2 or more, one of those coins is
-        # the jackpot fee. It goes directly to the jackpot. The player will not
-        # keep this coin in any win event.
-        # If the player does not strike a combo, they win nothing, so the net
-        # return for that spin is either -1 (the spin fee) or -2 (the spin fee
-        # and the jackpot fee).
+                                                  silent: bool = False
+                                                  ) -> Piecewise:
+        """ From the UX perspective, there is only the wager, which can be 1 or
+        anything above. However,
+        each spin costs 1 coin. The player will not keep this coin in any
+        win event.
+        If the player sets their wager to 2 or more, one of those coins is
+        the jackpot fee. It goes directly to the jackpot. The player will not
+        keep this coin in any win event.
+        If the player does not strike a combo, they win nothing, so the net
+        return for that spin is either -1 (the spin fee) or -2 (the spin fee
+        and the jackpot fee).
 
-        # Jackpot mode is when the player pays the 1 coin jackpot fee by setting
-        # their wager to a value higher than 1. In this mode, the player is
-        # eligible for and contributing to the jackpot.
-        # If they player gets the jackpot combo but didn't pay the jackpot fee,
-        # it's equivalent to getting a standard lose (no combo).
+        Jackpot mode is when the player pays the 1 coin jackpot fee by setting
+        their wager to a value higher than 1. In this mode, the player is
+        eligible for and contributing to the jackpot.
+        If they player gets the jackpot combo but didn't pay the jackpot fee,
+        it's equivalent to getting a standard lose (no combo).
+
+        Terms:
+        - Total return: The gross return amount that the player gets back
+            (this in itself does not tell us if the player made a profit or
+            loss)
+        - Return: The net amount that the player gets back; the profit or loss
+            part of the total return money; the total return minus the wager 
+        - Expected total return: The average total return over many plays
+        - Expected return: The average return (profit or loss) over many plays
+        - Piecewise function: 
+
+        Symbolic representation:
+        - W: Wager
+        - k: Wager multiplier
+        - x: Fixed amount payout
+        """
 
         def print_if_not_silent(*args: Any, **kwargs: Any) -> None:
             if not silent:
@@ -541,22 +560,33 @@ class SlotMachine:
         combo_events: Dict[str, Dict[str, int | float]] = cast(
             Dict[str, Dict[str, int | float]], self.configuration["events"])
         W: Expr = symbols('W')  # wager
-        event_return: Integer | Add = Integer(0)
-        event_total_return: Integer | Add = Integer(0)
-        expected_total_return_contribution: Integer | Mul = Integer(0)
-        expected_return_contribution: Integer | Mul = Integer(0)
-        expected_total_return: Integer | Add = Integer(0)
-        expected_return: Integer | Add = Integer(0)
-        main_fee_int: int = 1
-        main_fee: Expr = Integer(main_fee_int)
-        jackpot_fee_int: int = 1
-        jackpot_fee: Expr = Integer(jackpot_fee_int)
-        print_if_not_silent(f"Main fee: {main_fee_int}")
+        event_return_low_wager: Integer | Add = Integer(0)
+        event_return_high_wager: Integer | Add = Integer(0)
+        event_total_return_low_wager: Integer | Add = Integer(0)
+        event_total_return_high_wager: Integer | Add = Integer(0)
+        expected_total_return_contrib_low_wager: Integer | Mul = Integer(0)
+        expected_total_return_contrib_high_wager: Integer | Mul = (Integer(0))
+        expected_return_contrib_low_wager: Integer | Mul = Integer(0)
+        expected_return_contrib_high_wager: Integer | Mul = Integer(0)
+        expected_total_return_low_wagers: Integer | Add = Integer(0)
+        expected_total_return_high_wagers: Integer | Add = Integer(0)
+        expected_return_low_wagers: Integer | Add = Integer(0)
+        expected_return_high_wagers: Integer | Add = Integer(0)
+        # TODO Move fees to config
+        low_wager_main_fee_int: int = 1
+        low_wager_main_fee: Expr = Integer(low_wager_main_fee_int)
+        low_wager_jackpot_fee_int: int = 1
+        low_wager_jackpot_fee: Expr = Integer(low_wager_jackpot_fee_int)
+        high_wager_main_fee_float: float = 0.14
+        high_wager_main_fee: Expr = Float(high_wager_main_fee_float)
+        high_wager_jackpot_fee_float: float = 0.01
+        high_wager_jackpot_fee: Expr = Float(high_wager_jackpot_fee_float)
+        print_if_not_silent(f"Main fee: {low_wager_main_fee_int}")
         if jackpot_mode is True:
             print_if_not_silent("----------JACKPOT MODE----------")
-            print_if_not_silent(f"Jackpot fee: {jackpot_fee_int}")
+            print_if_not_silent(f"Jackpot fee: {low_wager_jackpot_fee_int}")
         else:
-            print_if_not_silent("----------STANDARD MODE----------")
+            print_if_not_silent("----------CHEAP MODE----------")
         for event in events:
             if event == "any_lose" or event == "win":
                 continue
@@ -576,16 +606,16 @@ class SlotMachine:
                     (event == "jackpot" and jackpot_mode is False)):
                 # If the player doesn't pay the 1 coin jackpot fee and
                 # loses,
-                # he ends up with 0 coins (he only paid the 1 coin spin fee and
+                # he ends up with 0 coins (he paid the 1 coin spin fee and
                 # didn't win anything)
-                #
+
                 # If the player pays the 1 coin jackpot fee and loses,
                 # he ends up with his wager minus the standard fee minus the
                 # jackpot fee
-                #
+
                 # If the player doesn't pay the 1 coin jackpot fee
                 # and gets the jackpot combo,
-                # he ends up with 0 coins (he only paid the
+                # he ends up with 0 coins (he paid the
                 # 1 coin spin fee and since he didn't pay the
                 # jackpot fee, he doesn't get the jackpot)
                 # This is equivalent to a standard lose (no combo)
@@ -594,8 +624,9 @@ class SlotMachine:
             elif event == "jackpot" and jackpot_mode is True:
                 # If the player pays the 1 coin jackpot fee
                 # and wins the jackpot,
-                # he ends up with his wager minus the standard fee and the
+                # he ends up with his wager minus the standard fee minus the
                 # jackpot fee, plus the jackpot
+
                 # Variables
                 fixed_amount_int = cast(int,
                                         combo_events[event]["fixed_amount"])
@@ -612,41 +643,79 @@ class SlotMachine:
                 # in case someone wants to use a different value
                 wager_multiplier_float = combo_events[event]["wager_multiplier"]
                 wager_multiplier = Float(wager_multiplier_float)
-
                 # Calculations
-                event_total_return = Add(
+                # For wagers less than 100, both fees are 1 coin each
+                # For wagers of 100 or more, both fees are 1% of the wager each
+                event_total_return_low_wager = Add(
                     Mul(W, wager_multiplier),
                     jackpot_average,
-                    -main_fee,
-                    -jackpot_fee)
-                event_return = Add(
-                    event_total_return,
+                    -low_wager_main_fee,
+                    -low_wager_jackpot_fee)
+                event_total_return_high_wager = Add(
+                    Mul(W, wager_multiplier),
+                    jackpot_average,
+                    -Mul(W, high_wager_main_fee),
+                    -Mul(W, high_wager_jackpot_fee))
+                event_return_low_wager = Add(
+                    event_total_return_low_wager,
                     -W)
-                expected_total_return_contribution = (
-                    Mul(p_event, event_total_return))
-                expected_return_contribution = (
-                    Mul(p_event, event_return))
-                print_if_not_silent(f"Event total return: {event_total_return} "
+                event_return_high_wager = Add(
+                    event_total_return_high_wager,
+                    -W)
+                # This event's contributions to the *expected total return*
+                expected_total_return_contrib_low_wager = (
+                    Mul(p_event, event_total_return_low_wager))
+                expected_total_return_contrib_high_wager = (
+                    Mul(p_event, event_total_return_high_wager))
+                # This event's contribution to the *expected return*
+                expected_return_contrib_low_wager = (
+                    Mul(p_event, event_return_low_wager))
+                expected_return_contrib_high_wager = (
+                    Mul(p_event, event_return_high_wager))
+                print_if_not_silent(f"Event total return (low wager): "
+                                    f"{event_total_return_low_wager} "
                                     "["
                                     "(w * k) + jackpot - main_fee - jackpot_fee"
                                     "]")
-                print_if_not_silent(f"Event return: {event_return} "
+                print_if_not_silent(f"Event return (low wager): "
+                                    f"{event_return_low_wager} "
                                     "[total return - w]")
-                print_if_not_silent("Expected total return contribution: "
-                                    f"{expected_total_return_contribution}")
-                print_if_not_silent("Expected return contribution: "
-                                    f"{expected_return_contribution}")
-                expected_total_return = Add(
-                    expected_total_return,
-                    expected_total_return_contribution)
-                expected_return = Add(
-                    expected_return,
-                    expected_return_contribution)
+                print_if_not_silent(f"Event total return (high wager): "
+                                    f"{event_total_return_high_wager} "
+                                    "["
+                                    "(w * k) + jackpot - main_fee - jackpot_fee"
+                                    "]")
+                print_if_not_silent(f"Event return (high wager): "
+                                    f"{event_return_high_wager} "
+                                    "[total return - w]")
+                message: str
+                message = ("Expected total return contribution (low wager): "
+                           f"{expected_total_return_contrib_low_wager}")
+                print_if_not_silent(message)
+                del message
+                message = ("Expected total return contribution (low wager): "
+                           f"(high wager) "
+                           f"{expected_total_return_contrib_high_wager}")
+                print_if_not_silent(message)
+                del message
+                # Add the event's contributions to the final expected returns
+                expected_total_return_low_wagers = Add(
+                    expected_total_return_low_wagers,
+                    expected_total_return_contrib_low_wager)
+                expected_total_return_high_wagers = Add(
+                    expected_total_return_high_wagers,
+                    expected_total_return_contrib_high_wager)
+                expected_return_low_wagers = Add(
+                    expected_return_low_wagers,
+                    expected_return_contrib_low_wager)
+                expected_return_high_wagers = Add(
+                    expected_return_high_wagers,
+                    expected_return_contrib_high_wager)
                 continue
             else:
                 # As of typing, this includes all remaining win events
                 # plus the lose_wager event
-                #
+
                 # Variables
                 fixed_amount_int = cast(int,
                                         combo_events[event]["fixed_amount"])
@@ -657,58 +726,99 @@ class SlotMachine:
             wager_multiplier = Float(wager_multiplier_float)
             fixed_amount = Integer(fixed_amount_int)
             # Calculations
-            #
-            # If the player doesn't pay the 1 coin jackpot fee and
-            # wins a non-jackpot award
-            # He ends up with his wager plus award
-            #
-            # The gross return amount the player gets back (i.e. including
-            # the wager)
-            # The net amount the player gets back (excluding the wager)
-            if jackpot_mode is True:
+            if jackpot_mode:
                 # If the player pays the 1 coin jackpot fee and
                 # wins a non-jackpot award
                 # He ends up with his wager plus award minus
                 # the jackpot fee
-                #
-                # Subtract the jackpot fee
-                event_total_return = Add(
+                event_total_return_high_wager = Add(
                     Mul(W, wager_multiplier),
                     fixed_amount,
-                    -main_fee,
-                    -jackpot_fee)
-                print_if_not_silent(f"Event total return: {event_total_return} "
+                    -Mul(W, high_wager_main_fee),
+                    -Mul(W, high_wager_jackpot_fee))
+                print_if_not_silent(f"Event total return (high wager): "
+                                    f"{event_total_return_high_wager} "
+                                    "[(w * k) + x - main_fee - jackpot_fee]")
+                event_return_high_wager = Add(
+                    event_total_return_high_wager, -W)
+                print_if_not_silent(f"Event return: (high wager) "
+                                    f"{event_return_high_wager} "
+                                    "[total return - w]")
+                expected_total_return_contrib_high_wager = (
+                    Mul(p_event, event_total_return_high_wager))
+                message = ("Expected total return contribution "
+                           f"(high wager) "
+                           f"{expected_total_return_contrib_high_wager}")
+                print_if_not_silent(message)
+                expected_return_contrib_high_wager = (
+                    Mul(p_event, event_return_high_wager))
+                message = ("Expected return contribution: (high wager) "
+                           f"{expected_return_contrib_high_wager}")
+                print_if_not_silent(message)
+                del message
+                # Add the event's high wager contributions to the final
+                # high wager expected return
+                expected_total_return_high_wagers = Add(
+                    expected_total_return_high_wagers,
+                    expected_total_return_contrib_high_wager)
+                expected_return_high_wagers = Add(
+                    expected_return_high_wagers,
+                    expected_return_contrib_high_wager)
+                event_total_return_low_wager = Add(
+                    Mul(W, wager_multiplier),
+                    fixed_amount,
+                    -low_wager_main_fee,
+                    -low_wager_jackpot_fee)
+                print_if_not_silent(f"Event total return (low wager): "
+                                    f"{event_total_return_low_wager} "
                                     "[(w * k) + x - main_fee - jackpot_fee]")
             else:
-                event_total_return = Add(
+                # TODO Update comments
+                # If the player doesn't pay the 1 coin jackpot fee and
+                # wins a non-jackpot award,
+                # he ends up with his wager plus award money minus
+                # the standard fee
+                event_total_return_low_wager = Add(
                     Mul(W, wager_multiplier),
                     fixed_amount,
-                    -main_fee)
-                print_if_not_silent(f"Event total return: {event_total_return} "
+                    -low_wager_main_fee)
+                print_if_not_silent(f"Event total return (low wager): "
+                                    f"{event_total_return_low_wager} "
                                     "[(w * k) + x - main_fee]")
-            event_return = Add(event_total_return, -W)
-            print_if_not_silent(f"Event return: {event_return} "
+            event_return_low_wager = Add(event_total_return_low_wager, -W)
+            print_if_not_silent(f"Event return: (low wager): "
+                                f"{event_return_low_wager} "
                                 "[total return - w]")
-            # This event's contribution to
-            # the average total return over many plays
-            expected_total_return_contribution = (
-                Mul(p_event, event_total_return))
-            # This event's contribution to
-            # the average return (profit or loss) over many plays
-            expected_return_contribution = (
-                Mul(p_event, event_return))
-            print_if_not_silent("Expected total return contribution: "
-                                f"{expected_total_return_contribution}")
-            print_if_not_silent("Expected return contribution: "
-                                f"{expected_return_contribution}")
-            expected_total_return = Add(
-                expected_total_return,
-                expected_total_return_contribution)
-            expected_return = Add(
-                expected_return,
-                expected_return_contribution)
-        print_if_not_silent(f"Expected total return: {expected_total_return}")
-        print_if_not_silent(f"Expected return: {expected_return}")
+            expected_total_return_contrib_low_wager = (
+                Mul(p_event, event_total_return_low_wager))
+            message = ("Expected total return contribution (low wager): "
+                       f"{expected_total_return_contrib_low_wager}")
+            print_if_not_silent(message)
+            del message
+            expected_return_contrib_low_wager = (
+                Mul(p_event, event_return_low_wager))
+            print_if_not_silent("Expected return contribution (low wager): "
+                                f"{expected_return_contrib_low_wager}")
+            # Add the event's contributions to the final expected returns
+            expected_total_return_low_wagers = Add(
+                expected_total_return_low_wagers,
+                expected_total_return_contrib_low_wager)
+            expected_return_low_wagers = Add(
+                expected_return_low_wagers,
+                expected_return_contrib_low_wager)
+        # TODO Don't need to add high wager contributions if not jackpot mode
+        # TODO Rework function to be abbreviated and expandable
+        # BUG The rounding to nearest integer (for the fees esp.) is not accounted for
+        expected_total_return = Piecewise(
+            (expected_total_return_low_wagers, W < Integer(11)),
+            (expected_total_return_high_wagers, W >= Integer(11)))
+        expected_return = Piecewise(
+            (expected_return_low_wagers, W < Integer(11)),
+            (expected_return_high_wagers, W >= Integer(11)))
+        print_if_not_silent(f"Expected total return:")
+        print_if_not_silent(expected_total_return)
+        print_if_not_silent(f"Expected return:")
+        print_if_not_silent(expected_return)
         # total_return_expanded: Expr = cast(Expr, expand(expected_total_return))
         # print_if_not_silent(f"Expected total return expanded: "
         #       f"{expected_total_return_expanded}")
@@ -717,10 +827,11 @@ class SlotMachine:
         # constant = expected_total_return.coeff(W, 0)
         # print_if_not_silent(f"Expected total return coefficient: {coefficient}")
         # print_if_not_silent(f"Expected total return constant: {constant}")
+
         if return_or_total_return == "total_return":
-            return cast(Add, expected_total_return)
+            return expected_total_return
         elif return_or_total_return == "return":
-            return cast(Add, expected_return)
+            return expected_return
     # endregion
 
     # region Slot avg jackpot
@@ -739,11 +850,12 @@ class SlotMachine:
 
     # region Slot RTP
     def calculate_rtp(self, wager: int) -> Float:
-        jackpot_fee = 1
-        standard_fee = 1
-        jackpot_fee_paid: bool = wager >= (jackpot_fee + standard_fee)
+        low_wager_jackpot_fee = 1
+        low_wager_standard_fee = 1
+        jackpot_fee_paid: bool = (
+            wager >= (low_wager_jackpot_fee + low_wager_standard_fee))
         jackpot_mode: bool = True if jackpot_fee_paid else False
-        expected_total_return: Add = (
+        expected_total_return: Piecewise = (
             self.calculate_expected_return_or_total_return(
                 jackpot_mode=jackpot_mode,
                 return_or_total_return="total_return",
@@ -759,12 +871,12 @@ class SlotMachine:
     # endregion
 
     # region Slot stop reel
-    """ def pull_lever(self):
-        symbols_landed = []
-        for reel in self.reels:
-            symbol = self.stop_reel(reel)
-            symbols_landed.append(symbol)
-        return symbols_landed """
+    # def pull_lever(self):
+    #     symbols_landed = []
+    #     for reel in self.reels:
+    #         symbol = self.stop_reel(reel)
+    #         symbols_landed.append(symbol)
+    #     return symbols_landed
 
     def stop_reel(self, reel: str) -> str:
         # Create a list with all units of each symbol type on the reel
@@ -791,9 +903,10 @@ class SlotMachine:
         )):
             return ("standard_lose", "No win", 0)
 
-        standard_fee = 1
-        jackpot_fee = 1
-        jackpot_fee_paid: bool = wager >= (jackpot_fee + standard_fee)
+        low_wager_standard_fee = 1
+        low_wager_jackpot_fee = 1
+        jackpot_fee_paid: bool = (
+            wager >= (low_wager_jackpot_fee + low_wager_standard_fee))
         jackpot_mode: bool = True if jackpot_fee_paid else False
         event_name: str = cast(str, results["1"]["name"])
         print(f"event_name: {event_name}")
@@ -962,6 +1075,7 @@ class SlotMachineView(View):
                  invoker: User | Member,
                  slot_machine: SlotMachine,
                  wager: int,
+                 fees: int,
                  interaction: Interaction) -> None:
         super().__init__(timeout=20)
         self.current_reel_number: int = 1
@@ -970,12 +1084,13 @@ class SlotMachineView(View):
         self.invoker_id: int = invoker.id
         self.slot_machine: SlotMachine = slot_machine
         self.wager: int = wager
+        self.fees: int = fees
         # TODO Move message variables to global scope
         self.empty_space: LiteralString = "\N{HANGUL FILLER}" * 11
         self.message_header: str = f"### {Coin} Slot Machine\n"
         self.message_reel_status: str = "The reels are spinning..."
-        self.message_collect_screen: str = (f"-# Coin: {wager}\n"
-                                            f"{self.empty_space}\n"
+        self.message_collect_screen: str = (f"-# Coin: {self.wager}\n"
+                                            f"-# Fee: {self.fees}\n"
                                             f"{self.empty_space}")
         self.message_results_row: str = f"🔳\t\t🔳\t\t🔳"
         self.message: str = (f"{self.message_header}\n"
@@ -1778,6 +1893,7 @@ async def reels(interaction: Interaction,
         remove_symbol (str, optional): Remove a symbol from the reels.
         Defaults to None.
     """
+    await interaction.response.defer()
     # Check if user has the necessary role
     invoker: User | Member = interaction.user
     invoker_roles: List[Role] = cast(Member, invoker).roles
@@ -1897,26 +2013,30 @@ async def reels(interaction: Interaction,
             probability_display = f"<{str(lowest_number)}%"
         probabilities_table += f"{symbol}: {probability_display}\n"
 
-    cheap_mode_etr: Expr = (
+    cheap_mode_etr: Piecewise = (
         slot_machine.calculate_expected_return_or_total_return(
             jackpot_mode=False, return_or_total_return="total_return"))
-    # TODO Suppress output
-    cheap_mode_etp: Expr = (
+    cheap_mode_etr_p: str = cast(str, pretty(cheap_mode_etr))
+    cheap_mode_er: Piecewise = (
         slot_machine.calculate_expected_return_or_total_return(
             jackpot_mode=False,
             return_or_total_return="return",
             silent=True))
-    jackpot_mode_etr: Expr = (
+    cheap_mode_er_p: str = cast(str, pretty(cheap_mode_er))
+    jackpot_mode_etr: Piecewise = (
         slot_machine.calculate_expected_return_or_total_return(
             jackpot_mode=True,
             return_or_total_return="total_return",
             silent=True))
-    jackpot_mode_etp: Expr = (
+    jackpot_mode_etr_p: str = cast(str, pretty(jackpot_mode_etr))
+    jackpot_mode_er: Piecewise = (
         slot_machine.calculate_expected_return_or_total_return(
             jackpot_mode=True,
             return_or_total_return="return"))
+    jackpot_mode_er_p: str = cast(str, pretty(jackpot_mode_er))
     wagers: List[int] = [
-        1, 2, 5, 10, 50, 100, 500, 1000, 10000, 100000, 1000000]
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+        25, 50, 75, 99, 100, 500, 1000, 10000, 100000, 1000000]
     rtp_dict: Dict[int, str] = {}
     rtp_display: str | None = None
     for wager in wagers:
@@ -1944,17 +2064,18 @@ async def reels(interaction: Interaction,
                     f"{probabilities_table}\n\n"
                     "### Expected values\n"
                     "**Expected total return (Jackpot fee paid)**\n"
-                    f"{str(cheap_mode_etr).replace("*", "")}\n"
-                    "**Expected total return (Jackpot fee not paid)**\n"
-                    f"{str(jackpot_mode_etr).replace("*", "")}\n"
+                    f"{jackpot_mode_etr_p.replace('⋅', '')}\n"
                     "**Expected return (Jackpot fee paid)**\n"
-                    f"{str(cheap_mode_etp).replace('*', '')}\n"
+                    f"{jackpot_mode_er_p.replace('⋅', '')}\n"
+                    "**Expected total return (Jackpot fee not paid)**\n"
+                    f"{cheap_mode_etr_p.replace("⋅", "")}\n"
                     "**Expected return (Jackpot fee not paid)**\n"
-                    f"{str(jackpot_mode_etp).replace('*', '')}\n"
+                    f"{cheap_mode_er_p.replace("⋅", "")}\n"
                     '-# "W" means wager\n\n'
                     "### RTP\n"
                     f"{rtp_table}")
-    await interaction.response.send_message(message, ephemeral=close_off)
+    print(message)
+    await interaction.followup.send(message, ephemeral=close_off)
     del message
 
 
@@ -2049,8 +2170,8 @@ async def slots(interaction: Interaction,
         if user_id in active_slot_machine_players:
             active_slot_machine_players.remove(user_id)
         return
-    """ else:
-        print("Starting bonus already received.") """
+    # else:
+    #     print("Starting bonus already received.")
 
     administrator: str = (
         (await bot.fetch_user(ADMINISTRATOR_ID)).mention)
@@ -2088,9 +2209,29 @@ async def slots(interaction: Interaction,
             active_slot_machine_players.remove(user_id)
         return
 
+    low_wager_jackpot_fee: int = 1
+    high_wager_jackpot_fee: float = 0.01
+    low_wager_standard_fee: int = 1
+    high_wager_standard_fee: float = 0.14
+    jackpot_fee_paid: bool = (
+        wager >= (low_wager_jackpot_fee + low_wager_standard_fee))
+    jackpot_mode: bool = True if jackpot_fee_paid else False
+    if not jackpot_mode:
+        jackpot_fee = 0
+        standard_fee = low_wager_standard_fee
+    elif wager < 11:
+        jackpot_fee = low_wager_jackpot_fee
+        standard_fee: int = low_wager_standard_fee
+    else:
+        jackpot_fee_unrounded: float = wager * high_wager_jackpot_fee
+        jackpot_fee: int = round(jackpot_fee_unrounded)
+        standard_fee_unrounded: float = wager * high_wager_standard_fee
+        standard_fee: int = round(standard_fee_unrounded)
+    fees: int = jackpot_fee + standard_fee
     slot_machine_view = SlotMachineView(invoker=user,
                                         slot_machine=slot_machine,
                                         wager=wager,
+                                        fees=fees,
                                         interaction=interaction)
     # TODO Add animation
     # Workaround for Discord stripping trailing whitespaces
@@ -2099,7 +2240,7 @@ async def slots(interaction: Interaction,
     # TODO DRY
     slots_message: str = (f"### {Coin} Slot Machine\n"
                           f"-# Coin: {wager}\n"
-                          f"{empty_space}\n"
+                          f"-# Fee: {fees}\n"
                           f"{empty_space}\n"
                           "The reels are spinning...\n"
                           "\n"
@@ -2155,7 +2296,6 @@ async def slots(interaction: Interaction,
                                            results=results))
 
     # Generate outcome messages
-    jackpot_fee: int = 1
     event_message: str | None = None
     # print(f"event_name: '{event_name}'")
     print(f"event_name_friendly: '{event_name_friendly}'")
@@ -2187,10 +2327,6 @@ async def slots(interaction: Interaction,
     # Total return is the total amount of money that the player will get
     # get back (wager included)
     total_return: int
-    standard_fee: int = 1
-    jackpot_fee_paid: bool = (
-        wager >= (jackpot_fee + standard_fee))
-    jackpot_mode: bool = True if jackpot_fee_paid else False
     log_line: str = ""
     if event_name == "lose_wager":
         event_message = (f"You lost your entire "
@@ -2381,22 +2517,6 @@ async def slots(interaction: Interaction,
 
 # endregion
 
-
-# region Message
-# Example slash command
-
-@bot.tree.command(name="ping", description="Replies with Pong!")
-async def ping(interaction: Interaction) -> None:
-    """
-    Replies with Pong! The response is visible only to the user who invoked the
-    command.
-
-    Args:
-        interaction (Interaction): The interaction object representing the
-        command invocation.
-    """
-    await interaction.response.send_message("Pong!", ephemeral=True)
-# endregion
 
 # TODO Track reaction removals
 # TODO Add more games
