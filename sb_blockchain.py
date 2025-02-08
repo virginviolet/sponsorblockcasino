@@ -81,6 +81,9 @@ class Blockchain:
         file_empty: bool = file_exists and os.stat(
             blockchain_file_name).st_size == 0
         if not file_exists or file_empty:
+            directories: str = (self.blockchain_file_name[
+                :self.blockchain_file_name.rfind("/")])
+            os.makedirs(directories, exist_ok=True)
             self.create_genesis_block()
 
     def create_genesis_block(self) -> None:
@@ -255,6 +258,11 @@ class Blockchain:
                 f"{timestamp}\t{sender}\t{receiver}\t{amount}\t{method}\n")
 
     def create_transactions_file(self) -> None:
+        file_exists: bool = os.path.exists(self.transactions_file_name)
+        if not file_exists:
+            directories: str = (self.transactions_file_name[
+                    :self.transactions_file_name.rfind("/")])
+            os.makedirs(directories, exist_ok=True)
         with open(self.transactions_file_name, "w") as file:
             file.write("Time\tSender\tReceiver\tAmount\tMethod\n")
 
@@ -268,6 +276,9 @@ class Blockchain:
         elif user_unhashed:
             user = hashlib.sha256(user_unhashed.encode()).hexdigest()
         # print(f"Getting balance for {user}...")
+        file_exists: bool = os.path.exists(self.transactions_file_name)
+        if not file_exists:
+            self.create_transactions_file()
         balance: int = 0
         transactions: pd.DataFrame = (
             pd.read_csv(self.transactions_file_name, sep="\t"))  # type: ignore
