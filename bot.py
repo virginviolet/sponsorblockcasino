@@ -644,8 +644,8 @@ class SlotMachine:
                 wager_multiplier_float = combo_events[event]["wager_multiplier"]
                 wager_multiplier = Float(wager_multiplier_float)
                 # Calculations
-                # For wagers less than 100, both fees are 1 coin each
-                # For wagers of 100 or more, both fees are 1% of the wager each
+                # For wagers less than 11 both fees are 1 coin each
+                # For wagers of 11 or more, both fees are 1% of the wager each
                 event_total_return_low_wager = Add(
                     Mul(W, wager_multiplier),
                     jackpot_average,
@@ -728,8 +728,8 @@ class SlotMachine:
             # Calculations
             if jackpot_mode:
                 # If the player pays the 1 coin jackpot fee and
-                # wins a non-jackpot award
-                # He ends up with his wager plus award minus
+                # wins a non-jackpot award,
+                # he ends up with his wager plus award minus
                 # the jackpot fee
                 event_total_return_high_wager = Add(
                     Mul(W, wager_multiplier),
@@ -756,8 +756,8 @@ class SlotMachine:
                            f"{expected_return_contrib_high_wager}")
                 print_if_not_silent(message)
                 del message
-                # Add the event's high wager contributions to the final
-                # high wager expected return
+                # Add the event's high wager contributions
+                # to the final high wager expected return
                 expected_total_return_high_wagers = Add(
                     expected_total_return_high_wagers,
                     expected_total_return_contrib_high_wager)
@@ -2089,10 +2089,12 @@ async def reels(interaction: Interaction,
                   description="Play on a slot machine")
 @app_commands.describe(insert_coins="Insert coins into the slot machine")
 @app_commands.describe(private_room="Play in a private room")
+@app_commands.describe(jackpot="Check the current jackpot amount")
 @app_commands.describe(reboot="Reboot the slot machine")
 async def slots(interaction: Interaction,
                 insert_coins: int | None = None,
                 private_room: bool = False,
+                jackpot: bool = False,
                 reboot: bool = False) -> None:
     """
     Command to play a slot machine.
@@ -2109,7 +2111,6 @@ async def slots(interaction: Interaction,
     # TODO Log/stat outcomes (esp. wager amounts)
     user: User | Member = interaction.user
     user_id: int = user.id
-
     if reboot:
         message = (f"### {Coin} Slot Machine\n"
                    f"-# The {Coin} slot machine is restarting...")
@@ -2123,6 +2124,16 @@ async def slots(interaction: Interaction,
                    f"-# Welcome to the {Coin} Casino!\n")
         await interaction.edit_original_response(content=message)
         del message
+        return
+    elif jackpot:
+        # Check the jackpot amount
+        jackpot_amount: int = slot_machine.jackpot
+        coin_label: str = generate_coin_label(jackpot_amount)
+        message = (f"### {Coin} Slot Machine\n"
+                     f"-# JACKPOT: {jackpot_amount} "
+                     f"{coin_label}.")
+        del coin_label
+        await interaction.response.send_message(message, ephemeral=private_room)
         return
 
     # Check if user is already playing on a slot machine
@@ -2251,30 +2262,30 @@ async def slots(interaction: Interaction,
                                             view=slot_machine_view,
                                             ephemeral=private_room)
     del slots_message
-    # Auto-stop-timer
-    # Wait 3 seconds and see if the user has manually pressed a stop button
-    # If not, stop the reels automatically
-    # Until all reels have been stopped, wait another 3 seconds if the user
-    # has clicked a button within the last 3 seconds
+    # Auto-stop reel timer
     # Views have built-in timers that you can wait for with the wait() method,
-    # but since we have tasks to do when the timer runs out, that won't work
-    # There is probably a way to do it with just the view, but I don't
-    # know how
+    # but since we have tasks to upon the timer running out, that won't work
+    # There is probably a way to do it with just the view, but I don't know how
     previous_buttons_clicked_count = 0
-    while True:
+    let_the_user_stop = True
+    user_irresonsive: bool
+    user_stopped_clicking: bool
+    all_buttons_clicked: bool
+    while let_the_user_stop:
         buttons_clicked_count = 0
         await asyncio.sleep(3.0)
         for button in slot_machine_view.stop_reel_buttons:
             button_clicked: bool = button.disabled
             if button_clicked:
                 buttons_clicked_count += 1
-        if ((buttons_clicked_count == 0) or
-            (buttons_clicked_count == previous_buttons_clicked_count) or
-                (buttons_clicked_count == 3)):
-            break
+        user_irresonsive = buttons_clicked_count == 0
+        all_buttons_clicked = buttons_clicked_count == 3
+        user_stopped_clicking = (
+            buttons_clicked_count == previous_buttons_clicked_count)
+        if (user_irresonsive or all_buttons_clicked or user_stopped_clicking):
+            let_the_user_stop = False
         previous_buttons_clicked_count: int = buttons_clicked_count
     await slot_machine_view.start_auto_stop()
-    # await asyncio.sleep(1.0)
 
     # Get results
     results: Dict[str, Dict[str, str | int | float |
@@ -2492,16 +2503,6 @@ async def slots(interaction: Interaction,
         log_timestamp = time()
     log.log(line=log_line, timestamp=log_timestamp)
     del log_timestamp
-
-    if event_name == "jackpot":
-        # Reset the jackpot
-        events: Dict[str, Dict[str, int | float]] = cast(
-            Dict[str, Dict[str, int | float]],
-            slot_machine.configuration["events"])
-        jackpot_seed: int = cast(int, events["jackpot"]["fixed_amount"])
-        slot_machine.jackpot = jackpot_seed
-    else:
-        slot_machine.jackpot += 1
     del log_line
 
     if user_id in active_slot_machine_players:
@@ -2513,6 +2514,16 @@ async def slots(interaction: Interaction,
                                                 f"{administrator} pls fix.")
         await terminate_bot()
     del last_block_error
+
+    if event_name == "jackpot":
+        # Reset the jackpot
+        events: Dict[str, Dict[str, int | float]] = cast(
+            Dict[str, Dict[str, int | float]],
+            slot_machine.configuration["events"])
+        jackpot_seed: int = cast(int, events["jackpot"]["fixed_amount"])
+        slot_machine.jackpot = jackpot_seed
+    else:
+        slot_machine.jackpot += 1
 
 
 # endregion
