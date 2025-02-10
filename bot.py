@@ -22,13 +22,44 @@ from dotenv import load_dotenv
 from hashlib import sha256
 from sys import exit as sys_exit
 from sympy import (symbols, Expr, Add, Mul, Float, Integer, Rational, simplify,
-                   Piecewise, pretty)
+                   Piecewise, pretty, Eq, Lt, Ge)
+from _collections_abc import dict_items
 from typing import (
     Dict, KeysView, List, LiteralString, NoReturn, TextIO, cast, NamedTuple,
-    Literal, Any)
+    Literal, Any, TypedDict)
 # endregion
 
-# region Named tuples
+# region Type aliases
+
+class BotConfig(TypedDict):
+    coin: str
+    Coin: str
+    coins: str
+    Coins: str
+    COIN_EMOJI_ID: str
+    CASINO_HOUSE_ID: str
+    ADMINISTRATOR_ID: str
+
+class Reels(TypedDict):
+    reel1: dict[str, int]
+    reel2: dict[str, int]
+    reel3: dict[str, int]
+
+class Event(TypedDict):
+    emoji_name: str
+    emoji_id: int
+    fixed_amount: int
+    wager_multiplier: float
+    
+class SlotMachineConfig(TypedDict):
+    events: dict[str, Event]
+    reels: Reels
+    fees: dict[str, int | float]
+    jackpot_amount: int
+
+# endregion
+
+# region Named tuple
 
 
 class StartingBonusMessage(NamedTuple):
@@ -213,7 +244,7 @@ class Log:
 class BotConfiguration:
     def __init__(self, file_name: str = "data/bot_configuration.json") -> None:
         self.file_name: str = file_name
-        self.configuration: Dict[str, str | Dict[str, Dict[str, int]]] = (
+        self.configuration: BotConfig = (
             self.read())
         self.coin: str = str(self.configuration["coin"])
         self.Coin: str = str(self.configuration["Coin"])
@@ -243,7 +274,7 @@ class BotConfiguration:
 
         # Create the configuration file
         # Default configuration
-        configuration: Dict[str, str | Dict[str, Dict[str, int]]] = {
+        configuration: BotConfig = {
             "coin": "coin",
             "Coin": "Coin",
             "coins": "coins",
@@ -256,12 +287,12 @@ class BotConfiguration:
         with open(self.file_name, "w") as file:
             file.write(json.dumps(configuration))
 
-    def read(self) -> Dict[str, str | Dict[str, Dict[str, int]]]:
+    def read(self) -> BotConfig:
         if not exists(self.file_name):
             self.create()
 
         with open(self.file_name, "r") as file:
-            configuration: Dict[str, str | Dict[str, Dict[str, int]]] = (
+            configuration: BotConfig = (
                 json.loads(file.read()))
             # Override the configuration with environment variables
             env_vars: Dict[str, str] = {
@@ -287,33 +318,30 @@ class SlotMachine:
     # region Slot config
     def __init__(self, file_name: str = "data/slot_machine.json") -> None:
         self.file_name: str = file_name
-        self.configuration: (
-            Dict[str,
-                 Dict[str, Dict[str, int | float]] | Dict[str, int] | int]) = (
+        self.configuration: SlotMachineConfig = (
             self.load_config())
-        self._reels: Dict[str, Dict[str, int]] = self.load_reels()
+        self._reels: Reels = self.load_reels()
         # self.emoji_ids: Dict[str, int] = cast(Dict[str, int],
         #                                       self.configuration["emoji_ids"])
         self._probabilities: Dict[str, float] = (
             self.calculate_all_probabilities())
         self._jackpot: int = self.load_jackpot()
+        self._fees: dict[str, int | float] = self.configuration["fees"]
 
-    def load_reels(self) -> Dict[str, Dict[str, int]]:
+    def load_reels(self) -> Reels:
         # print("Getting reels...")
         self.configuration = self.load_config()
-        reels: Dict[str, Dict[str, int]] = (
-            cast(Dict[str, Dict[str, int]], self.configuration["reels"]))
+        reels: Reels = self.configuration["reels"]
         return reels
 
     @property
-    def reels(self) -> Dict[str, Dict[str, int]]:
+    def reels(self) -> Reels:
         return self._reels
 
     @reels.setter
-    def reels(self, value: Dict[str, Dict[str, int]]) -> None:
+    def reels(self, value: Reels) -> None:
         self._reels = value
-        self.configuration["reels"] = (
-            cast(Dict[str, Dict[str, int | float]], self._reels))
+        self.configuration["reels"] = self._reels
         self.save_config()
 
     @property
@@ -350,16 +378,10 @@ class SlotMachine:
 
         # Create the configuration file
         # Default configuration
-        configuration: Dict[
-            str,
-            Dict[str, Dict[str, int | str | float]] |
-            Dict[str, int] |
-            int |
-            float
-            # jackpot_amount will automatically be set to the jackpot event's
-            # fixed_amount value if the latter is higher than the former
-        ] = {
-            "events": {
+        # jackpot_amount will automatically be set to the jackpot event's
+        # fixed_amount value if the latter is higher than the former
+        configuration: SlotMachineConfig = {
+                "events": {
                 "lose_wager": {
                     "emoji_name": "",
                     "emoji_id": 0,
@@ -395,27 +417,35 @@ class SlotMachine:
                 }
             },
             "reels": {
-                "1": {
+                "reel1": {
                     "lose_wager": 2,
                     "small_win": 8,
                     "medium_win": 6,
                     "high_win": 3,
                     "jackpot": 1
                 },
-                "2": {
+                "reel2": {
                     "lose_wager": 2,
                     "small_win": 8,
                     "medium_win": 6,
                     "high_win": 3,
                     "jackpot": 1
                 },
-                "3": {
+                "reel3": {
                     "lose_wager": 2,
                     "small_win": 8,
                     "medium_win": 6,
                     "high_win": 3,
                     "jackpot": 1
-                }
+                },
+            },
+            "fees": {
+                "low_wager_main": 1,
+                "medium_wager_main": 0.19,
+                "high_wager_main": 0.06,
+                "low_wager_jackpot": 1,
+                "medium_wager_jackpot": 0.01,
+                "high_wager_jackpot": 0.01
             },
             "jackpot_amount": 101
         }
@@ -424,16 +454,12 @@ class SlotMachine:
             file.write(json.dumps(configuration))
         print("Template slot machine configuration file created.")
 
-    def load_config(self) -> (
-            Dict[
-                str, Dict[str, Dict[str, int | float]] | Dict[str, int] | int]):
+    def load_config(self) -> SlotMachineConfig:
         if not exists(self.file_name):
             self.create_config()
 
         with open(self.file_name, "r") as file:
-            configuration: (Dict[
-                str, Dict[str, Dict[str, int | float]] | Dict[str, int] | int
-            ]) = json.loads(file.read())
+            configuration: SlotMachineConfig = json.loads(file.read())
             return configuration
 
     def save_config(self) -> None:
@@ -446,7 +472,8 @@ class SlotMachine:
     # region Slot probability
 
     def calculate_reel_symbol_probability(self,
-                                          reel: str,
+                                          reel: Literal[
+                                              "reel1", "reel2", "reel3"],
                                           symbol: str) -> float:
         number_of_symbol_on_reel: int = self.reels[reel][symbol]
         total_reel_symbols: int = sum(self.reels[reel].values())
@@ -458,15 +485,19 @@ class SlotMachine:
         return probability_for_reel
 
     def calculate_event_probability(self, symbol: str) -> float:
+        # TODO Ensure it's still working properly
         overall_probability: float = 1.0
-        for reel in self.reels:
+        for r in self.reels:
+            r = (
+                cast(Literal['reel1', 'reel2', 'reel3'], r))
             probability_for_reel: float = (
-                self.calculate_reel_symbol_probability(reel, symbol))
+                self.calculate_reel_symbol_probability(r, symbol))
             overall_probability *= probability_for_reel
         return overall_probability
 
     def calculate_losing_probabilities(self) -> tuple[float, float]:
-        print("Calculating chance of losing...")
+        # TODO Ensure it's still working properly
+        # print("Calculating chance of losing...")
 
         # No symbols match
         standard_lose_probability: float = 1.0
@@ -474,7 +505,9 @@ class SlotMachine:
         # Either lose_wager symbols match or no symbols match
         any_lose_probability: float = 1.0
 
-        symbols: List[str] = [symbol for symbol in self.reels["1"]]
+        # Take the symbols from the first reel
+        # (expecting all reels to have the same symbols)
+        symbols: List[str] = [symbol for symbol in self.reels["reel1"]]
         for symbol in symbols:
             symbols_match_probability: float = (
                 self.calculate_event_probability(symbol))
@@ -485,9 +518,10 @@ class SlotMachine:
         return (any_lose_probability, standard_lose_probability)
 
     def calculate_all_probabilities(self) -> Dict[str, float]:
+        # TODO Ensure it's still working properly
         self.reels = self.load_reels()
         probabilities: Dict[str, float] = {}
-        for symbol in self.reels["1"]:
+        for symbol in self.reels["reel1"]:
             probability: float = self.calculate_event_probability(symbol)
             probabilities[symbol] = probability
         any_lose_probability: float
@@ -502,336 +536,339 @@ class SlotMachine:
 
     # region Slot count
     def count_symbols(self, reel: str | None = None) -> int:
+        # TODO Ensure it's still working properly
+        symbol_count: int
+        all_symbols_lists: List[int] = []
         if reel is None:
-            return sum([sum(reel.values()) for reel in self.reels.values()])
+            for r in self._reels:
+                r = (
+                    cast(Literal['reel1', 'reel2', 'reel3'], r))
+                all_symbols_lists.append(sum(self._reels[r].values()))
+            symbol_count = sum(all_symbols_lists)
         else:
-            return sum(self.reels[reel].values())
+            r = (
+                cast(Literal['reel1', 'reel2', 'reel3'], reel))
+            all_symbols_lists.append(sum(self._reels[r].values()))
+        symbol_count = sum(all_symbols_lists)
+        return symbol_count
     # endregion
 
     # region Slot EV
-    def calculate_expected_return_or_total_return(self,
-                                                  jackpot_mode: bool,
-                                                  return_or_total_return: (
-                                                      Literal[
-                                                          "total_return",
-                                                          "return"]),
-                                                  silent: bool = False
-                                                  ) -> Piecewise:
-        """ From the UX perspective, there is only the wager, which can be 1 or
-        anything above. However,
-        each spin costs 1 coin. The player will not keep this coin in any
-        win event.
-        If the player sets their wager to 2 or more, one of those coins is
-        the jackpot fee. It goes directly to the jackpot. The player will not
-        keep this coin in any win event.
-        If the player does not strike a combo, they win nothing, so the net
-        return for that spin is either -1 (the spin fee) or -2 (the spin fee
-        and the jackpot fee).
+    def calculate_ev(self,
+                     silent: bool = False) -> tuple[Piecewise, Piecewise]:
+        """Calculate the expected total return and expected return for the slot
+        machine.
+        
+        The player can only decide how many coins to insert into the machine
+        each spin, and the fees are subtracted automatically from the player's
+        total return (the amount of money they get back).
 
-        Jackpot mode is when the player pays the 1 coin jackpot fee by setting
-        their wager to a value higher than 1. In this mode, the player is
-        eligible for and contributing to the jackpot.
-        If they player gets the jackpot combo but didn't pay the jackpot fee,
-        it's equivalent to getting a standard lose (no combo).
+        Each spin, the player pays two fees (or four, if you count the
+        fixed amount and multiplier fees separately), the main fee and the
+        jackpot fee.
+        If the player gets a combo that multiplies their wager, it multiplies
+        their wager, not their wager minus the fees.
+        The jackpot fee is money that goes directly to the jackpot pool.
+        If a player's wager does not cover the jackpot fee, they get the
+        "no jackpot" mode, where they are not eligible for the jackpot. In the
+        event that they get the jackpot combo, they don't get the jackpot, it
+        just counts as a standard lose (no combo).
+
+        Different wager sizes have different fees,
+        which makes the EV different for different wager sizes
+        Therefore, we express EV as a piecewise function
+        Each piece expresses the EV (ETR or ER) for a specific wager range
 
         Terms:
-        - Total return: The gross return amount that the player gets back
+        - Expected value (EV): The average value of a random variable over
+            many trials
+        - Wager (or stake): The amount of coins the player inserts into the
+            machine each spin; a number that decides the fee and that the
+            multiplier events are based on
+        - Total return (TR): The gross return amount that the player gets back
             (this in itself does not tell us if the player made a profit or
             loss)
-        - Return: The net amount that the player gets back; the profit or loss
+        - Return (R): The net amount that the player gets back; the gain or loss
             part of the total return money; the total return minus the wager 
-        - Expected total return: The average total return over many plays
-        - Expected return: The average return (profit or loss) over many plays
-        - Piecewise function: 
+        - Expected total return (ETR): The average total return over many plays; 
+            the expected value of the total return
+        - Expected return (ER): The average return (gain or loss) over many
+            plays; the expected value of the return
+        - Piecewise function: A function that is defined by several subfunctions
+            (used here to express ETR and ER with different fees for different
+            wager ranges)
 
         Symbolic representation:
         - W: Wager
         - k: Wager multiplier
         - x: Fixed amount payout
+        - f1k: Main fee wager multiplier
+        - f1x: Main fee fixed amount
+        - f2k: Jackpot fee wager multiplier
+        - f2x: Jackpot fee fixed amount
+        - j: Jackpot average
+
+        Parameters:
+        - silent: If True, the function will not print anything to the console
+        - standard_fee_fixed_amount: A fixed amount that is subtracted from the
+            player's total return for each spin
+        - standard_fee_wager_multiplier: A percentage of the player's wager that
+            is subtracted from the player's total return for each spin, and
+            added to the jackpot pool
+        - jackpot_fee_fixed_amount: A fixed amount that is subtracted from the
+            player's total return for each spin, and added to the jackpot pool
         """
 
         def print_if_not_silent(*args: Any, **kwargs: Any) -> None:
+            """Wrapper for print() that only prints if the "silent" parameter is
+            False.
+            """
             if not silent:
                 print(*args, **kwargs)
 
+        # Load configuration and calculate probabilities
         self.configuration = self.load_config()
         probabilities: Dict[str, float] = self.calculate_all_probabilities()
         events: KeysView[str] = probabilities.keys()
         combo_events: Dict[str, Dict[str, int | float]] = cast(
             Dict[str, Dict[str, int | float]], self.configuration["events"])
+        
+        # Symbol
         W: Expr = symbols('W')  # wager
-        event_return_low_wager: Integer | Add = Integer(0)
-        event_return_high_wager: Integer | Add = Integer(0)
-        event_total_return_low_wager: Integer | Add = Integer(0)
-        event_total_return_high_wager: Integer | Add = Integer(0)
-        expected_total_return_contrib_low_wager: Integer | Mul = Integer(0)
-        expected_total_return_contrib_high_wager: Integer | Mul = (Integer(0))
-        expected_return_contrib_low_wager: Integer | Mul = Integer(0)
-        expected_return_contrib_high_wager: Integer | Mul = Integer(0)
-        expected_total_return_low_wagers: Integer | Add = Integer(0)
-        expected_total_return_high_wagers: Integer | Add = Integer(0)
-        expected_return_low_wagers: Integer | Add = Integer(0)
-        expected_return_high_wagers: Integer | Add = Integer(0)
-        # TODO Move fees to config
-        low_wager_main_fee_int: int = 1
-        low_wager_main_fee: Expr = Integer(low_wager_main_fee_int)
-        low_wager_jackpot_fee_int: int = 1
-        low_wager_jackpot_fee: Expr = Integer(low_wager_jackpot_fee_int)
-        high_wager_main_fee_float: float = 0.14
-        high_wager_main_fee: Expr = Float(high_wager_main_fee_float)
-        high_wager_jackpot_fee_float: float = 0.01
-        high_wager_jackpot_fee: Expr = Float(high_wager_jackpot_fee_float)
-        print_if_not_silent(f"Main fee: {low_wager_main_fee_int}")
-        if jackpot_mode is True:
-            print_if_not_silent("----------JACKPOT MODE----------")
-            print_if_not_silent(f"Jackpot fee: {low_wager_jackpot_fee_int}")
-        else:
-            print_if_not_silent("----------CHEAP MODE----------")
-        for event in events:
-            if event == "any_lose" or event == "win":
-                continue
-            print_if_not_silent(f"----\nEVENT: {event}")
-            # Get the probability of this event
-            p_event_float: float = probabilities[event]
-            p_event = Float(p_event_float)
-            print_if_not_silent(f"Event probability: {p_event_float}")
-            if p_event_float == 0.0:
-                continue
+        
+        def calculate_piece_ev(
+                standard_fee_fixed_amount: Integer = Integer(0),
+                standard_fee_wager_multiplier: Float = Float(0.0),
+                jackpot_fee_fixed_amount: Integer = Integer(0),
+                jackpot_fee_wager_multiplier: Float = Float(0.0)
+                ) -> tuple[Add, Add]:
+            """ Calculate the *expected total return* and *expected return*
+            with the fees specified with the parameters.
+            """
             # Initialize variables
+            piece_expected_return: Integer | Add = (
+                Integer(0))
+            piece_expected_total_return: Integer | Add = (
+                Integer(0))
+            piece_expected_total_return_contribution: Integer | Mul = (
+                Integer(0))
+            piece_expected_return_contribution: Integer | Mul = (
+                Integer(0))
+            p_event_float: float
             fixed_amount_int: int = 0
             fixed_amount: Expr = Integer(fixed_amount_int)
             wager_multiplier_float: float
             wager_multiplier: Expr
-            if ((event == "standard_lose") or
-                    (event == "jackpot" and jackpot_mode is False)):
-                # If the player doesn't pay the 1 coin jackpot fee and
-                # loses,
-                # he ends up with 0 coins (he paid the 1 coin spin fee and
-                # didn't win anything)
 
-                # If the player pays the 1 coin jackpot fee and loses,
-                # he ends up with his wager minus the standard fee minus the
-                # jackpot fee
+            # Mark the start
+            print_if_not_silent("--------------------------------")
+            
+            # Print the fees
+            print_if_not_silent(f"standard_fee_fixed_amount: "
+                                f"{standard_fee_fixed_amount}")
+            print_if_not_silent(f"standard_fee_wager_multiplier: "
+                                f"{standard_fee_wager_multiplier}")
+            print_if_not_silent(f"jackpot_fee_fixed_amount: "
+                                f"{jackpot_fee_fixed_amount}")
+            print_if_not_silent(f"jackpot_fee_wager_multiplier: "
+                                f"{jackpot_fee_wager_multiplier}")
+            
+            # Determine if it's "no jackpot" mode (jackpot fee not paid)
+            no_jackpot_mode: bool = False
+            if (Eq(jackpot_fee_fixed_amount, Integer(0)) and
+                Eq(jackpot_fee_wager_multiplier, Float(0.0))):
+                no_jackpot_mode = True
+                print_if_not_silent(f"no_jackpot_mode: {no_jackpot_mode}")
 
-                # If the player doesn't pay the 1 coin jackpot fee
-                # and gets the jackpot combo,
-                # he ends up with 0 coins (he paid the
-                # 1 coin spin fee and since he didn't pay the
-                # jackpot fee, he doesn't get the jackpot)
-                # This is equivalent to a standard lose (no combo)
-                wager_multiplier_float = 1.0
-                fixed_amount_int = 0
-            elif event == "jackpot" and jackpot_mode is True:
-                # If the player pays the 1 coin jackpot fee
-                # and wins the jackpot,
-                # he ends up with his wager minus the standard fee minus the
-                # jackpot fee, plus the jackpot
+            for event in events:
+                if event in ("any_lose", "win"):
+                    continue
+                print_if_not_silent(f"----\nEVENT: {event}")
+                # Get the probability of this event
+                p_event_float: float = probabilities[event]
+                p_event = Float(p_event_float)
+                print_if_not_silent(f"Event probability: {p_event_float}")
+                if p_event_float == 0.0:
+                    continue
+                if event == "jackpot" and not no_jackpot_mode:
+                    # If the player pays the coin jackpot fee
+                    # and wins the jackpot,
+                    # he ends up with his wager minus the standard fee minus the
+                    # jackpot fee, plus the jackpot
+                    #
+                    # Variables
+                    fixed_amount_int = cast(int,
+                                            combo_events[event]["fixed_amount"])
+                    jackpot_seed: int = fixed_amount_int
+                    print_if_not_silent(f"Jackpot seed: {jackpot_seed}")
+                    jackpot_average: float = (
+                        self.calculate_average_jackpot(
+                            seed=jackpot_seed))
+                    # TODO Add parameter to return RTP with jackpot excluded
+                    # jackpot_average: float = 0.0
+                    print_if_not_silent(f"Jackpot average: {jackpot_average}")
+                    # I expect wager multiplier to be 1.0 for the jackpot,
+                    # but let's include it in the calculation anyway,
+                    # in case someone wants to use a different value
+                    wager_multiplier_float = (
+                        combo_events[event]["wager_multiplier"])
+                    wager_multiplier = Float(wager_multiplier_float)
 
-                # Variables
-                fixed_amount_int = cast(int,
-                                        combo_events[event]["fixed_amount"])
-                jackpot_seed: int = fixed_amount_int
-                print_if_not_silent(f"Jackpot seed: {jackpot_seed}")
-                jackpot_average: float = (
-                    self.calculate_average_jackpot(
-                        seed=jackpot_seed))
-                # TODO Add parameter to return RTP with jackpot excluded
-                # jackpot_average: float = 0.0
-                print_if_not_silent(f"Jackpot average: {jackpot_average}")
-                # I expect wager multiplier to be 1.0 for the jackpot,
-                # but let's include it in the calculation anyway,
-                # in case someone wants to use a different value
-                wager_multiplier_float = combo_events[event]["wager_multiplier"]
+                    # Calculations
+                    event_total_return = Add(
+                        Mul(W, wager_multiplier),
+                        jackpot_average,
+                        -Mul(W, standard_fee_wager_multiplier),
+                        -Mul(W, jackpot_fee_wager_multiplier),
+                        -standard_fee_fixed_amount,
+                        -jackpot_fee_fixed_amount)
+                    print_if_not_silent(f"Event total return: "
+                                        f"{event_total_return} "
+                                        "["
+                                        "(W * k) + j "
+                                        "- (W * f1k) - (W * f2k) "
+                                        "- f1x - f2x"
+                                        "]")
+                    event_return = Add(
+                        event_total_return,
+                        -W)
+                    # This event's contributions to the *expected total return*
+                    piece_expected_total_return_contribution = (
+                        Mul(p_event, event_total_return))
+                    message: str
+                    message = ("Expected total return contribution: "
+                            f"{piece_expected_total_return_contribution}")
+                    print_if_not_silent(message)
+                    # Remove variables with common names to prevent accidental use
+                    del message
+                    # This event's contribution to the *expected return*
+                    piece_expected_return_contribution = (
+                        Mul(p_event, event_return))
+                    print_if_not_silent(f"Event return: "
+                                        f"{event_return} "
+                                        "[total return - W]")
+                    # Add the contributions to the totals
+                    piece_expected_total_return = Add(
+                        piece_expected_total_return,
+                        piece_expected_total_return_contribution)
+                    piece_expected_return = Add(
+                        piece_expected_return,
+                        piece_expected_return_contribution)
+                    continue
+                elif ((event == "standard_lose") or
+                      (event == "jackpot" and no_jackpot_mode)):
+                    # If the player doesn't pay the jackpot fee and
+                    # loses or gets the jackpot combo
+                    # he ends up with his wager minus the standard fee
+                    wager_multiplier_float = 1.0
+                    fixed_amount_int = 0
+                else:
+                    # "else" includes all remaining win events
+                    # plus the lose_wager event
+                    #
+                    # Variables
+                    fixed_amount_int = (
+                        cast(int, combo_events[event]["fixed_amount"]))
+                    wager_multiplier_float = (
+                        combo_events[event]["wager_multiplier"])
                 wager_multiplier = Float(wager_multiplier_float)
-                # Calculations
-                # For wagers less than 11 both fees are 1 coin each
-                # For wagers of 11 or more, both fees are 1% of the wager each
-                event_total_return_low_wager = Add(
-                    Mul(W, wager_multiplier),
-                    jackpot_average,
-                    -low_wager_main_fee,
-                    -low_wager_jackpot_fee)
-                event_total_return_high_wager = Add(
-                    Mul(W, wager_multiplier),
-                    jackpot_average,
-                    -Mul(W, high_wager_main_fee),
-                    -Mul(W, high_wager_jackpot_fee))
-                event_return_low_wager = Add(
-                    event_total_return_low_wager,
-                    -W)
-                event_return_high_wager = Add(
-                    event_total_return_high_wager,
-                    -W)
-                # This event's contributions to the *expected total return*
-                expected_total_return_contrib_low_wager = (
-                    Mul(p_event, event_total_return_low_wager))
-                expected_total_return_contrib_high_wager = (
-                    Mul(p_event, event_total_return_high_wager))
-                # This event's contribution to the *expected return*
-                expected_return_contrib_low_wager = (
-                    Mul(p_event, event_return_low_wager))
-                expected_return_contrib_high_wager = (
-                    Mul(p_event, event_return_high_wager))
-                print_if_not_silent(f"Event total return (low wager): "
-                                    f"{event_total_return_low_wager} "
-                                    "["
-                                    "(w * k) + jackpot - main_fee - jackpot_fee"
-                                    "]")
-                print_if_not_silent(f"Event return (low wager): "
-                                    f"{event_return_low_wager} "
-                                    "[total return - w]")
-                print_if_not_silent(f"Event total return (high wager): "
-                                    f"{event_total_return_high_wager} "
-                                    "["
-                                    "(w * k) + jackpot - main_fee - jackpot_fee"
-                                    "]")
-                print_if_not_silent(f"Event return (high wager): "
-                                    f"{event_return_high_wager} "
-                                    "[total return - w]")
-                message: str
-                message = ("Expected total return contribution (low wager): "
-                           f"{expected_total_return_contrib_low_wager}")
-                print_if_not_silent(message)
-                del message
-                message = ("Expected total return contribution (low wager): "
-                           f"(high wager) "
-                           f"{expected_total_return_contrib_high_wager}")
-                print_if_not_silent(message)
-                del message
-                # Add the event's contributions to the final expected returns
-                expected_total_return_low_wagers = Add(
-                    expected_total_return_low_wagers,
-                    expected_total_return_contrib_low_wager)
-                expected_total_return_high_wagers = Add(
-                    expected_total_return_high_wagers,
-                    expected_total_return_contrib_high_wager)
-                expected_return_low_wagers = Add(
-                    expected_return_low_wagers,
-                    expected_return_contrib_low_wager)
-                expected_return_high_wagers = Add(
-                    expected_return_high_wagers,
-                    expected_return_contrib_high_wager)
-                continue
-            else:
-                # As of typing, this includes all remaining win events
-                # plus the lose_wager event
-
-                # Variables
-                fixed_amount_int = cast(int,
-                                        combo_events[event]["fixed_amount"])
-                wager_multiplier_float = combo_events[event]["wager_multiplier"]
                 print_if_not_silent(f"Multiplier (k): {
                                     wager_multiplier_float}")
+                fixed_amount = Integer(fixed_amount_int)
                 print_if_not_silent(f"Fixed amount (x): {fixed_amount_int}")
-            wager_multiplier = Float(wager_multiplier_float)
-            fixed_amount = Integer(fixed_amount_int)
-            # Calculations
-            if jackpot_mode:
-                # If the player pays the 1 coin jackpot fee and
-                # wins a non-jackpot award,
-                # he ends up with his wager plus award minus
-                # the jackpot fee
-                event_total_return_high_wager = Add(
+
+                # Calculations
+                event_total_return = Add(
                     Mul(W, wager_multiplier),
                     fixed_amount,
-                    -Mul(W, high_wager_main_fee),
-                    -Mul(W, high_wager_jackpot_fee))
-                print_if_not_silent(f"Event total return (high wager): "
-                                    f"{event_total_return_high_wager} "
-                                    "[(w * k) + x - main_fee - jackpot_fee]")
-                event_return_high_wager = Add(
-                    event_total_return_high_wager, -W)
-                print_if_not_silent(f"Event return: (high wager) "
-                                    f"{event_return_high_wager} "
-                                    "[total return - w]")
-                expected_total_return_contrib_high_wager = (
-                    Mul(p_event, event_total_return_high_wager))
-                message = ("Expected total return contribution "
-                           f"(high wager) "
-                           f"{expected_total_return_contrib_high_wager}")
-                print_if_not_silent(message)
-                expected_return_contrib_high_wager = (
-                    Mul(p_event, event_return_high_wager))
-                message = ("Expected return contribution: (high wager) "
-                           f"{expected_return_contrib_high_wager}")
+                    -Mul(W, standard_fee_wager_multiplier),
+                    -Mul(W, jackpot_fee_wager_multiplier),
+                    -standard_fee_fixed_amount,
+                    -jackpot_fee_fixed_amount)
+                print_if_not_silent(f"Event total return: "
+                                    f"{event_total_return} "
+                                    "["
+                                    "(W * k) + x "
+                                    "- (W * f1k) - (W * f2k) "
+                                    "- f1x - f2x"
+                                    "]")
+                event_return = Add(event_total_return, -W)
+                print_if_not_silent(f"Event return: "
+                                    f"{event_return} "
+                                    "[total return - W]")
+                piece_expected_total_return_contribution = (
+                    Mul(p_event, event_total_return))
+                message = ("Expected total return contribution: "
+                        f"{piece_expected_total_return_contribution}")
                 print_if_not_silent(message)
                 del message
-                # Add the event's high wager contributions
-                # to the final high wager expected return
-                expected_total_return_high_wagers = Add(
-                    expected_total_return_high_wagers,
-                    expected_total_return_contrib_high_wager)
-                expected_return_high_wagers = Add(
-                    expected_return_high_wagers,
-                    expected_return_contrib_high_wager)
-                event_total_return_low_wager = Add(
-                    Mul(W, wager_multiplier),
-                    fixed_amount,
-                    -low_wager_main_fee,
-                    -low_wager_jackpot_fee)
-                print_if_not_silent(f"Event total return (low wager): "
-                                    f"{event_total_return_low_wager} "
-                                    "[(w * k) + x - main_fee - jackpot_fee]")
-            else:
-                # TODO Update comments
-                # If the player doesn't pay the 1 coin jackpot fee and
-                # wins a non-jackpot award,
-                # he ends up with his wager plus award money minus
-                # the standard fee
-                event_total_return_low_wager = Add(
-                    Mul(W, wager_multiplier),
-                    fixed_amount,
-                    -low_wager_main_fee)
-                print_if_not_silent(f"Event total return (low wager): "
-                                    f"{event_total_return_low_wager} "
-                                    "[(w * k) + x - main_fee]")
-            event_return_low_wager = Add(event_total_return_low_wager, -W)
-            print_if_not_silent(f"Event return: (low wager): "
-                                f"{event_return_low_wager} "
-                                "[total return - w]")
-            expected_total_return_contrib_low_wager = (
-                Mul(p_event, event_total_return_low_wager))
-            message = ("Expected total return contribution (low wager): "
-                       f"{expected_total_return_contrib_low_wager}")
-            print_if_not_silent(message)
-            del message
-            expected_return_contrib_low_wager = (
-                Mul(p_event, event_return_low_wager))
-            print_if_not_silent("Expected return contribution (low wager): "
-                                f"{expected_return_contrib_low_wager}")
-            # Add the event's contributions to the final expected returns
-            expected_total_return_low_wagers = Add(
-                expected_total_return_low_wagers,
-                expected_total_return_contrib_low_wager)
-            expected_return_low_wagers = Add(
-                expected_return_low_wagers,
-                expected_return_contrib_low_wager)
-        # TODO Don't need to add high wager contributions if not jackpot mode
-        # TODO Rework function to be abbreviated and expandable
+                piece_expected_return_contribution = (
+                    Mul(p_event, event_return))
+                print_if_not_silent("Expected return contribution: "
+                                    f"{piece_expected_return_contribution}")
+                # Add the event's contributions to the final expected returns
+                piece_expected_total_return = Add(
+                    piece_expected_total_return,
+                    piece_expected_total_return_contribution)
+                piece_expected_return = Add(
+                    piece_expected_return,
+                    piece_expected_return_contribution)
+            return (
+                cast(Add, piece_expected_total_return),
+                cast(Add, piece_expected_return))
+        
         # BUG The rounding to nearest integer (for the fees esp.) is not accounted for
+
+        # Fees
+        # Refresh config
+        self.configuration = self.load_config()
+        # Main fee
+        low_wager_main_fee: Integer = Integer(self._fees["low_wager_main"])
+        medium_wager_main_fee: Float = Float(self._fees["medium_wager_main"])
+        high_wager_main_fee: Float = Float(self._fees["high_wager_main"])
+        # Jackpot fee
+        low_wager_jackpot_fee: Integer = Integer(
+            self._fees["low_wager_jackpot"])
+        medium_wager_jackpot_fee: Float = Float(
+            self._fees["medium_wager_jackpot"])
+        high_wager_jackpot_fee: Float = Float(
+            self._fees["high_wager_jackpot"])
+        
+        # TODO Send expected return for different wager sizes with /reels
+        # Calculate expected total return and expected return
+        # with different fees
+        pieces: Dict[str, tuple[Add, Add]] = {
+            "no_jackpot": calculate_piece_ev(
+            standard_fee_fixed_amount=low_wager_main_fee),
+            "low_wager": calculate_piece_ev(
+            standard_fee_fixed_amount=low_wager_main_fee,
+            jackpot_fee_fixed_amount=low_wager_jackpot_fee),
+            "medium_wager": calculate_piece_ev(
+            standard_fee_wager_multiplier=medium_wager_main_fee,
+            jackpot_fee_wager_multiplier=medium_wager_jackpot_fee),
+            "high_wager": calculate_piece_ev(
+            standard_fee_wager_multiplier=high_wager_main_fee,
+            jackpot_fee_wager_multiplier=high_wager_jackpot_fee)
+        }
+
         expected_total_return = Piecewise(
-            (expected_total_return_low_wagers, W < Integer(11)),
-            (expected_total_return_high_wagers, W >= Integer(11)))
+            (pieces["no_jackpot"][0], Eq(W, Integer(1))),
+            (pieces["low_wager"][0], Lt(W, Integer(10))),
+            (pieces["medium_wager"][0], Lt(W, Integer(100))),
+            (pieces["high_wager"][0], Ge(W, Integer(100))))
+        
         expected_return = Piecewise(
-            (expected_return_low_wagers, W < Integer(11)),
-            (expected_return_high_wagers, W >= Integer(11)))
+            (pieces["no_jackpot"][1], Eq(W, Integer(1))),
+            (pieces["low_wager"][1], Lt(W, Integer(10))),
+            (pieces["medium_wager"][1], Lt(W, Integer(100))),
+            (pieces["high_wager"][1], Ge(W, Integer(100))))
+        
         print_if_not_silent(f"Expected total return:")
         print_if_not_silent(expected_total_return)
         print_if_not_silent(f"Expected return:")
         print_if_not_silent(expected_return)
-        # total_return_expanded: Expr = cast(Expr, expand(expected_total_return))
-        # print_if_not_silent(f"Expected total return expanded: "
-        #       f"{expected_total_return_expanded}")
 
-        # coefficient = expected_total_return.coeff(W, 1)
-        # constant = expected_total_return.coeff(W, 0)
-        # print_if_not_silent(f"Expected total return coefficient: {coefficient}")
-        # print_if_not_silent(f"Expected total return constant: {constant}")
-
-        if return_or_total_return == "total_return":
-            return expected_total_return
-        elif return_or_total_return == "return":
-            return expected_return
+        return (expected_total_return, expected_return)
     # endregion
 
     # region Slot avg jackpot
@@ -849,21 +886,14 @@ class SlotMachine:
     # endregion
 
     # region Slot RTP
-    def calculate_rtp(self, wager: int) -> Float:
-        low_wager_jackpot_fee = 1
-        low_wager_standard_fee = 1
-        jackpot_fee_paid: bool = (
-            wager >= (low_wager_jackpot_fee + low_wager_standard_fee))
-        jackpot_mode: bool = True if jackpot_fee_paid else False
-        expected_total_return: Piecewise = (
-            self.calculate_expected_return_or_total_return(
-                jackpot_mode=jackpot_mode,
-                return_or_total_return="total_return",
-                silent=True))
+    def calculate_rtp(self, wager: Integer) -> Float:
         # IMPROVE Fix error reported by Pylance
-        evaluated_total_return: Float = (
-            cast(Float, expected_total_return.subs(symbols('W'), wager)))
-        rtp = Rational(evaluated_total_return, wager)
+        expected_total_return_expression: Piecewise = (
+            self.calculate_ev(silent=True))[0]
+        expected_total_return: Piecewise = (cast(Piecewise,
+            expected_total_return_expression.subs(symbols('W'), wager)))
+        print(f"Expected total return (W = {wager}): {expected_total_return}")
+        rtp = Rational(expected_total_return, wager)
         rtp_decimal: Float = cast(Float, rtp.evalf())
         print(f"RTP: {rtp}")
         print(f"RTP decimal: {rtp_decimal}")
@@ -878,11 +908,11 @@ class SlotMachine:
     #         symbols_landed.append(symbol)
     #     return symbols_landed
 
-    def stop_reel(self, reel: str) -> str:
+    def stop_reel(self, reel: Literal["reel1", "reel2", "reel3"]) -> str:
         # Create a list with all units of each symbol type on the reel
         reel_symbols: List[str] = []
-        for symbol in self.reels[reel]:
-            reel_symbols.extend([symbol] * self.reels[reel][symbol])
+        for s in self.reels[reel]:
+            reel_symbols.extend([s] * self.reels[reel][s])
         # Randomly select a symbol from the list
         symbol: str = random.choice(reel_symbols)
         return symbol
@@ -899,7 +929,7 @@ class SlotMachine:
                               ) -> tuple[str, str, int]:
 
         if (not (
-            results["1"]["name"] == results["2"]["name"] == results["3"]["name"]
+            results["reel1"]["name"] == results["reel2"]["name"] == results["reel3"]["name"]
         )):
             return ("standard_lose", "No win", 0)
 
@@ -907,13 +937,13 @@ class SlotMachine:
         low_wager_jackpot_fee = 1
         jackpot_fee_paid: bool = (
             wager >= (low_wager_jackpot_fee + low_wager_standard_fee))
-        jackpot_mode: bool = True if jackpot_fee_paid else False
-        event_name: str = cast(str, results["1"]["name"])
-        print(f"event_name: {event_name}")
-        wager_multiplier: float = cast(float, results["1"]["wager_multiplier"])
-        fixed_amount_payout: int = cast(int, results["1"]["fixed_amount"])
-        print(f"event_multiplier: {wager_multiplier}")
-        print(f"fixed_amount_payout: {fixed_amount_payout}")
+        no_jackpot_mode: bool = False if jackpot_fee_paid else True
+        event_name: str = cast(str, results["reel1"]["name"])
+        # print(f"event_name: {event_name}")
+        wager_multiplier: float = cast(float, results["reel1"]["wager_multiplier"])
+        fixed_amount_payout: int = cast(int, results["reel1"]["fixed_amount"])
+        # print(f"event_multiplier: {wager_multiplier}")
+        # print(f"fixed_amount_payout: {fixed_amount_payout}")
         event_name_friendly: str = ""
         win_money: float = 0.0
         win_money_rounded: int = 0
@@ -921,7 +951,7 @@ class SlotMachine:
             event_name_friendly = "Lose wager"
             return (event_name, event_name_friendly, 0)
         elif event_name == "jackpot":
-            if jackpot_mode is False:
+            if no_jackpot_mode:
                 event_name = "jackpot_fail"
                 event_name_friendly = "No Jackpot"
                 win_money_rounded = 0
@@ -1109,13 +1139,13 @@ class SlotMachineView(View):
             Dict[str, str | int | float | PartialEmoji]]
         self.reels_results = (
             {
-                "1":
+                "reel1":
                 {"emoji": blank_emoji},
 
-                "2":
+                "reel2":
                 {"emoji": blank_emoji},
 
-                "3":
+                "reel3":
                 {"emoji": blank_emoji}
             }
         )
@@ -1138,16 +1168,14 @@ class SlotMachineView(View):
         """
         Stops a reel and edits the message with the result.
         """
-        # reel_number: int = self.current_reel_number
         # Map button IDs to reel key names
-        reel_stop_button_map: Dict[str, str] = {
-            "stop_reel_1": "1",
-            "stop_reel_2": "2",
-            "stop_reel_3": "3"
+        reel_stop_button_map: Dict[str, Literal["reel1", "reel2", "reel3"]] = {
+            "stop_reel_1": "reel1",
+            "stop_reel_2": "reel2",
+            "stop_reel_3": "reel3"
         }
         # Pick reel based on button ID
-        reel_number: str = reel_stop_button_map[button_id]
-        reel_name = str(reel_number)
+        reel_name: Literal["reel1", "reel2", "reel3"] = reel_stop_button_map[button_id]
         # Stop the reel and get the symbol
         symbol_name: str = self.slot_machine.stop_reel(reel=reel_name)
         # Get the emoji for the symbol (using the events dictionary)
@@ -1164,7 +1192,7 @@ class SlotMachineView(View):
         symbol_properties["name"] = symbol_name
         symbol_properties["emoji"] = symbol_emoji
         # Add the emoji to the result
-        self.reels_results[reel_number] = symbol_properties
+        self.reels_results[reel_name] = symbol_properties
         self.reels_stopped += 1
         reel_status: str = (
             "The reels are spinning..." if self.reels_stopped < 3 else
@@ -1172,9 +1200,9 @@ class SlotMachineView(View):
         empty_space: LiteralString = "\N{HANGUL FILLER}" * 11
         self.message_reel_status = reel_status
         self.message_results_row: str = (
-            f"{self.reels_results['1']['emoji']}\t\t"
-            f"{self.reels_results['2']['emoji']}\t\t"
-            f"{self.reels_results['3']['emoji']}")
+            f"{self.reels_results['reel1']['emoji']}\t\t"
+            f"{self.reels_results['reel2']['emoji']}\t\t"
+            f"{self.reels_results['reel3']['emoji']}")
         self.message = (f"{self.message_header}\n"
                         f"{self.message_collect_screen}\n"
                         f"{reel_status}\n"
@@ -1446,6 +1474,7 @@ async def process_reaction(emoji: PartialEmoji | Emoji | str,
             mined_message: str = (f"{sender} ({sender_id}) mined 1 {coin} "
                                   f"for {receiver} ({receiver_id}).")
             log.log(line=mined_message, timestamp=last_block_timestamp)
+            # Remove variables with common names to prevent accidental use
             del mined_message
             del last_block_timestamp
         except Exception as e:
@@ -1914,7 +1943,7 @@ async def reels(interaction: Interaction,
             amount = 1
     # Refresh reels config from file
     slot_machine.reels = slot_machine.load_reels()
-    new_reels: Dict[str, Dict[str, int]] = slot_machine.reels
+    new_reels: Reels = slot_machine.reels
     if add_symbol and remove_symbol:
         await interaction.response.send_message("You can only add or remove a "
                                                 "symbol at a time.",
@@ -1939,11 +1968,11 @@ async def reels(interaction: Interaction,
     if add_symbol:
         print(f"Adding symbol: {add_symbol}")
         print(f"Amount: {amount}")
-        if add_symbol in slot_machine.reels['1']:
+        if add_symbol in slot_machine.reels['reel1']:
             per_reel_amount: int = int(amount / 3)
-            new_reels['1'][add_symbol] += per_reel_amount
-            new_reels['2'][add_symbol] += per_reel_amount
-            new_reels['3'][add_symbol] += per_reel_amount
+            new_reels['reel1'][add_symbol] += per_reel_amount
+            new_reels['reel2'][add_symbol] += per_reel_amount
+            new_reels['reel3'][add_symbol] += per_reel_amount
 
             slot_machine.reels = new_reels
             print(f"Added {per_reel_amount} {add_symbol} to each reel.")
@@ -1963,11 +1992,11 @@ async def reels(interaction: Interaction,
     elif remove_symbol:
         print(f"Removing symbol: {remove_symbol}")
         print(f"Amount: {amount}")
-        if remove_symbol in slot_machine.reels['1']:
+        if remove_symbol in slot_machine.reels['reel1']:
             per_reel_amount: int = int(amount / 3)
-            new_reels['1'][remove_symbol] -= per_reel_amount
-            new_reels['2'][remove_symbol] -= per_reel_amount
-            new_reels['3'][remove_symbol] -= per_reel_amount
+            new_reels['reel1'][remove_symbol] -= per_reel_amount
+            new_reels['reel2'][remove_symbol] -= per_reel_amount
+            new_reels['reel3'][remove_symbol] -= per_reel_amount
 
             slot_machine.reels = new_reels
             print(f"Removed {per_reel_amount} {remove_symbol} from each reel.")
@@ -1986,12 +2015,15 @@ async def reels(interaction: Interaction,
     amount_of_symbols: int = slot_machine.count_symbols()
     reel_amount_of_symbols: int
     reels_table: str = "### Reels\n"
-    for reel, symbols in new_reels.items():
+    for reel_name, symbols in new_reels.items():
+        reel_symbols: Dict[str, int] = cast(Dict[str, int], symbols)
         symbols_table: str = ""
-        for symbol, amount in symbols.items():
+        symbols_and_amounts: dict_items[str, int] = reel_symbols.items()
+        for symbol, amount in symbols_and_amounts:
             symbols_table += f"{symbol}: {amount}\n"
-        reel_amount_of_symbols = sum(symbols.values())
-        reels_table += (f"**Reel {reel}**\n"
+        symbols_dict: Dict[str, int] = cast(Dict[str, int], symbols)
+        reel_amount_of_symbols = sum(symbols_dict.values())
+        reels_table += (f"**Reel {reel_name}**\n"
                         f"**Symbol**: **Amount**\n"
                         f"{symbols_table}"
                         "**Total**\n"
@@ -2013,27 +2045,13 @@ async def reels(interaction: Interaction,
             probability_display = f"<{str(lowest_number)}%"
         probabilities_table += f"{symbol}: {probability_display}\n"
 
-    cheap_mode_etr: Piecewise = (
-        slot_machine.calculate_expected_return_or_total_return(
-            jackpot_mode=False, return_or_total_return="total_return"))
-    cheap_mode_etr_p: str = cast(str, pretty(cheap_mode_etr))
-    cheap_mode_er: Piecewise = (
-        slot_machine.calculate_expected_return_or_total_return(
-            jackpot_mode=False,
-            return_or_total_return="return",
-            silent=True))
-    cheap_mode_er_p: str = cast(str, pretty(cheap_mode_er))
-    jackpot_mode_etr: Piecewise = (
-        slot_machine.calculate_expected_return_or_total_return(
-            jackpot_mode=True,
-            return_or_total_return="total_return",
-            silent=True))
-    jackpot_mode_etr_p: str = cast(str, pretty(jackpot_mode_etr))
-    jackpot_mode_er: Piecewise = (
-        slot_machine.calculate_expected_return_or_total_return(
-            jackpot_mode=True,
-            return_or_total_return="return"))
-    jackpot_mode_er_p: str = cast(str, pretty(jackpot_mode_er))
+    ev: tuple[Piecewise, Piecewise] = slot_machine.calculate_ev()
+    expected_return_ugly: Piecewise = ev[0]
+    expected_return: str = (
+        cast(str, pretty(expected_return_ugly))).replace("⋅", "")
+    expected_total_return_ugly: Piecewise = ev[1]
+    expected_total_return: str = (
+        cast(str, pretty(expected_total_return_ugly,))).replace("⋅", "")
     wagers: List[int] = [
         1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
         25, 50, 75, 99, 100, 500, 1000, 10000, 100000, 1000000]
@@ -2041,7 +2059,7 @@ async def reels(interaction: Interaction,
     rtp_display: str | None = None
     for wager in wagers:
         rtp: Float = (
-            slot_machine.calculate_rtp(wager))
+            slot_machine.calculate_rtp(Integer(wager)))
         rtp_percentage = Mul(rtp, 100.0)
         rtp_rounded: Float = round(rtp_percentage, max_digits)
         if rtp == rtp_rounded:
@@ -2063,14 +2081,10 @@ async def reels(interaction: Interaction,
                     "### Probabilities\n"
                     f"{probabilities_table}\n\n"
                     "### Expected values\n"
-                    "**Expected total return (Jackpot fee paid)**\n"
-                    f"{jackpot_mode_etr_p.replace('⋅', '')}\n"
-                    "**Expected return (Jackpot fee paid)**\n"
-                    f"{jackpot_mode_er_p.replace('⋅', '')}\n"
-                    "**Expected total return (Jackpot fee not paid)**\n"
-                    f"{cheap_mode_etr_p.replace("⋅", "")}\n"
-                    "**Expected return (Jackpot fee not paid)**\n"
-                    f"{cheap_mode_er_p.replace("⋅", "")}\n"
+                    "**Expected total return**\n"
+                    f"{expected_total_return}\n\n"
+                    "**Expected return**\n"
+                    f"{expected_return}\n"
                     '-# "W" means wager\n\n'
                     "### RTP\n"
                     f"{rtp_table}")
@@ -2220,25 +2234,44 @@ async def slots(interaction: Interaction,
             active_slot_machine_players.remove(user_id)
         return
 
-    low_wager_jackpot_fee: int = 1
-    high_wager_jackpot_fee: float = 0.01
-    low_wager_standard_fee: int = 1
-    high_wager_standard_fee: float = 0.14
+    
+    fees_dict: Dict[str, int | float] = slot_machine.configuration["fees"]
+    low_wager_main_fee: int = (
+        cast(int, fees_dict["low_wager_main"]))
+    medium_wager_main_fee: float = (
+        cast(float, fees_dict["medium_wager_main"]))
+    high_wager_main_fee: float = (
+        cast(float, fees_dict["high_wager_main"]))
+    low_wager_jackpot_fee: int = (
+        cast(int, fees_dict["low_wager_jackpot"]))
+    medium_wager_jackpot_fee: float = (
+        cast(float, fees_dict["medium_wager_jackpot"]))
+    high_wager_jackpot_fee: float = (
+        cast(float, fees_dict["high_wager_jackpot"]))
+    
     jackpot_fee_paid: bool = (
-        wager >= (low_wager_jackpot_fee + low_wager_standard_fee))
-    jackpot_mode: bool = True if jackpot_fee_paid else False
-    if not jackpot_mode:
+        wager >= (low_wager_main_fee + low_wager_jackpot_fee))
+    no_jackpot_mode: bool = False if jackpot_fee_paid else True
+    jackpot_fee: int
+    main_fee: int
+    if no_jackpot_mode:
+        # TODO Make min_wager config keys
+        main_fee = low_wager_main_fee
         jackpot_fee = 0
-        standard_fee = low_wager_standard_fee
-    elif wager < 11:
+    elif wager < 10:
+        main_fee = low_wager_main_fee
         jackpot_fee = low_wager_jackpot_fee
-        standard_fee: int = low_wager_standard_fee
+    elif wager < 100:
+        main_fee_unrounded: float = wager * medium_wager_main_fee
+        main_fee = round(main_fee_unrounded)
+        jackpot_fee_unrounded: float = wager * medium_wager_jackpot_fee
+        jackpot_fee = round(jackpot_fee_unrounded)
     else:
+        main_fee_unrounded: float = wager * high_wager_main_fee
+        main_fee = round(main_fee_unrounded)
         jackpot_fee_unrounded: float = wager * high_wager_jackpot_fee
-        jackpot_fee: int = round(jackpot_fee_unrounded)
-        standard_fee_unrounded: float = wager * high_wager_standard_fee
-        standard_fee: int = round(standard_fee_unrounded)
-    fees: int = jackpot_fee + standard_fee
+        jackpot_fee = round(jackpot_fee_unrounded)
+    fees: int = jackpot_fee + main_fee
     slot_machine_view = SlotMachineView(invoker=user,
                                         slot_machine=slot_machine,
                                         wager=wager,
@@ -2309,7 +2342,7 @@ async def slots(interaction: Interaction,
     # Generate outcome messages
     event_message: str | None = None
     # print(f"event_name: '{event_name}'")
-    print(f"event_name_friendly: '{event_name_friendly}'")
+    # print(f"event_name_friendly: '{event_name_friendly}'")
     # print(f"win money: '{win_money}'")
     coin_label_wm: str = generate_coin_label(win_money)
     if event_name == "jackpot_fail":
@@ -2345,28 +2378,27 @@ async def slots(interaction: Interaction,
                          "Better luck next time!")
         net_return = -wager
         total_return = 0
-        # Remove variables with common names to prevent accidental use
-    elif jackpot_mode:
-        net_return = win_money - standard_fee - jackpot_fee
+    elif no_jackpot_mode:
+        net_return = win_money - main_fee
+        if win_money > 0:
+            total_return = win_money - main_fee
+        else:
+            total_return = wager - main_fee
+    else:
+        net_return = win_money - main_fee - jackpot_fee
         if win_money > 0:
             # You don't keep any of your initial money on wins
-            total_return = win_money - standard_fee - jackpot_fee
+            total_return = win_money - main_fee - jackpot_fee
         else:
             # You keep you wager minus fees on lose
-            total_return = wager - standard_fee - jackpot_fee
-    else:
-        net_return = win_money - standard_fee
-        if win_money > 0:
-            total_return = win_money - standard_fee
-        else:
-            total_return = wager - standard_fee
-    print(f"standard_fee: {standard_fee}")
-    print(f"jackpot_fee: {jackpot_fee}")
-    print(f"jackpot_fee_paid: {jackpot_fee_paid}")
-    print(f"jackpot_mode: {jackpot_mode}")
-    print(f"win_money: {win_money}")
-    print(f"net_return: {net_return}")
-    print(f"total_return: {total_return}")
+            total_return = wager - main_fee - jackpot_fee
+    # print(f"standard_fee: {main_fee}")
+    # print(f"jackpot_fee: {jackpot_fee}")
+    # print(f"jackpot_fee_paid: {jackpot_fee_paid}")
+    # print(f"jackpot_mode: {jackpot_mode}")
+    # print(f"win_money: {win_money}")
+    # print(f"net_return: {net_return}")
+    # print(f"total_return: {total_return}")
     coin_label_nr: str = generate_coin_label(net_return)
     if net_return > 0:
         log_line = (f"{user_name} ({user_id}) won the {event_name} "
