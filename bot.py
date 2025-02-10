@@ -21,8 +21,8 @@ from os.path import exists
 from dotenv import load_dotenv
 from hashlib import sha256
 from sys import exit as sys_exit
-from sympy import (symbols, Expr, Add, Mul, Float, Integer, Rational, simplify,
-                   Piecewise, pretty, Eq, Lt, Ge)
+from sympy import (symbols, Expr, Add, Mul, Float, Integer, Eq, Lt, Ge, Gt,
+                   Rational, simplify, Piecewise, pretty)
 from _collections_abc import dict_items
 from typing import (
     Dict, KeysView, List, LiteralString, NoReturn, TextIO, cast, NamedTuple,
@@ -323,7 +323,7 @@ class SlotMachine:
         self._reels: Reels = self.load_reels()
         # self.emoji_ids: Dict[str, int] = cast(Dict[str, int],
         #                                       self.configuration["emoji_ids"])
-        self._probabilities: Dict[str, float] = (
+        self._probabilities: Dict[str, Float] = (
             self.calculate_all_probabilities())
         self._jackpot: int = self.load_jackpot()
         self._fees: dict[str, int | float] = self.configuration["fees"]
@@ -345,7 +345,7 @@ class SlotMachine:
         self.save_config()
 
     @property
-    def probabilities(self) -> Dict[str, float]:
+    def probabilities(self) -> Dict[str, Float]:
         return self.calculate_all_probabilities()
 
     @property
@@ -484,53 +484,61 @@ class SlotMachine:
             probability_for_reel = 0.0
         return probability_for_reel
 
-    def calculate_event_probability(self, symbol: str) -> float:
+    def calculate_event_probability(self, symbol: str) -> Float:
         # TODO Ensure it's still working properly
-        overall_probability: float = 1.0
+        overall_probability: Float = Float(1.0)
         for r in self.reels:
             r = (
                 cast(Literal['reel1', 'reel2', 'reel3'], r))
             probability_for_reel: float = (
                 self.calculate_reel_symbol_probability(r, symbol))
-            overall_probability *= probability_for_reel
+            
+            overall_probability = (
+                cast(Float, Mul(overall_probability, probability_for_reel)))
         return overall_probability
 
-    def calculate_losing_probabilities(self) -> tuple[float, float]:
+    def calculate_losing_probabilities(self) -> tuple[Float, Float]:
         # TODO Ensure it's still working properly
         # print("Calculating chance of losing...")
 
         # No symbols match
-        standard_lose_probability: float = 1.0
+        standard_lose_probability: Float | Mul = Float(1.0)
 
         # Either lose_wager symbols match or no symbols match
-        any_lose_probability: float = 1.0
+        any_lose_probability: Float | Mul = Float(1.0)
 
         # Take the symbols from the first reel
         # (expecting all reels to have the same symbols)
         symbols: List[str] = [symbol for symbol in self.reels["reel1"]]
+        symbols_no_match_probability: Float | Add
+        symbols_match_probability: Float
         for symbol in symbols:
-            symbols_match_probability: float = (
+            symbols_match_probability = (
                 self.calculate_event_probability(symbol))
-            symbols_no_match_probability: float = 1 - symbols_match_probability
-            standard_lose_probability *= symbols_no_match_probability
+            symbols_no_match_probability = (
+                Add(Integer(1) -symbols_match_probability))
+            standard_lose_probability = (
+                Mul(standard_lose_probability, symbols_no_match_probability))
             if symbol != "lose_wager":
-                any_lose_probability *= symbols_no_match_probability
-        return (any_lose_probability, standard_lose_probability)
+                any_lose_probability = (
+                    Mul(any_lose_probability, symbols_no_match_probability))
+        return (cast(Float, any_lose_probability),
+                cast(Float, standard_lose_probability))
 
-    def calculate_all_probabilities(self) -> Dict[str, float]:
+    def calculate_all_probabilities(self) -> Dict[str, Float]:
         # TODO Ensure it's still working properly
         self.reels = self.load_reels()
-        probabilities: Dict[str, float] = {}
+        probabilities: Dict[str, Float] = {}
         for symbol in self.reels["reel1"]:
-            probability: float = self.calculate_event_probability(symbol)
+            probability: Float = self.calculate_event_probability(symbol)
             probabilities[symbol] = probability
-        any_lose_probability: float
-        standard_lose_probability: float
+        any_lose_probability: Float
+        standard_lose_probability: Float
         any_lose_probability, standard_lose_probability = (
             self.calculate_losing_probabilities())
         probabilities["standard_lose"] = standard_lose_probability
         probabilities["any_lose"] = any_lose_probability
-        probabilities["win"] = 1 - any_lose_probability
+        probabilities["win"] = cast(Float, Integer(1) - any_lose_probability)
         return probabilities
     # endregion
 
@@ -554,7 +562,7 @@ class SlotMachine:
     # endregion
 
     # region Slot EV
-    def calculate_ev(self,
+    def calculate_expected_value(self,
                      silent: bool = False) -> tuple[Piecewise, Piecewise]:
         """Calculate the expected total return and expected return for the slot
         machine.
@@ -628,7 +636,7 @@ class SlotMachine:
 
         # Load configuration and calculate probabilities
         self.configuration = self.load_config()
-        probabilities: Dict[str, float] = self.calculate_all_probabilities()
+        probabilities: Dict[str, Float] = self.calculate_all_probabilities()
         events: KeysView[str] = probabilities.keys()
         combo_events: Dict[str, Dict[str, int | float]] = cast(
             Dict[str, Dict[str, int | float]], self.configuration["events"])
@@ -654,7 +662,7 @@ class SlotMachine:
                 Integer(0))
             piece_expected_return_contribution: Integer | Mul = (
                 Integer(0))
-            p_event_float: float
+            p_event_float: Float
             fixed_amount_int: int = 0
             fixed_amount: Expr = Integer(fixed_amount_int)
             wager_multiplier_float: float
@@ -685,7 +693,7 @@ class SlotMachine:
                     continue
                 print_if_not_silent(f"----\nEVENT: {event}")
                 # Get the probability of this event
-                p_event_float: float = probabilities[event]
+                p_event_float: Float = probabilities[event]
                 p_event = Float(p_event_float)
                 print_if_not_silent(f"Event probability: {p_event_float}")
                 if p_event_float == 0.0:
@@ -701,9 +709,9 @@ class SlotMachine:
                                             combo_events[event]["fixed_amount"])
                     jackpot_seed: int = fixed_amount_int
                     print_if_not_silent(f"Jackpot seed: {jackpot_seed}")
-                    jackpot_average: float = (
+                    jackpot_average: Rational = (
                         self.calculate_average_jackpot(
-                            seed=jackpot_seed))
+                            seed_int=jackpot_seed))
                     # TODO Add parameter to return RTP with jackpot excluded
                     # jackpot_average: float = 0.0
                     print_if_not_silent(f"Jackpot average: {jackpot_average}")
@@ -772,8 +780,7 @@ class SlotMachine:
                     wager_multiplier_float = (
                         combo_events[event]["wager_multiplier"])
                 wager_multiplier = Float(wager_multiplier_float)
-                print_if_not_silent(f"Multiplier (k): {
-                                    wager_multiplier_float}")
+                print_if_not_silent(f"Multiplier (k): {wager_multiplier_float}")
                 fixed_amount = Integer(fixed_amount_int)
                 print_if_not_silent(f"Fixed amount (x): {fixed_amount_int}")
 
@@ -872,16 +879,19 @@ class SlotMachine:
     # endregion
 
     # region Slot avg jackpot
-    def calculate_average_jackpot(self, seed: int) -> float:
+    def calculate_average_jackpot(self, seed_int: int) -> Rational:
+        seed: Integer = Integer(seed_int)
         # 1 coin is added to the jackpot for every spin
-        contribution_per_spin: int = 1
-        probabilities: Dict[str, float] = self.calculate_all_probabilities()
-        average_spins_to_win: float = 1 / probabilities["jackpot"]
-        jackpot_cycle_growth: float = (
-            contribution_per_spin * average_spins_to_win)
+        contribution_per_spin: Integer = Integer(1)
+        jackpot_probability: Float = (
+            self.calculate_all_probabilities()["jackpot"])
+        average_spins_to_win = Rational(Integer(1), jackpot_probability)
+        jackpot_cycle_growth = (
+            Mul(contribution_per_spin, average_spins_to_win))
         # min + max / 2
-        mean_jackpot: float = (0 + jackpot_cycle_growth) / 2
-        average_jackpot: float = seed + mean_jackpot
+        mean_jackpot = Rational(Add(Integer(0) + jackpot_cycle_growth))
+        # (0 + jackpot_cycle_growth) / 2
+        average_jackpot: Rational = cast(Rational, Add(seed, mean_jackpot))
         return average_jackpot
     # endregion
 
@@ -889,7 +899,7 @@ class SlotMachine:
     def calculate_rtp(self, wager: Integer) -> Float:
         # IMPROVE Fix error reported by Pylance
         expected_total_return_expression: Piecewise = (
-            self.calculate_ev(silent=True))[0]
+            self.calculate_expected_value(silent=True))[0]
         expected_total_return: Piecewise = (cast(Piecewise,
             expected_total_return_expression.subs(symbols('W'), wager)))
         print(f"Expected total return (W = {wager}): {expected_total_return}")
@@ -1941,6 +1951,7 @@ async def reels(interaction: Interaction,
             amount = 3
         else:
             amount = 1
+    # BUG Refreshing the reels config from file is not working (have to restart instead)
     # Refresh reels config from file
     slot_machine.reels = slot_machine.load_reels()
     new_reels: Reels = slot_machine.reels
@@ -2028,24 +2039,21 @@ async def reels(interaction: Interaction,
                         f"{symbols_table}"
                         "**Total**\n"
                         f"{reel_amount_of_symbols}\n\n")
-    probabilities: Dict[str, float] = slot_machine.probabilities
+    probabilities: Dict[str, Float] = slot_machine.probabilities
     probabilities_table: str = "**Outcome**: **Probability**\n"
-    max_digits: int = 4
-    lowest_number: float = float("0." + "0" * (max_digits - 1) + "1")
+    lowest_number_float = 0.0001
+    lowest_number: Float = Float(lowest_number_float)
+    probability_display: str = ""
     for symbol, probability in probabilities.items():
-        probability_display: str | None = None
-        probability_percentage: float = probability * 100
-        probability_rounded: float = round(probability_percentage, max_digits)
-        if (probability == probability_rounded):
-            probability_display = f"{str(probability_percentage)}%"
-        elif probability_percentage > lowest_number:
-            probability_display = "~{}%".format(
-                str(round(probability_percentage, max_digits)))
+        if Eq(probability, round(probability, Integer(4))):
+            probability_display = f"{probability:.4%}"
+        elif Gt(probability, lowest_number):
+            probability_display = f"~{probability:.4%}" 
         else:
-            probability_display = f"<{str(lowest_number)}%"
+            probability_display = f"<{lowest_number_float}%"
         probabilities_table += f"{symbol}: {probability_display}\n"
 
-    ev: tuple[Piecewise, Piecewise] = slot_machine.calculate_ev()
+    ev: tuple[Piecewise, Piecewise] = slot_machine.calculate_expected_value()
     expected_return_ugly: Piecewise = ev[0]
     expected_return: str = (
         cast(str, pretty(expected_return_ugly))).replace("⋅", "")
@@ -2057,17 +2065,18 @@ async def reels(interaction: Interaction,
         25, 50, 75, 99, 100, 500, 1000, 10000, 100000, 1000000]
     rtp_dict: Dict[int, str] = {}
     rtp_display: str | None = None
+    rtp: Float
     for wager in wagers:
-        rtp: Float = (
+        rtp = (
             slot_machine.calculate_rtp(Integer(wager)))
-        rtp_percentage = Mul(rtp, 100.0)
-        rtp_rounded: Float = round(rtp_percentage, max_digits)
-        if rtp == rtp_rounded:
-            rtp_display = f"{str(rtp_percentage)}%"
-        elif simplify(rtp_percentage) > lowest_number:
-            rtp_display = "~{}%".format(str(rtp_rounded))
+        rtp_simple: Float = cast(Float, simplify(rtp))
+        if rtp == round(rtp, Integer(4)):
+            rtp_display = f"{str(rtp)}"
         else:
-            rtp_display = f"<{str(lowest_number)}%"
+            if Gt(rtp_simple, lowest_number):
+                rtp_display = f"~{rtp:.4%}"
+            else:
+                rtp_display = f"<{str(lowest_number_float)}%"
         rtp_dict[wager] = rtp_display
 
     rtp_table: str = "**Wager**: **RTP**\n"
