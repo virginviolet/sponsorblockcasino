@@ -188,6 +188,7 @@ class Blockchain:
 
     # region Chain valid
     def is_chain_valid(self) -> bool:
+        # TODO force and repair parameters
         chain_validity = True
         if not os.path.exists(self.blockchain_file_name):
             chain_validity = False
@@ -200,7 +201,12 @@ class Blockchain:
                     if current_block:
                         previous_block = current_block
                     # Load the line as a block
-                    current_block = self.load_block(line)
+                    try:
+                        current_block = self.load_block(line)
+                    except json.JSONDecodeError:
+                        print("Invalid JSON in the blockchain file.")
+                        chain_validity = False
+                        break
                     # Calculate the block_hash of the current block
                     calculated_hash: str = current_block.calculate_hash()
                     """ print("\nCurrent block's \"block hash\": "
@@ -287,14 +293,14 @@ class Blockchain:
             sent: int = (transactions[(transactions["Sender"] == user) & (
                 # type: ignore
                 transactions["Method"] != "reaction")]["Amount"].sum())
-            print(f"Total amount sent by {user}: {sent}")
+            # print(f"Total amount sent by {user}: {sent}")
             # type: ignore
             received: int = (
                 transactions[transactions["Receiver"]
                              == user]["Amount"].sum())  # type: ignore
             # print(f"Total amount received by {user}: {received}")
             balance = received - sent
-            print(f"Balance for {user}: {balance}")
+            # print(f"Balance for {user}: {balance}")
             return balance
         else:
             print(f"No transactions found for {user}.")
@@ -405,7 +411,13 @@ class Blockchain:
             # Read the second line
             tf_position, tf_line = next(tf_lines, (None, None))
             for line in bcf:
-                block: Block = self.load_block(line)
+                try:                
+                    block: Block = self.load_block(line)
+                except json.JSONDecodeError:
+                    return_message = "Invalid JSON in the blockchain file."
+                    print(return_message)
+                    print(finished_early_message)
+                    return (return_message, False)
                 data_list: List[str | Dict[str, TransactionDict]] = block.data
                 for item in data_list:
                     if isinstance(item, dict) and "transaction" in item:
