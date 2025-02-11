@@ -47,19 +47,26 @@ class Reels(TypedDict):
     reel2: dict[str, int]
     reel3: dict[str, int]
 
-
-class Event(TypedDict):
+class Symbol(TypedDict):
     emoji_name: str
     emoji_id: int
     fixed_amount: int
     wager_multiplier: float
 
+class ReelResult(TypedDict):
+    associated_combo_event: Dict[str, Symbol]
+    emoji: PartialEmoji
+
+class ReelResults(TypedDict):
+    reel1: ReelResult
+    reel2: ReelResult
+    reel3: ReelResult
 
 class SlotMachineConfig(TypedDict):
-    events: dict[str, Event]
+    combo_events: dict[str, Symbol]
     reels: Reels
     fees: dict[str, int | float]
-    jackpot_amount: int
+    jackpot_pool: int
 
 # endregion
 
@@ -189,7 +196,7 @@ class Log:
     The log cannot currently be verified or generated from the blockchain.
     Use a validated transactions file for verification (see
     Blockchain.validate_transactions_file()).
-    The log is meant to be a local record of events.
+    The log is meant to be a local record of interesting events on the server.
     '''
 
     def __init__(self,
@@ -255,7 +262,6 @@ class BotConfiguration:
         self.coins: str = str(self.configuration["coins"])
         self.Coins: str = str(self.configuration["Coins"])
         self.coin_emoji_id: int = int(str(self.configuration["COIN_EMOJI_ID"]))
-        print(f"configuration: {self.configuration}")
         if self.coin_emoji_id == 0:
             print("WARNING: COIN_EMOJI_ID has not set "
                   "in bot_configuration.json nor "
@@ -359,19 +365,18 @@ class SlotMachine:
     @jackpot.setter
     def jackpot(self, value: int) -> None:
         self._jackpot = value
-        self.configuration["jackpot_amount"] = self._jackpot
+        self.configuration["jackpot_pool"] = self._jackpot
         self.save_config()
 
     def load_jackpot(self) -> int:
         self.configuration = self.load_config()
-        events: Dict[str, Dict[str, int | float]] = cast(
-            Dict[str, Dict[str, int | float]], self.configuration["events"])
-        jackpot_seed: int = cast(int, events["jackpot"]["fixed_amount"])
-        jackpot_size: int = cast(int, events["jackpot"]["fixed_amount"])
-        if jackpot_size < jackpot_seed:
+        combo_events: Dict[str, Symbol] = self.configuration["combo_events"]
+        jackpot_seed: int = combo_events["jackpot"]["fixed_amount"]
+        jackpot_pool: int = self.configuration["jackpot_pool"]
+        if jackpot_pool < jackpot_seed:
             jackpot: int = jackpot_seed
         else:
-            jackpot: int = jackpot_size
+            jackpot: int = jackpot_pool
         return jackpot
 
     def create_config(self) -> None:
@@ -382,10 +387,10 @@ class SlotMachine:
 
         # Create the configuration file
         # Default configuration
-        # jackpot_amount will automatically be set to the jackpot event's
+        # jackpot_pool will automatically be set to the jackpot event's
         # fixed_amount value if the latter is higher than the former
         configuration: SlotMachineConfig = {
-            "events": {
+            "combo_events": {
                 "lose_wager": {
                     "emoji_name": "",
                     "emoji_id": 0,
@@ -451,7 +456,7 @@ class SlotMachine:
                 "medium_wager_jackpot": 0.01,
                 "high_wager_jackpot": 0.01
             },
-            "jackpot_amount": 101
+            "jackpot_pool": 101
         }
         # Save the configuration to the file
         with open(self.file_name, "w") as file:
@@ -643,8 +648,7 @@ class SlotMachine:
         self.configuration = self.load_config()
         probabilities: Dict[str, Float] = self.calculate_all_probabilities()
         events: KeysView[str] = probabilities.keys()
-        combo_events: Dict[str, Dict[str, int | float]] = cast(
-            Dict[str, Dict[str, int | float]], self.configuration["events"])
+        combo_events: Dict[str, Symbol] = self.configuration["combo_events"]
 
         # Symbol
         W: Expr = symbols('W')  # wager
@@ -710,8 +714,7 @@ class SlotMachine:
                     # jackpot fee, plus the jackpot
                     #
                     # Variables
-                    fixed_amount_int = cast(int,
-                                            combo_events[event]["fixed_amount"])
+                    fixed_amount_int = combo_events[event]["fixed_amount"]
                     jackpot_seed: int = fixed_amount_int
                     print_if_not_silent(f"Jackpot seed: {jackpot_seed}")
                     jackpot_average: Rational = (
@@ -780,8 +783,7 @@ class SlotMachine:
                     # plus the lose_wager event
                     #
                     # Variables
-                    fixed_amount_int = (
-                        cast(int, combo_events[event]["fixed_amount"]))
+                    fixed_amount_int = combo_events[event]["fixed_amount"]
                     wager_multiplier_float = (
                         combo_events[event]["wager_multiplier"])
                 wager_multiplier = Float(wager_multiplier_float)
@@ -939,16 +941,12 @@ class SlotMachine:
     # region Slot money
     def calculate_award_money(self,
                               wager: int,
-                              results: (
-                                  Dict[str, Dict[
-                                      str,
-                                      str | int | float | PartialEmoji]])
+                              results: ReelResults
                               ) -> tuple[str, str, int]:
-
         if (not (
-            results["reel1"]["name"]
-            == results["reel2"]["name"]
-                == results["reel3"]["name"])):
+            results["reel1"]["associated_combo_event"].keys()
+            == results["reel2"]["associated_combo_event"].keys()
+            == results["reel3"]["associated_combo_event"].keys())):
             return ("standard_lose", "No win", 0)
 
         low_wager_standard_fee = 1
@@ -956,12 +954,16 @@ class SlotMachine:
         jackpot_fee_paid: bool = (
             wager >= (low_wager_jackpot_fee + low_wager_standard_fee))
         no_jackpot_mode: bool = False if jackpot_fee_paid else True
-        event_name: str = cast(str, results["reel1"]["name"])
+        # Since associated_combo_event is a dict with only one key,
+        # we can get the key name (thus event name) by getting the first key
+        event_name: str = next(iter(results["reel1"]["associated_combo_event"]))
         # print(f"event_name: {event_name}")
-        wager_multiplier: float = cast(float,
-                                       results["reel1"]["wager_multiplier"])
-        fixed_amount_payout: int = cast(int,
-                                        results["reel1"]["fixed_amount"])
+        wager_multiplier: float = (
+            results["reel1"]["associated_combo_event"][event_name]
+            ["wager_multiplier"])
+        fixed_amount_payout: int = (
+            results["reel1"]["associated_combo_event"][event_name]
+            ["fixed_amount"])
         # print(f"event_multiplier: {wager_multiplier}")
         # print(f"fixed_amount_payout: {fixed_amount_payout}")
         event_name_friendly: str = ""
@@ -1148,27 +1150,46 @@ class SlotMachineView(View):
                              f"{self.message_reel_status}\n"
                              "\n"
                              f"{self.empty_space}")
-        self.events: (
-            Dict[str, Dict[str, int | float]]) = cast(
-                Dict[str, Dict[str, int | float]],
-            self.slot_machine.configuration["events"])
+        self.combo_events: Dict[str, Symbol] = (
+            self.slot_machine.configuration["combo_events"])
         self.interaction: Interaction = interaction
         blank_emoji: PartialEmoji = PartialEmoji.from_str("🔳")
-        self.reels_results: Dict[
-            str,
-            Dict[str, str | int | float | PartialEmoji]]
-        self.reels_results = (
-            {
-                "reel1":
-                {"emoji": blank_emoji},
-
-                "reel2":
-                {"emoji": blank_emoji},
-
-                "reel3":
-                {"emoji": blank_emoji}
+        self.reels_results: ReelResults
+        self.reels_results = {
+            "reel1": {
+                "associated_combo_event": {
+                    "": {
+                        "emoji_name": "",
+                        "emoji_id": 0,
+                        "wager_multiplier": 1.0,
+                        "fixed_amount": 0
+                        }
+                },
+                "emoji": blank_emoji
+            },
+            "reel2": {
+                "associated_combo_event": {
+                    "": {
+                        "emoji_name": "",
+                        "emoji_id": 0,
+                        "wager_multiplier": 1.0,
+                        "fixed_amount": 0
+                        }
+                },
+                "emoji": blank_emoji
+            },
+            "reel3": {
+                "associated_combo_event": {
+                    "": {
+                        "emoji_name": "",
+                        "emoji_id": 0,
+                        "wager_multiplier": 1.0,
+                        "fixed_amount": 0
+                        }
+                },
+                "emoji": blank_emoji
             }
-        )
+        }
         self.button_clicked: bool = False
         self.stop_reel_buttons: List[Button[View]] = []
         # Create stop reel buttons
@@ -1199,21 +1220,22 @@ class SlotMachineView(View):
             reel_stop_button_map[button_id])
         # Stop the reel and get the symbol
         symbol_name: str = self.slot_machine.stop_reel(reel=reel_name)
-        # Get the emoji for the symbol (using the events dictionary)
-        symbol_emoji_name: str = cast(str,
-                                      self.events[symbol_name]["emoji_name"])
-        symbol_emoji_id: int = cast(int,
-                                    self.events[symbol_name]["emoji_id"])
+        # Get the emoji for the symbol (using the combo_events dictionary)
+        symbol_emoji_name: str = self.combo_events[symbol_name]["emoji_name"]
+        symbol_emoji_id: int = self.combo_events[symbol_name]["emoji_id"]
         # Create a PartialEmoji object (for the message)
         symbol_emoji: PartialEmoji = PartialEmoji(name=symbol_emoji_name,
                                                   id=symbol_emoji_id)
-        # Copy keys and values from the appropriate sub-dictionary in events
-        symbol_properties: Dict[str, str | int | float | PartialEmoji]
-        symbol_properties = {**self.events[symbol_name]}
-        symbol_properties["name"] = symbol_name
-        symbol_properties["emoji"] = symbol_emoji
+        # Copy keys and values from the appropriate sub-dictionary
+        # in combo_events
+        combo_event_properties: Symbol = {**self.combo_events[symbol_name]}
+        symbol_name: str = symbol_name
+        reel_result: ReelResult = {
+            "associated_combo_event": {symbol_name: combo_event_properties},
+            "emoji": symbol_emoji
+        }
         # Add the emoji to the result
-        self.reels_results[reel_name] = symbol_properties
+        self.reels_results[reel_name] = reel_result
         self.reels_stopped += 1
         reel_status: str = (
             "The reels are spinning..." if self.reels_stopped < 3 else
@@ -1878,8 +1900,7 @@ async def transfer(interaction: Interaction, amount: int, user: Member) -> None:
 async def balance(interaction: Interaction,
                   user: Member | None = None,
                   incognito: bool = False) -> None:
-    """
-    Check the balance of a user. If no user is specified, the balance of the
+    """ Check the balance of a user. If no user is specified, the balance of the
     user who invoked the command is checked.
 
     Args:
@@ -1896,21 +1917,25 @@ async def balance(interaction: Interaction,
         user_to_check = user.name
         user_id: int = user.id
 
+    # print(f"Getting balance for user {user_to_check} ({user_id})...")
     user_id_hash: str = sha256(str(user_id).encode()).hexdigest()
-    del user_id
     balance: int | None = blockchain.get_balance(user=user_id_hash)
+    message: str
     if balance is None:
-        await interaction.response.send_message(f"{user_to_check} has 0 "
-                                                f"{coins}.",
-                                                ephemeral=incognito)
+        message = f"{user_to_check} ({user_id}) has 0 " f"{coins}."
+        print(message)
+        await interaction.response.send_message(message, ephemeral=incognito)
+        del message
     else:
         coin_label: str = generate_coin_label(balance)
-        await interaction.response.send_message(f"{user_to_check} has "
-                                                f"{balance} {coin_label}.",
-                                                ephemeral=incognito)
+        message = f"{user_to_check} has {balance} {coin_label}."
+        await interaction.response.send_message(message, ephemeral=incognito)
         del coin_label
+        del message
+    del user_id
     del balance
 # endregion
+
 # region /reels
 
 
@@ -2161,10 +2186,10 @@ async def slots(interaction: Interaction,
         return
     elif jackpot:
         # Check the jackpot amount
-        jackpot_amount: int = slot_machine.jackpot
-        coin_label: str = generate_coin_label(jackpot_amount)
+        jackpot_pool: int = slot_machine.jackpot
+        coin_label: str = generate_coin_label(jackpot_pool)
         message = (f"### {Coin} Slot Machine\n"
-                   f"-# JACKPOT: {jackpot_amount} "
+                   f"-# JACKPOT: {jackpot_pool} "
                    f"{coin_label}.")
         del coin_label
         await interaction.response.send_message(message, ephemeral=private_room)
@@ -2340,8 +2365,7 @@ async def slots(interaction: Interaction,
     await slot_machine_view.start_auto_stop()
 
     # Get results
-    results: Dict[str, Dict[str, str | int | float |
-                            PartialEmoji]] = slot_machine_view.reels_results
+    results: ReelResults = slot_machine_view.reels_results
 
     # Create some variables for the outcome messages
     slot_machine_header: str = slot_machine_view.message_header
@@ -2365,14 +2389,14 @@ async def slots(interaction: Interaction,
     # print(f"win money: '{win_money}'")
     coin_label_wm: str = generate_coin_label(win_money)
     if event_name == "jackpot_fail":
-        jackpot_amount: int = slot_machine.jackpot
-        coin_label_fee: str = generate_coin_label(jackpot_amount)
-        coin_label_jackpot: str = generate_coin_label(jackpot_amount)
+        jackpot_pool: int = slot_machine.jackpot
+        coin_label_fee: str = generate_coin_label(jackpot_pool)
+        coin_label_jackpot: str = generate_coin_label(jackpot_pool)
         event_message = (f"{event_name_friendly}! Unfortunately, you did "
                          "not pay the jackpot fee of "
                          f"{jackpot_fee} {coin_label_fee}, meaning "
                          "that you did not win the jackpot of "
-                         f"{jackpot_amount} {coin_label_jackpot}. "
+                         f"{jackpot_pool} {coin_label_jackpot}. "
                          "Better luck next time!")
         del coin_label_fee
         del coin_label_jackpot
@@ -2568,10 +2592,9 @@ async def slots(interaction: Interaction,
 
     if event_name == "jackpot":
         # Reset the jackpot
-        events: Dict[str, Dict[str, int | float]] = cast(
-            Dict[str, Dict[str, int | float]],
-            slot_machine.configuration["events"])
-        jackpot_seed: int = cast(int, events["jackpot"]["fixed_amount"])
+        combo_events: Dict[str, Symbol] = (
+            slot_machine.configuration["combo_events"])
+        jackpot_seed: int = combo_events["jackpot"]["fixed_amount"]
         slot_machine.jackpot = jackpot_seed
     else:
         slot_machine.jackpot += 1
