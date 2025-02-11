@@ -267,7 +267,7 @@ class Blockchain:
         file_exists: bool = os.path.exists(self.transactions_file_name)
         if not file_exists:
             directories: str = (self.transactions_file_name[
-                    :self.transactions_file_name.rfind("/")])
+                :self.transactions_file_name.rfind("/")])
             os.makedirs(directories, exist_ok=True)
         with open(self.transactions_file_name, "w") as file:
             file.write("Time\tSender\tReceiver\tAmount\tMethod\n")
@@ -411,7 +411,7 @@ class Blockchain:
             # Read the second line
             tf_position, tf_line = next(tf_lines, (None, None))
             for line in bcf:
-                try:                
+                try:
                     block: Block = self.load_block(line)
                 except json.JSONDecodeError:
                     return_message = "Invalid JSON in the blockchain file."
