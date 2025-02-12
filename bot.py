@@ -80,7 +80,7 @@ class StartingBonusMessage(NamedTuple):
 # endregion
 
 
-# Intents and bot setup
+# region Bot setup
 intents: Intents = Intents.default()
 intents.message_content = True
 intents.members = True
@@ -89,8 +89,8 @@ client = Client(intents=intents)
 # Load .env file for the bot DISCORD_TOKEN
 load_dotenv()
 DISCORD_TOKEN: str | None = getenv('DISCORD_TOKEN')
+# Number of messages to keep track of in each channel
 channel_checkpoint_limit: int = 3
-guild_ids: List[int] = []
 starting_bonus_messages_waiting: Dict[int, StartingBonusMessage] = {}
 active_slot_machine_players: set[int] = set()
 # endregion
@@ -935,7 +935,6 @@ class SlotMachine:
         # Randomly select a symbol from the list
         symbol: str = random.choice(reel_symbols)
         return symbol
-
     # endregion
 
     # region Slot money
@@ -995,6 +994,48 @@ class SlotMachine:
         if fixed_amount_payout > 0:
             event_name_friendly = "+{}".format(fixed_amount_payout)
         return (event_name, event_name_friendly, win_money_rounded)
+    # endregion
+
+    # region Friendly event name
+    def make_friendly_event_name(self, event_name: str) -> str:
+        """
+        Creates a user-friendly name for an event.
+
+        The function handles specific event names such as "lose_wager"
+        and "jackpot" with predefined friendly names. For other events, it
+        constructs a friendly name based on the wager multiplier
+        and fixed amount payout from the configuration.
+
+        This code is copied from calculate_award_money().
+
+        Args:
+            event_name: The internal name of the event.
+
+        Returns:
+            str: A user-friendly version of the event name.
+        """
+        combo_events: Dict[str, Symbol] = self.configuration["combo_events"]
+        wager_multiplier: float = (
+            combo_events[event_name]["wager_multiplier"])
+        fixed_amount_payout: int = (
+            combo_events[event_name]["fixed_amount"])
+        event_name_friendly: str = ""
+        if event_name == "lose_wager":
+            event_name_friendly = "Lose wager"
+            return event_name_friendly
+        elif event_name == "jackpot":
+            event_name_friendly = "JACKPOT"
+            return event_name_friendly
+        event_multiplier_friendly: str
+        event_multiplier_floored: int = math.floor(wager_multiplier)
+        if wager_multiplier == event_multiplier_floored:
+            event_multiplier_friendly = str(int(wager_multiplier))
+        else:
+            event_multiplier_friendly = str(wager_multiplier)
+        event_name_friendly += "{}X".format(event_multiplier_friendly)
+        if fixed_amount_payout > 0:
+            event_name_friendly = "+{}".format(fixed_amount_payout)
+        return event_name_friendly
     # endregion
 
 # region UserSaveData
@@ -1628,30 +1669,31 @@ async def terminate_bot() -> NoReturn:
 # region Guild list
 
 
-def load_guild_ids(file_name: str = "data/guild_ids.txt") -> List[int]:
-    print("Loading guild IDs...")
-    # Create missing directories
-    makedirs("file_name", exist_ok=True)
-    guild_ids: List[int] = []
-    read_mode: str = "a+"
-    if not exists(file_name):
-        read_mode = "w+"
-    else:
-        read_mode = "r+"
-    with open(file_name, read_mode) as file:
-        for line in file:
-            guild_id = int(line.strip())
-            print(f"Adding guild ID {guild_id} from file to the list...")
-            guild_ids.append(guild_id)
-        for guild in bot.guilds:
-            guild_id: int = guild.id
-            if not guild_id in guild_ids:
-                print(f"Adding guild ID {guild_id} "
-                      "to the list and the file...")
-                file.write(f"{guild_id}\n")
-                guild_ids.append(guild_id)
-    print("Guild IDs loaded.")
-    return guild_ids
+# def load_guild_ids(file_name: str = "data/guild_ids.txt") -> List[int]:
+#     print("Loading guild IDs...")
+#     # Create missing directories
+#     directories: str = file_name[:file_name.rfind("/")]
+#     makedirs(directories, exist_ok=True)
+#     guild_ids: List[int] = []
+#     read_mode: str = "a+"
+#     if not exists(file_name):
+#         read_mode = "w+"
+#     else:
+#         read_mode = "r+"
+#     with open(file_name, read_mode) as file:
+#         for line in file:
+#             guild_id = int(line.strip())
+#             print(f"Adding guild ID {guild_id} from file to the list...")
+#             guild_ids.append(guild_id)
+#         for guild in bot.guilds:
+#             guild_id: int = guild.id
+#             if not guild_id in guild_ids:
+#                 print(f"Adding guild ID {guild_id} "
+#                       "to the list and the file...")
+#                 file.write(f"{guild_id}\n")
+#                 guild_ids.append(guild_id)
+#     print("Guild IDs loaded.")
+#     return guild_ids
 # endregion
 
 # region Coin label
@@ -1731,7 +1773,6 @@ async def on_ready() -> None:
         print(f"Bot is ready!")
     except Exception as e:
         print(f"Error syncing commands: {e}")
-
 # endregion
 
 
@@ -1774,7 +1815,6 @@ async def on_message(message: Message) -> None:
             await message.channel.send("An error occurred. "
                                        f"{administrator} pls fix.")
             return
-
 # endregion
 
 
@@ -1801,8 +1841,9 @@ async def on_raw_reaction_add(payload: RawReactionActionEvent) -> None:
         del message_id
         del reacter_id
 
-        # Look for coin emoji
-        if payload.emoji.id is None:
+        # TODO What is this for?
+        emoji_id: int | None = payload.emoji.id
+        if emoji_id is None:
             return
         sender: Member | None = payload.member
         if sender is None:
@@ -2107,7 +2148,7 @@ async def reels(interaction: Interaction,
             slot_machine.calculate_rtp(Integer(wager)))
         rtp_simple: Float = cast(Float, simplify(rtp))
         if rtp == round(rtp, Integer(4)):
-            rtp_display = f"{str(rtp)}"
+            rtp_display = f"{rtp:.4%}"
         else:
             if Gt(rtp_simple, lowest_number):
                 rtp_display = f"~{rtp:.4%}"
@@ -2150,26 +2191,181 @@ async def reels(interaction: Interaction,
 @app_commands.describe(private_room="Play in a private room")
 @app_commands.describe(jackpot="Check the current jackpot amount")
 @app_commands.describe(reboot="Reboot the slot machine")
+@app_commands.describe(show_help="Show help")
+@app_commands.describe(rtp="Show the return to player percentage for "
+                       "a given wager")
 async def slots(interaction: Interaction,
                 insert_coins: int | None = None,
                 private_room: bool = False,
                 jackpot: bool = False,
-                reboot: bool = False) -> None:
+                reboot: bool = False,
+                show_help: bool = False,
+                rtp: int | None = False) -> None:
     """
     Command to play a slot machine.
 
     Args:
-        interaction (Interaction): The interaction object representing the
-        command invocation.
+    interaction  -- The interaction object representing the
+                    command invocation.
+    insert_coins -- Sets the stake/wager (default 1)
+    private_room -- Makes the bot's messages ephemeral
+                    (only visible to the invoker) (default False)
+    jackpot      -- Reports the current jackpot pool (default False)
+    reboot       -- Removes the invoker from active_slot_machine_players
+                    (default False)
+    show_help    -- Sends information about the command/game (default False)
     """
-    # TODO Add TOS
-    # TODO Add /help
-    wager: int | None = insert_coins
-    if wager is None:
-        wager = 1
+    # TODO Add TOS parameter
+    # TODO Add help parameter
+    # TODO Add service parameter
+    # TODO Add RTP parameter
+    # IMPROVE Make incompatible parameters not selectable together
+    wager_int: int | None = insert_coins
+    if wager_int is None:
+        wager_int = 1
     # TODO Log/stat outcomes (esp. wager amounts)
     user: User | Member = interaction.user
     user_id: int = user.id
+
+    if show_help:
+        pay_table: str = ""
+        combo_events: Dict[str,
+                           Symbol] = slot_machine.configuration["combo_events"]
+        combo_event_count: int = len(combo_events)
+        
+        for event in combo_events:
+            event_name: str = event
+            event_name_friendly: str = (
+                slot_machine.make_friendly_event_name(event_name))
+            emoji_name: str = combo_events[event]['emoji_name']
+            emoji_id: int = combo_events[event]['emoji_id']
+            emoji: PartialEmoji = PartialEmoji(name=emoji_name, id=emoji_id)
+            row: str = f"> {emoji} {emoji} {emoji}    {event_name_friendly}\n> \n"
+            pay_table += row
+        # strip the last ">"
+        pay_table = pay_table[:pay_table.rfind("\n> ")]
+        jackpot_seed: int = (
+            slot_machine.configuration["combo_events"]
+            ["jackpot"]["fixed_amount"])
+        administrator: str = (await bot.fetch_user(ADMINISTRATOR_ID)).name
+        help_message_1: str = (
+            f"## {Coin} Slot Machine Help\n"
+            f"Win big by playing the {Coin} slot machine!*\n\n"
+            "### Pay table\n"
+            f"{pay_table}\n"
+            "\n"
+            "### Fees\n"
+            "> Coins inserted: Fee\n"
+            f"> 1:             1 {coin}\n"
+            f"> <10:        2 {coins}\n"
+            "> <100:     10% 20%\n"
+            "> ≥100:  2% 7%\n"
+            "\n"
+            "Fees are calculated from your total stake (the amount of coins "
+            "you insert), and are deducted from your total return (your "
+            "gross return.). For example, if you insert 100 coins, and win "
+            "a 2X award, you get 200 coins, and then 2 coins are deducted, "
+            "leaving you with 198 coins.\n"
+            "\n"
+            "### Rules\n"
+            "You must be 18 years or older to play.\n\n"
+            "### How to play\n"
+            "To play, insert coins with the `insert_coin` parameter of the \n"
+            "`/slots` command. Then wait for the reels to stop, or stop them "
+            "yourself by hitting the stop buttons. Your goal is to get a "
+            "winning combination of three symbols illustrated on the "
+            "pay table.\n"
+            "\n"
+            "### Overview\n"
+            f"The {Coin} slot machine has 3 reels.\n"
+            f"Each reel has {combo_event_count} unique symbols.\n"
+            "If three symbols match, you get an award based on the symbol, "
+            "or, if you're unlucky, you lose your entire stake (see the pay "
+            "table).\n"
+            "\n")
+        help_message_2: str = (
+            "### Stake\n"
+            "The amount of coins you insert is your stake. This includes the "
+            "fees. The stake is the amount of coins you are willing to risk. "
+            "It will determine the amount you can win, and how high the fees "
+            "will be.\n"
+            "\n"
+            "Multiplier awards multiply your total stake before fees are "
+            "deducted.\n"
+            "\n"
+            "If you do not specify a stake, it means you insert 1 coin and "
+            "that will be your stake.\n"
+            "\n"
+            f"A perhaps counter-intuitive feature of the {Coin} Slot Machine "
+            "is that if you do not strike a combination, you do not lose "
+            "your entire stake, but only the fees. But if you get Lose wager "
+            "combination, you do lose your entire stake.\n"
+            "\n"
+            "Any net positive outcome will be immediately added to your "
+            "balance. Similarly, if you get a net negative outcome, the "
+            f"loss amount will be transferred to the {Coin} Casino's "
+            "account.\n"
+            "\n"
+            "### Jackpot\n"
+            "The jackpot is a pool of coins that grows as people play the "
+            "slot machine.\n"
+            "If you get a jackpot-winning combination, you win the "
+            "entire jackpot pool.\n"
+            "\n"
+            "To check the current jackpot amount, "
+            "use the `jackpot` parameter.\n"
+            "\n"
+            f"To be eligible for the jackpot, you must insert "
+            f"at least 2 {coins}. Then, a small portion of your stake will "
+            "be added to the jackpot pool as a jackpot fee. For stakes "
+            "between 2 and 10 coins, the jackpot fee is 1 coin. Above that, it "
+            "is 1%. The jackpot fees are included in in the fees you see on "
+            "the fees table.\n\n"
+            f"When someone wins the jackpot, the pool is reset "
+            f"to {jackpot_seed} {coins}.\n"
+            "\n")
+        help_message_3: str = (
+            "### Fairness\n"
+            "The outcome of a play is never predetermined. The slot machine "
+            "uses a random number generator to determine the outcome of each "
+            "reel each time you play. Some symbols are however more likely "
+            "to appear than others, because each reel has a set amount of "
+            "each symbol.\n"
+            "\n"
+            "To check the RTP (return to player) for a given stake, use "
+            "the `RTP` parameter.\n"
+            "\n"
+            "### Contact\n"
+            "If you are having issues, you can reboot the slot machine by "
+            "using the reboot parameter. If you have any other issues, "
+            f"please contact the {Coin} Casino staff or a Slot Machine "
+            "Technician (ping Slot Machine Technician). If you need to "
+            f"contact the {Coin} Casino CEO, ping {administrator}.\n"
+            "\n"
+            "-# *Not guaranteed. Actually, for legal reasons, nothing about "
+            "this game is guaranteed.\n")
+        await interaction.response.send_message(help_message_1, ephemeral=True)
+        await interaction.followup.send(help_message_2, ephemeral=True)
+        await interaction.followup.send(help_message_3, ephemeral=True)
+    elif rtp:
+        wager_int = rtp
+        wager = Integer(rtp)
+        rtp_fraction: Float = slot_machine.calculate_rtp(wager)
+        rtp_simple: Float = cast(Float, simplify(rtp_fraction))
+        lowest_number_float = 0.0001
+        lowest_number: Float = Float(lowest_number_float)
+        rtp_display: str
+        if rtp_fraction == round(rtp_fraction, Integer(4)):
+            rtp_display = f"{rtp_fraction:.4%}"
+        else:
+            if rtp_simple > lowest_number:
+                rtp_display = f"~{rtp_fraction:.4%}"
+            else:
+                rtp_display = f"<{lowest_number_float}%"
+        message = (f"### {Coin} Slot Machine\n"
+                   f"-# RTP (stake={wager_int} {coins}): {rtp_display}")
+        await interaction.response.send_message(message, ephemeral=True)
+        return
     if reboot:
         message = (f"### {Coin} Slot Machine\n"
                    f"-# The {Coin} slot machine is restarting...")
@@ -2265,11 +2461,11 @@ async def slots(interaction: Interaction,
         if user_id in active_slot_machine_players:
             active_slot_machine_players.remove(user_id)
         return
-    elif user_balance < wager:
-        coin_label_w: str = generate_coin_label(wager)
+    elif user_balance < wager_int:
+        coin_label_w: str = generate_coin_label(wager_int)
         coin_label_b: str = generate_coin_label(user_balance)
         message = (f"You do not have enough {coins} "
-                   f"to stake {wager} {coin_label_w}.\n"
+                   f"to stake {wager_int} {coin_label_w}.\n"
                    f"Your current balance is {user_balance} {coin_label_b}.")
         await interaction.response.send_message(content=message, ephemeral=True)
         del coin_label_w
@@ -2294,7 +2490,7 @@ async def slots(interaction: Interaction,
         cast(float, fees_dict["high_wager_jackpot"]))
 
     jackpot_fee_paid: bool = (
-        wager >= (low_wager_main_fee + low_wager_jackpot_fee))
+        wager_int >= (low_wager_main_fee + low_wager_jackpot_fee))
     no_jackpot_mode: bool = False if jackpot_fee_paid else True
     jackpot_fee: int
     main_fee: int
@@ -2302,23 +2498,23 @@ async def slots(interaction: Interaction,
         # TODO Make min_wager config keys
         main_fee = low_wager_main_fee
         jackpot_fee = 0
-    elif wager < 10:
+    elif wager_int < 10:
         main_fee = low_wager_main_fee
         jackpot_fee = low_wager_jackpot_fee
-    elif wager < 100:
-        main_fee_unrounded: float = wager * medium_wager_main_fee
+    elif wager_int < 100:
+        main_fee_unrounded: float = wager_int * medium_wager_main_fee
         main_fee = round(main_fee_unrounded)
-        jackpot_fee_unrounded: float = wager * medium_wager_jackpot_fee
+        jackpot_fee_unrounded: float = wager_int * medium_wager_jackpot_fee
         jackpot_fee = round(jackpot_fee_unrounded)
     else:
-        main_fee_unrounded: float = wager * high_wager_main_fee
+        main_fee_unrounded: float = wager_int * high_wager_main_fee
         main_fee = round(main_fee_unrounded)
-        jackpot_fee_unrounded: float = wager * high_wager_jackpot_fee
+        jackpot_fee_unrounded: float = wager_int * high_wager_jackpot_fee
         jackpot_fee = round(jackpot_fee_unrounded)
     fees: int = jackpot_fee + main_fee
     slot_machine_view = SlotMachineView(invoker=user,
                                         slot_machine=slot_machine,
-                                        wager=wager,
+                                        wager=wager_int,
                                         fees=fees,
                                         interaction=interaction)
     # TODO Add animation
@@ -2327,7 +2523,7 @@ async def slots(interaction: Interaction,
 
     # TODO DRY
     slots_message: str = (f"### {Coin} Slot Machine\n"
-                          f"-# Coin: {wager}\n"
+                          f"-# Coin: {wager_int}\n"
                           f"-# Fee: {fees}\n"
                           f"{empty_space}\n"
                           "The reels are spinning...\n"
@@ -2379,7 +2575,7 @@ async def slots(interaction: Interaction,
     # (not usually the same as net profit or net return)
     win_money: int
     event_name, event_name_friendly, win_money = (
-        slot_machine.calculate_award_money(wager=wager,
+        slot_machine.calculate_award_money(wager=wager_int,
                                            results=results))
 
     # Generate outcome messages
@@ -2417,16 +2613,16 @@ async def slots(interaction: Interaction,
     log_line: str = ""
     if event_name == "lose_wager":
         event_message = (f"You lost your entire "
-                         f"stake of {wager} {coin_label_wm}. "
+                         f"stake of {wager_int} {coin_label_wm}. "
                          "Better luck next time!")
-        net_return = -wager
+        net_return = -wager_int
         total_return = 0
     elif no_jackpot_mode:
         net_return = win_money - main_fee
         if win_money > 0:
             total_return = win_money - main_fee
         else:
-            total_return = wager - main_fee
+            total_return = wager_int - main_fee
     else:
         net_return = win_money - main_fee - jackpot_fee
         if win_money > 0:
@@ -2434,7 +2630,7 @@ async def slots(interaction: Interaction,
             total_return = win_money - main_fee - jackpot_fee
         else:
             # You keep you wager minus fees on lose
-            total_return = wager - main_fee - jackpot_fee
+            total_return = wager_int - main_fee - jackpot_fee
     # print(f"standard_fee: {main_fee}")
     # print(f"jackpot_fee: {jackpot_fee}")
     # print(f"jackpot_fee_paid: {jackpot_fee_paid}")
@@ -2460,7 +2656,7 @@ async def slots(interaction: Interaction,
             log_line = (f"{user_name} ({user_id}) got "
                         f"the {event_name} event ({event_name_friendly}) "
                         "and lost their entire wager of "
-                        f"{wager} {coin_label_nr} on the {Coin} slot machine, "
+                        f"{wager_int} {coin_label_nr} on the {Coin} slot machine, "
                         "yet they neither lost any coins nor profited.")
         elif win_money > 0:
             # With the default config, this will happen if the fees are higher
@@ -2479,7 +2675,7 @@ async def slots(interaction: Interaction,
         if event_name == "lose_wager":
             log_line = (f"{user_name} ({user_id}) got the {event_name} event "
                         f"({event_name_friendly}) and lost their entire wager "
-                        f"of {wager} {coin_label_nr} on the "
+                        f"of {wager_int} {coin_label_nr} on the "
                         f"{Coin} slot machine.")
         if event_name == "jackpot_fail":
             log_line = (f"{user_name} ({user_id}) lost {-net_return} "
