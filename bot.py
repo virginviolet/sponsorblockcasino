@@ -99,13 +99,59 @@ active_slot_machine_players: set[int] = set()
 
 
 class ChannelCheckpoints:
+    """
+    ChannelCheckpoints is a class that manages checkpoints for a specific
+    channel in a guild. It allows for saving, loading, and managing
+    message IDs as checkpoints.
+    
+    Methods:
+        __init__(self,
+            guild_name,
+            guild_id,
+            channel_name,
+            channel_id,
+            max_checkpoints):
+            Initializes checkpoints for a channel in a guild.
+        count_lines(self):
+        create(self):
+            Creates a checkpoint file for the channel, including necessary
+            directories and metadata files.
+        save(self, message_id):
+            Saves the given message ID as a checkpoint in the file.
+            If the number of checkpoints exceeds the maximum allowed, the
+            oldest checkpoint is removed.
+        remove_first_line(self):
+        load(self):
+            Loads the checkpoints from the file specified by self.file_name.
+        """
     def __init__(self,
                  guild_name: str,
                  guild_id: int,
                  channel_name: str,
                  channel_id: int,
-                 number: int = 10) -> None:
-        self.number: int = number
+                 max_checkpoints: int = 10) -> None:
+        """
+        Initialize checkpoints for a channel in a guild.
+
+        Args:
+            guild_name: The name of the guild
+            guild_id: The ID of the guild
+            channel_name: The name of the channel
+            channel_id: The ID of the channel
+            max_checkpoints: The maximum number of checkpoints
+
+        Attributes:
+            max_checkpoints: The maximum number of checkpoints
+            guild_name: The name of the guild
+            guild_id: The ID of the guild
+            channel_name: The name of the channel
+            channel_id: The ID of the channel
+            directory: The directory path for storing checkpoints
+            file_name: The file name for storing channel checkpoints
+            entry_count: The count of entries in the checkpoints file
+            last_message_ids: The last message IDs in the channel
+        """
+        self.max_checkpoints: int = max_checkpoints
         self.guild_name: str = guild_name
         self.guild_id: int = guild_id
         self.channel_name: str = channel_name
@@ -117,6 +163,12 @@ class ChannelCheckpoints:
         self.last_message_ids: List[Dict[str, int]] | None = self.load()
 
     def count_lines(self) -> int:
+        """
+        Counts the number of lines in the file specified by self.file_name.
+        Returns:
+            int: The number of lines in the file. Returns 0 if the file
+                does not exist.
+        """
         if not exists(self.file_name):
             return 0
 
@@ -125,6 +177,25 @@ class ChannelCheckpoints:
             return count
 
     def create(self) -> None:
+        """
+        Creates an checkpoint file for the channel.
+
+        This method performs the following tasks:
+        1. Creates any missing directories in the path specified
+            by `self.file_name`.
+        2. Writes the guild name to a JSON file named `guild_name.json` in
+            the directory corresponding to the guild ID.
+        3. Writes the channel name to a JSON file named `channel_name.json` in
+            the directory corresponding to the channel ID.
+        4. Creates an empty checkpoints file at the path specified
+            by `self.file_name`.
+        
+        The directory structure is created based on the path specified
+        in `self.file_name`.
+        The guild and channel names are written to files in directories named
+        after their IDs, allowing bot maintainers to identify guilds and
+        channels by their names.
+        """
         # Create missing directories
         directories: str = self.file_name[:self.file_name.rfind("/")]
         for i, directory in enumerate(directories.split("/")):
@@ -151,6 +222,14 @@ class ChannelCheckpoints:
             pass
 
     def save(self, message_id: int) -> None:
+        """
+        Saves the given message ID as a checkpoint in the file.
+        If the file does not exist, it creates a new one. The message ID is
+        appended to the file in JSON format. If the number of checkpoints
+        exceeds the maximum allowed, the oldest checkpoint is removed.
+        Args:
+            message_id: The ID of the message to save as a checkpoint.
+        """
         if not exists(self.file_name):
             self.create()
 
@@ -163,17 +242,30 @@ class ChannelCheckpoints:
                 file.write("\n" + json.dumps({"last_message_id": message_id}))
         self.entry_count += 1
 
-        while self.entry_count > self.number:
+        while self.entry_count > self.max_checkpoints:
             self.remove_first_line()
             self.entry_count -= 1
 
     def remove_first_line(self) -> None:
+        """
+        Removes the first line from the file specified by self.file_name.
+
+        This method reads all lines from the file, then writes all lines except
+        the first one
+        back to the file, effectively removing the first line.
+        """
         with open(self.file_name, "r") as file:
             lines: List[str] = file.readlines()
         with open(self.file_name, "w") as file:
             file.writelines(lines[1:])
 
     def load(self) -> List[Dict[str, int]] | None:
+        """
+        Loads checkpoints from a file.
+        Returns:
+            A list of dictionaries containing checkpoint data if the file
+                exists, otherwise None.
+        """
         if not exists(self.file_name):
             return None
 
@@ -192,16 +284,39 @@ class ChannelCheckpoints:
 
 
 class Log:
-    '''
-    The log cannot currently be verified or generated from the blockchain.
+    """
+    Provides functionality for logging events with timestamps to a file.
+    For timestamps, the local time zone is used by default, but a different
+    time zone can be specified.
+        
+    The log cannot be verified or generated from the blockchain.
     Use a validated transactions file for verification (see
     Blockchain.validate_transactions_file()).
     The log is meant to be a local record of interesting events on the server.
-    '''
+
+    Attributes:
+        file_name: The name of the file where transactions are logged.
+        time_zone: The time zone to be used for logging. If None, the
+                    local time zone is used.
+    Methods:
+        __init__(file_name = "data/transactions.log", time_zone) -> None:
+            Initializes the log file with the specified file name and time zone.
+        create(): Creates the necessary directories and an empty log file.
+        log(line, timestamp): Logs a line of text with a timestamp to the file.
+    """
 
     def __init__(self,
                  file_name: str = "data/transactions.log",
                  time_zone: str | None = None) -> None:
+        """
+        Initializes the log file.
+
+        Args:
+            file_name: The name of the file where transactions are logged.
+                        Defaults to "data/transactions.log".
+            time_zone: The time zone to be used for logging. If None, the
+                        local time zone is used. Defaults to None.
+        """
         self.file_name: str = file_name
         self.time_zone: str | None = time_zone
         timestamp: float = time()
@@ -211,6 +326,14 @@ class Log:
             self.log("The time zone is set to the local time zone.", timestamp)
 
     def create(self) -> None:
+        """
+        Creates the necessary directories and an empty log file.
+        This method performs the following steps:
+        1. Extracts the directory path from the file name.
+        2. Splits the directory path and iterates through each directory.
+        3. Checks if each directory exists, and if not, creates it.
+        4. Creates an empty log file at the specified file name.
+        """
         # Create missing directories
         directories: str = self.file_name[:self.file_name.rfind("/")]
         for _, directory in enumerate(directories.split("/")):
@@ -222,6 +345,15 @@ class Log:
             pass
 
     def log(self, line: str, timestamp: float) -> None:
+        """
+        Logs a line of text with a timestamp to a file.
+        Args:
+            line: The line of text to log.
+            timestamp: The Unix timestamp that will be converted to a
+                        human-readable format and prepended to the line.
+        Returns:
+            None
+        """
         if self.time_zone is None:
             # Use local time zone
             timestamp_friendly = (
@@ -253,7 +385,43 @@ class Log:
 
 # region Bot config
 class BotConfiguration:
+    """
+    A class to handle the bot configuration.
+
+    Methods:
+        __init__(file_name = "data/bot_configuration.json"): Initializes
+            the bot configuration.
+        create(): Creates the necessary directories and a default
+            configuration file.
+        read(): Reads the bot configuration from a file and overrides it
+            with environment variables if they exist.
+        """
     def __init__(self, file_name: str = "data/bot_configuration.json") -> None:
+        """
+        Initializes the bot configuration.
+
+        Args:
+            file_name: The path to the configuration file. Defaults
+                        to "data/bot_configuration.json".
+
+        Attributes:
+            file_name: The path to the configuration file.
+            configuration: The bot configuration read from the file.
+            coin: The coin name from the configuration.
+            Coin: The capitalized coin name from the configuration.
+            coins: The plural form of the coin name from the configuration.
+            Coins: The capitalized plural form of the coin name from
+                the configuration.
+            coin_emoji_id: The emoji ID for the coin from the configuration.
+            administrator_id: The administrator ID from the configuration.
+            casino_house_id: The casino house ID from the configuration.
+
+        Warnings:
+            If `coin_emoji_id` is 0, a warning is printed indicating
+                that COIN_EMOJI_ID is not set.
+            If `administrator_id` is 0, a warning is printed indicating
+                that ADMINISTRATOR_ID is not set.
+        """
         self.file_name: str = file_name
         self.configuration: BotConfig = (
             self.read())
@@ -276,6 +444,25 @@ class BotConfiguration:
                   "in the environment variables.")
 
     def create(self) -> None:
+        """
+        Creates the necessary directories and a default configuration file.
+        This method performs the following actions:
+        1. Creates any missing directories specified in the file path.
+        2. Creates a configuration file with default settings if it does not
+            already exist.
+        The default configuration includes:
+        - coin: Default coin name in lowercase.
+        - Coin: Default coin name with the first letter capitalized.
+        - coins: Plural form of the default coin name in lowercase.
+        - Coins: Plural form of the default coin name with the first
+                    letter capitalized.
+        - COIN_EMOJI_ID: Placeholder for the emoji ID of the coin.
+        - CASINO_HOUSE_ID: Placeholder for the ID of the casino house.
+        - ADMINISTRATOR_ID: Placeholder for the ID of the bot administrator.
+        Raises:
+            OSError: If there is an error creating directories or writing
+                        the configuration file.
+        """
         # Create missing directories
         directories: str = self.file_name[:self.file_name.rfind("/")]
         for directory in directories.split("/"):
@@ -298,6 +485,14 @@ class BotConfiguration:
             file.write(json.dumps(configuration))
 
     def read(self) -> BotConfig:
+        """
+        Reads the bot configuration from a file and overrides it with
+        environment variables if they exist.
+        If the configuration file does not exist, it creates a new one.
+        Returns:
+            The bot configuration dictionary with possible overrides
+                from environment variables.
+        """
         if not exists(self.file_name):
             self.create()
 
@@ -312,6 +507,7 @@ class BotConfiguration:
                 "Coins": "Coins",
                 "COIN_EMOJI_ID": "COIN_EMOJI_ID",
                 "CASINO_HOUSE_ID": "CASINO_HOUSE_ID",
+                "ADMINISTRATOR_ID": "ADMINISTRATOR_ID"
             }
             # TODO Add reels env vars
 
@@ -325,8 +521,84 @@ class BotConfiguration:
 # endregion
 
 class SlotMachine:
+    """
+    Represents a slot machine game with various functionalities, such as
+    loading configuration, calculating probabilities, managing reels,
+    calculating expected value, and handling jackpots.
+    Methods:
+        __init__(file_name = "data/slot_machine.json"):
+            Initializes the SlotMachine class with the given configuration file.
+        load_reels():
+            Loads the reels configuration from the
+            slot machine configuration file.
+        reels():
+            Returns the reel configuration.
+        reels(value):
+            Sets the reel configuration and updates the configuration file.
+        probabilities():
+            Runs the calculate_all_probabilities method and returns the
+            calculated probabilities.
+        jackpot():
+            Returns the current jackpot amount.
+        jackpot(value):
+            Sets the jackpot amount and updates the configuration file.
+        load_jackpot():
+            Loads the current jackpot pool.
+        create_config():
+            Creates a template slot machine configuration file.
+        load_config():
+            Loads the slot machine configuration from a JSON file.
+        save_config():
+            Saves the current slot machine configuration to a file.
+        calculate_reel_symbol_probability(reel, symbol):
+            Calculate the probability of a specific symbol appearing on a
+            given reel.
+        calculate_event_probability(symbol):
+            Calculate the overall probability of a given symbol appearing across
+            all reels.
+        calculate_losing_probabilities():
+            Calculate the probability of losing the entire wager and the
+            probability of not getting any symbols to match.
+        calculate_all_probabilities():
+            Calculate the probabilities for all possible outcomes in the
+            slot machine.
+        count_symbols(ree):
+            Count the total number of symbols in the specified reel or in all
+            reels if no reel is specified.
+        calculate_expected_value(silent):
+            Calculate the expected total return and expected return for the
+            slot machine.
+        calculate_average_jackpot(seed_int):
+            Calculate the average jackpot amount on payout based on a given
+            seed (start amount) integer.
+        calculate_rtp(wager):
+            Calculate the return to player (RTP) percentage for a given wager.
+        stop_reel(reel):
+            Stops the specified reel and returns the symbol at the
+            stopping position.
+        calculate_award_money(wager, results):
+            Calculate the award money based on the wager and the results of
+            the reels.
+        make_friendly_event_name(event_name):
+            Make a friendly event name from the event name.
+        """
     # region Slot config
     def __init__(self, file_name: str = "data/slot_machine.json") -> None:
+        """
+        Initializes the SlotMachine class with the given configuration file.
+
+        Args:
+            file_name: The name of the slot machine configuration file. Defaults
+                to "data/slot_machine.json".
+
+        Attributes:
+            file_name: The name of the slot machine configuration file
+            configuration: The loaded configuration for the slot machine
+            _reels: The loaded reels for the slot machine
+            _probabilities: The calculated probabilities for each event
+            _jackpot: The current jackpot amount
+            _fees: The fees associated with the slot machine
+        """
         self.file_name: str = file_name
         self.configuration: SlotMachineConfig = (
             self.load_config())
@@ -339,6 +611,12 @@ class SlotMachine:
         self._fees: dict[str, int | float] = self.configuration["fees"]
 
     def load_reels(self) -> Reels:
+        """
+        Loads the reels configuration from the bot's configuration file.
+
+        Returns:
+            The reels configuration.
+        """
         # print("Getting reels...")
         self.configuration = self.load_config()
         reels: Reels = self.configuration["reels"]
@@ -346,29 +624,70 @@ class SlotMachine:
 
     @property
     def reels(self) -> Reels:
+        """
+        Returns the current state of the reels.
+
+        Returns:
+            Reels: The current state of the reels.
+        """
         return self._reels
 
     @reels.setter
     def reels(self, value: Reels) -> None:
+        """
+        Sets the reels value and updates the configuration.
+
+        Args:
+            value: The new value for the reels.
+        """
         self._reels = value
         self.configuration["reels"] = self._reels
         self.save_config()
 
     @property
     def probabilities(self) -> Dict[str, Float]:
+        """
+        Calculate and return the probabilities for various outcomes.
+
+        Returns:
+            Dict: A dictionary where the keys are event names and the values
+                    are their corresponding probabilities.
+        """
         return self.calculate_all_probabilities()
 
     @property
     def jackpot(self) -> int:
+        """
+        Returns the current jackpot amount.
+
+        Returns:
+            int: The current jackpot amount.
+        """
         return self._jackpot
 
     @jackpot.setter
     def jackpot(self, value: int) -> None:
+        """
+        Sets the jackpot value and updates the configuration.
+
+        Args:
+            value (int): The new jackpot value.
+        """
         self._jackpot = value
         self.configuration["jackpot_pool"] = self._jackpot
         self.save_config()
 
     def load_jackpot(self) -> int:
+        """
+        Loads the current jackpot pool.
+
+        This method retrieves the jackpot seed from the configuration file
+        and compares it to the current jackpot pool. The jackpot pool is
+        automatically set to the jackpot seed if the jackpot pool is lower.
+
+        Returns:
+            int: The calculated jackpot amount.
+        """
         self.configuration = self.load_config()
         combo_events: Dict[str, Symbol] = self.configuration["combo_events"]
         jackpot_seed: int = combo_events["jackpot"]["fixed_amount"]
@@ -380,6 +699,21 @@ class SlotMachine:
         return jackpot
 
     def create_config(self) -> None:
+        """
+        Creates a template slot machine configuration file.
+        This method performs the following steps:
+        1. Prints a message indicating the creation of the configuration file.
+        2. Creates any missing directories in the file path.
+        3. Defines a default configuration for the slot machine, including:
+            - Combo events with their respective emoji names, IDs,
+                fixed amount payouts, and wager multiplier payouts.
+            - Reels with the number of each unique symbol on each reel.
+            - Fees for different wager levels.
+            - Current jackpot pool amount placeholder (not the seed).
+        4. Saves the configuration to the specified file in JSON format.
+        5. Prints a message indicating the completion of the configuration
+            file creation.
+        """
         print("Creating template slot machine configuration file...")
         # Create missing directories
         directories: str = self.file_name[:self.file_name.rfind("/")]
@@ -464,6 +798,14 @@ class SlotMachine:
         print("Template slot machine configuration file created.")
 
     def load_config(self) -> SlotMachineConfig:
+        """
+        Loads the slot machine configuration from a JSON file.
+        If the configuration file does not exist, it creates a default
+        configuration file.
+
+        Returns:
+            SlotMachineConfig: The loaded slot machine configuration.
+        """
         if not exists(self.file_name):
             self.create_config()
 
@@ -472,6 +814,16 @@ class SlotMachine:
             return configuration
 
     def save_config(self) -> None:
+        """
+        Saves the current slot machine configuration to a file.
+
+        This method writes the current configuration stored in
+        the `configuration` attribute to a file specified by
+        the `file_name` attribute in JSON format.
+
+        Raises:
+            IOError: If the file cannot be opened or written to.
+        """
         # print("Saving slot machine configuration...")
         with open(self.file_name, "w") as file:
             file.write(json.dumps(self.configuration))
@@ -484,6 +836,18 @@ class SlotMachine:
                                           reel: Literal[
                                               "reel1", "reel2", "reel3"],
                                           symbol: str) -> float:
+        """
+        Calculate the probability of a specific symbol appearing on a
+        given reel.
+
+        Args:
+            reel: The reel to check for the symbol.
+            symbol: The symbol to calculate the probability for.
+
+        Returns:
+            float: The probability of the symbol appearing on
+                    the specified reel.
+        """
         number_of_symbol_on_reel: int = self.reels[reel][symbol]
         total_reel_symbols: int = sum(self.reels[reel].values())
         if total_reel_symbols != 0 and number_of_symbol_on_reel != 0:
@@ -494,6 +858,16 @@ class SlotMachine:
         return probability_for_reel
 
     def calculate_event_probability(self, symbol: str) -> Float:
+        """
+        Calculate the overall probability of a given symbol appearing
+        across all reels.
+
+        Args:
+            symbol: The symbol to calculate the probability for.
+        Returns:
+            Float: The overall probability of the symbol appearing across
+                    all reels.
+        """
         # TODO Ensure it's still working properly
         overall_probability: Float = Float(1.0)
         for r in self.reels:
@@ -507,6 +881,18 @@ class SlotMachine:
         return overall_probability
 
     def calculate_losing_probabilities(self) -> tuple[Float, Float]:
+        """
+        Calculate the probabilities of losing the entire wager, and the
+        probability of not getting any symbols to match (standard lose).
+
+        Returns:
+            tuple[Float, Float]: A tuple containing:
+                - any_lose_probability (Float): The probability of losing by
+                    either not getting any symbols to match or getting the
+                    "lose_wager" symbol combo.
+                - standard_lose_probability (Float): The probability of losing
+                    by not getting any symbols to match.
+        """
         # TODO Ensure it's still working properly
         # print("Calculating chance of losing...")
 
@@ -535,7 +921,21 @@ class SlotMachine:
                 cast(Float, standard_lose_probability))
 
     def calculate_all_probabilities(self) -> Dict[str, Float]:
-        # TODO Ensure it's still working properly
+        """
+        Calculate the probabilities for all possible outcomes in
+        the slot machine.
+
+        This method loads the reels, calculates the probability for each
+        symbol on the first reel (presuming all reels will have the same unique
+        symbols, whether in the same or different amounts), and then calculates
+        the probabilities for losing and winning events.
+
+        Returns:
+            Dict: A dictionary where the keys are the event names
+                    (i.e., symbol combos, "standard_lose", "any_lose", "win")
+                    and the values are their respective probabilities.
+        """
+        # TODO Ensure it's still working correctly now after using TypedDicts
         self.reels = self.load_reels()
         probabilities: Dict[str, Float] = {}
         for symbol in self.reels["reel1"]:
@@ -553,6 +953,19 @@ class SlotMachine:
 
     # region Slot count
     def count_symbols(self, reel: str | None = None) -> int:
+        """
+        Count the total number of symbols in the specified reel or in all reels
+        if no reel is specified.
+
+        Args:
+            reel: The name of the reel to count symbols from. 
+                    If None, counts symbols from all reels. Otherwise it's
+                    expected to be 'reel1', 'reel2', or 'reel3'.
+
+        Returns:
+            int: The total number of symbols in the specified reel or in
+            all reels.
+        """
         # TODO Ensure it's still working properly
         symbol_count: int
         all_symbols_lists: List[int] = []
@@ -574,7 +987,8 @@ class SlotMachine:
     def calculate_expected_value(self,
                                  silent: bool = False
                                  ) -> tuple[Piecewise, Piecewise]:
-        """Calculate the expected total return and expected return for the slot
+        """
+        Calculate the expected total return and expected return for the slot
         machine.
 
         The player can only decide how many coins to insert into the machine
@@ -593,28 +1007,31 @@ class SlotMachine:
         just counts as a standard lose (no combo).
 
         Different wager sizes have different fees,
-        which makes the EV different for different wager sizes
-        Therefore, we express EV as a piecewise function
+        which makes the EV different for different wager sizes.
+        Therefore, we express EV as a piecewise function.
         Each piece expresses the EV (ETR or ER) for a specific wager range
 
         Terms:
         - Expected value (EV): The average value of a random variable over
-            many trials
+            many trials.
         - Wager (or stake): The amount of coins the player inserts into the
             machine each spin; a number that decides the fee and that the
-            multiplier events are based on
+            multiplier events are based on.
+        - Jackpot: A prize that grows with each spin until someone wins it
+        - Jackpot seed: The amount that the jackpot starts at (and gets reset
+            to after someone wins the jackpot).
         - Total return (TR): The gross return amount that the player gets back
             (this in itself does not tell us if the player made a profit or
-            loss)
+            loss).
         - Return (R): The net amount that the player gets back; the gain or loss
-            part of the total return money; the total return minus the wager 
+            part of the total return money; the total return minus the wager .
         - Expected total return (ETR): The average total return over many plays; 
-            the expected value of the total return
+            the expected value of the total return.
         - Expected return (ER): The average return (gain or loss) over many
-            plays; the expected value of the return
+            plays; the expected value of the return.
         - Piecewise function: A function that is defined by several subfunctions
             (used here to express ETR and ER with different fees for different
-            wager ranges)
+            wager ranges).
 
         Symbolic representation:
         - W: Wager
@@ -626,20 +1043,21 @@ class SlotMachine:
         - f2x: Jackpot fee fixed amount
         - j: Jackpot average
 
-        Parameters:
-        - silent: If True, the function will not print anything to the console
+        Args:
+        - silent: If True, the function will not print anything to the console.
         - standard_fee_fixed_amount: A fixed amount that is subtracted from the
-            player's total return for each spin
+            player's total return for each spin.
         - standard_fee_wager_multiplier: A percentage of the player's wager that
             is subtracted from the player's total return for each spin, and
-            added to the jackpot pool
+            added to the jackpot pool.
         - jackpot_fee_fixed_amount: A fixed amount that is subtracted from the
-            player's total return for each spin, and added to the jackpot pool
+            player's total return for each spin, and added to the jackpot pool.
         """
 
         def print_if_not_silent(*args: Any, **kwargs: Any) -> None:
-            """Wrapper for print() that only prints if the "silent" parameter is
-            False.
+            """
+            Wrapper for print() that only prints if the "silent" parameter
+            is False.
             """
             if not silent:
                 print(*args, **kwargs)
@@ -659,8 +1077,22 @@ class SlotMachine:
                 jackpot_fee_fixed_amount: Integer = Integer(0),
                 jackpot_fee_wager_multiplier: Float = Float(0.0)
         ) -> tuple[Add, Add]:
-            """ Calculate the *expected total return* and *expected return*
+            """
+            Calculate the *expected total return* and *expected return*
             with the fees specified with the parameters.
+
+            Args:
+                - standard_fee_fixed_amount: The fixed amount of the
+                    standard fee.
+                - standard_fee_wager_multiplier: The multiplier for the
+                     standard fee based on the wager.
+                - jackpot_fee_fixed_amount: The fixed amount of the jackpot fee.
+                - jackpot_fee_wager_multiplier: The multiplier for the
+                    jackpot fee based on the wager.
+
+                Returns:
+                - tuple: A tuple containing the expected total return and
+                            the expected return.
             """
             # Initialize variables
             piece_expected_return: Integer | Add = (
@@ -755,7 +1187,8 @@ class SlotMachine:
                     message = ("Expected total return contribution: "
                                f"{piece_expected_total_return_contribution}")
                     print_if_not_silent(message)
-                    # Remove variables with common names to prevent accidental use
+                    # Remove variables with common names to
+                    # prevent accidental use
                     del message
                     # This event's contribution to the *expected return*
                     piece_expected_return_contribution = (
@@ -866,6 +1299,7 @@ class SlotMachine:
                 jackpot_fee_wager_multiplier=high_wager_jackpot_fee)
         }
 
+        # Remember to also change the help message if you change the conditions
         expected_total_return = Piecewise(
             (pieces["no_jackpot"][0], Eq(W, Integer(1))),
             (pieces["low_wager"][0], Lt(W, Integer(10))),
@@ -888,6 +1322,13 @@ class SlotMachine:
 
     # region Slot avg jackpot
     def calculate_average_jackpot(self, seed_int: int) -> Rational:
+        """
+        Calculate the average jackpot amount on payout
+        based on a given seed (start amount) integer.
+
+        Args:
+        seed_int -- The starting amount of the jackpot pool
+        """
         seed: Integer = Integer(seed_int)
         # 1 coin is added to the jackpot for every spin
         contribution_per_spin: Integer = Integer(1)
@@ -905,6 +1346,15 @@ class SlotMachine:
 
     # region Slot RTP
     def calculate_rtp(self, wager: Integer) -> Float:
+        """
+        Calculate the Return to Player (RTP) based on the given wager.
+
+        Args:
+            wager: The amount wagered.
+
+        Returns:
+            Float: The RTP value as a decimal.
+        """
         # IMPROVE Fix error reported by Pylance
         expected_total_return_expression: Piecewise = (
             self.calculate_expected_value(silent=True))[0]
@@ -920,14 +1370,17 @@ class SlotMachine:
     # endregion
 
     # region Slot stop reel
-    # def pull_lever(self):
-    #     symbols_landed = []
-    #     for reel in self.reels:
-    #         symbol = self.stop_reel(reel)
-    #         symbols_landed.append(symbol)
-    #     return symbols_landed
-
     def stop_reel(self, reel: Literal["reel1", "reel2", "reel3"]) -> str:
+        """
+        Stops the specified reel and returns the symbol at the
+        stopping position.
+
+        Args:
+            reel: The reel to stop.
+
+        Returns:
+            str: The symbol at the stopping position.
+        """
         # Create a list with all units of each symbol type on the reel
         reel_symbols: List[str] = []
         for s in self.reels[reel]:
@@ -942,6 +1395,24 @@ class SlotMachine:
                               wager: int,
                               results: ReelResults
                               ) -> tuple[str, str, int]:
+        """
+        Calculate the award money based on the wager and the results of
+        the reels. This does not include the fees. It is only the money
+        that a combo event would award the player. It will not return a negative
+        value.
+        It also returns the internal name of the event and a user-friendly name
+        of the event.
+        Args:
+            wager: The amount of money wagered.
+            results: The results of the reels, containing associated
+            combo events.
+        Returns:
+            tuple: A tuple containing:
+                - event_name: The internal name of the event.
+                - event_name_friendly: A user-friendly name of the event.
+                - win_money_rounded: The amount of money won, rounded down to
+                    the nearest integer.
+        """
         if (not (
             results["reel1"]["associated_combo_event"].keys()
             == results["reel2"]["associated_combo_event"].keys()
@@ -1042,6 +1513,24 @@ class SlotMachine:
 
 
 class UserSaveData:
+    """
+    Handles the creation, saving, and loading of user-specific data
+    in JSON format.
+
+    Methods:
+        __init__(user_id, user_name):
+            Initializes the UserSaveData instance with the given user ID
+            and name.
+        create():
+            Creates the necessary directories and files for the user.
+        save(key, value):
+            Saves a key-value pair to a JSON file. If the file does not exist,
+            it creates a new one.
+        load(key):
+            Loads the value associated with the given key from a JSON file.
+            Returns the value associated with the key if it exists,
+            otherwise None.
+    """
     def __init__(self, user_id: int, user_name: str) -> None:
         self.user_id: int = user_id
         self.user_name: str = user_name
@@ -1049,6 +1538,20 @@ class UserSaveData:
         self.starting_bonus_received: bool = False
 
     def create(self) -> None:
+        """
+        Creates the necessary directories and files for the user.
+        This method performs the following actions:
+        1. Creates any missing directories based on the file path.
+        2. If a directory name matches the user ID, it creates a JSON file 
+           containing the user's name, user ID, and starting bonus status.
+        3. Creates an empty save data file specified by `self.file_name`.
+        Attributes:
+            self.file_name: The path to the save data file.
+            self.user_name: The name of the user.
+            self.user_id: The ID of the user.
+            self.starting_bonus_received: Indicates if the starting bonus
+                                             has been received.
+        """
         # Create missing directories
         directories: str = self.file_name[:self.file_name.rfind("/")]
         for i, directory in enumerate(directories.split("/")):
@@ -1071,6 +1574,14 @@ class UserSaveData:
             pass
 
     def save(self, key: str, value: str) -> None:
+        """
+        Saves a key-value pair to a JSON file. If the file does not exist,
+        it creates a new one.
+
+        Args:
+            key: The key to be saved.
+            value: The value to be saved.
+        """
         if not exists(self.file_name):
             self.create()
 
@@ -1078,6 +1589,14 @@ class UserSaveData:
             f.write(json.dumps({key: value}))
 
     def load(self, key: str) -> str | None:
+        """
+        Loads the value associated with the given key from a JSON file.
+        Args:
+            key: The key whose value needs to be retrieved.
+        Returns:
+            str | None: The value associated with the key if it exists,
+                            otherwise None.
+        """
         if not exists(self.file_name):
             return None
 
@@ -1093,12 +1612,51 @@ class UserSaveData:
 
 
 class StartingBonusView(View):
+    """
+    A view for handling the starting bonus die roll interaction for the Casino.
+    This view presents a button to the user, allowing them to roll a die to
+    receive a starting bonus.
+    The view ensures that only the user who invoked the interaction can roll
+    the die.
+
+    Methods:
+        on_button_click(interaction):
+            Handles the event when a button is clicked.
+        on_timeout:
+            Handles the timeout event for the view. Disables the die button and
+            sends a message to the user indicating that they took too long and
+            can run the command again when ready.
+        """
     def __init__(self,
                  invoker: User | Member,
                  starting_bonus_awards: Dict[int, int],
                  save_data: UserSaveData,
                  log: Log,
                  interaction: Interaction) -> None:
+        """
+        Initializes the StartingBonusView instance, used for the starting bonus
+        die button.
+
+        Args:
+            invoker: The user or member who invoked the bot.
+            starting_bonus_awards: A dictionary containing
+                        the starting bonus awards.
+            save_data: The save data for the user.
+            log: The log object for logging information.
+            interaction: The interaction object.
+
+        Attributes:
+            invoker: The user or member who invoked the bot.
+            invoker_id: The ID of the invoker.
+            starting_bonus_awards: A dictionary containing
+                the starting bonus awards.
+            save_data: The save data for the user.
+            log: The log object for logging information.
+            interaction: The interaction object.
+            button_clicked: A flag indicating whether the button has
+                been clicked.
+            die_button: The button for starting the bonus die.
+        """
         super().__init__(timeout=30)
         self.invoker: User | Member = invoker
         self.invoker_id: int = invoker.id
@@ -1115,6 +1673,19 @@ class StartingBonusView(View):
         self.add_item(self.die_button)
 
     async def on_button_click(self, interaction: Interaction) -> None:
+        """
+        Handles the event when a button is clicked.
+        This method checks if the user who clicked the button is the same user
+        who invoked the interaction.
+        If not, it sends an ephemeral message indicating that the user cannot
+        roll the die for someone else.
+        If the user is the invoker, it disables the button, rolls a die, awards
+        a starting bonus based on the die roll, and sends a follow-up message
+        with the result. It then adds a block transaction to the blockchain,
+        logs the event, and stops the interaction.
+        Args:
+            interaction (Interaction): The interaction object.
+        """
         clicker_id: int = interaction.user.id
         if clicker_id != self.invoker_id:
             await interaction.response.send_message(
@@ -1152,6 +1723,13 @@ class StartingBonusView(View):
             self.stop()
 
     async def on_timeout(self) -> None:
+        """
+        Handles the timeout event for the view.
+
+        This method is called when the user takes too long to roll the die.
+        It disables the die button and sends a message to the user indicating
+        that they took too long and can run the command again when ready.
+        """
         self.die_button.disabled = True
         message = ("You took too long to roll the die. When you're "
                    "ready, you may run the command again.")
@@ -1170,6 +1748,36 @@ class SlotMachineView(View):
                  wager: int,
                  fees: int,
                  interaction: Interaction) -> None:
+        """
+        Initialize the SlotMachineView instance.
+
+        Args:
+            invoker: The user or member who invoked the slot machine command.
+            slot_machine: The slot machine instance.
+            wager: The amount of coins wagered.
+            fees: The total fees paid this time.
+            interaction: The interaction instance.
+
+        Attributes:
+            current_reel_number: The current reel number being processed.
+            reels_stopped: The number of reels that have stopped.
+            invoker: The user or member who invoked the  slot machine command.
+            invoker_id: The ID of the invoker.
+            slot_machine: The slot machine instance.
+            wager: The amount of coins wagered.
+            fees: The total fees paid this time.
+            empty_space: A string of empty spaces for formatting.
+            message_header: The first row of the message.
+            message_reel_status: The status message for the reels.
+            message_collect_screen: The message displayed on the collect screen.
+            message_results_row: The message displaying the results row.
+            message: The complete message to be displayed.
+            combo_events: The combination events configuration.
+            interaction: The interaction instance.
+            reels_results: The results of the reels.
+            button_clicked: Indicates if a button has been clicked.
+            stop_reel_buttons: A list containing the stop reel buttons.
+        """
         super().__init__(timeout=20)
         self.current_reel_number: int = 1
         self.reels_stopped: int = 0
@@ -1249,6 +1857,9 @@ class SlotMachineView(View):
     async def invoke_reel_stop(self, button_id: str) -> None:
         """
         Stops a reel and edits the message with the result.
+
+        Args:
+            button_id: The ID of the button that was clicked.
         """
         # Map button IDs to reel key names
         reel_stop_button_map: Dict[str, Literal["reel1", "reel2", "reel3"]] = {
@@ -1300,6 +1911,10 @@ class SlotMachineView(View):
                               button_id: str) -> None:
         """
         Events to occur when a stop reel button is clicked.
+
+        Args:
+            interaction: The interaction object.
+            button_id: The ID of the button that was clicked.
         """
         clicker_id: int = interaction.user.id
         if clicker_id != self.invoker_id:
@@ -1324,7 +1939,7 @@ class SlotMachineView(View):
 
     async def start_auto_stop(self) -> None:
         """
-        Events to occur when the view times out.
+        Auto-stop the next reel.
         """
         if self.reels_stopped == 3:
             self.stop()
@@ -1354,9 +1969,25 @@ class SlotMachineView(View):
 
 
 def start_flask_app_waitress() -> None:
+    """
+    Starts a Flask application using Waitress as the WSGI server.
+    This function initializes a Waitress subprocess to serve the Flask
+    application. It also starts separate threads to stream the standard
+    output and error output from the Waitress subprocess.
+    Global Variables:
+        waitress_process: The subprocess running the Waitress server.
+    """
     global waitress_process
 
     def stream_output(pipe: TextIO, prefix: str) -> None:
+        """
+        Streams output from a given pipe, prefixing each line with a
+        specified string.
+
+        Args:
+            pipe: The pipe to read the output from.
+            prefix: The string to prefix each line of output with.
+        """
         # Receive output from the Waitress subprocess
         for line in iter(pipe.readline, ''):
             # print(f"{prefix}: {line}", end="")
@@ -1393,6 +2024,16 @@ def start_flask_app_waitress() -> None:
 
 
 def start_flask_app() -> None:
+    """
+    Starts the Flask application.
+
+    This function initializes and runs the Flask development server.
+    If an exception occurs during the startup, it catches the exception and
+    prints an error message.
+
+    Raises:
+        Exception: If there is an error running the Flask app.
+    """
     # For use with the Flask development server
     print("Starting flask app...")
     try:
@@ -1405,6 +2046,18 @@ def start_flask_app() -> None:
 
 
 def start_checkpoints(limit: int = 10) -> Dict[int, ChannelCheckpoints]:
+    """
+    Initializes checkpoints for all text channels in all guilds the bot is a
+    member of; creates instances of ChannelCheckpoints for each channel.
+
+    Args:
+        limit: The maximum number of checkpoints to create for each channel.
+        Defaults to 10.
+
+    Returns:
+        Dict: A dictionary where the keys are channel IDs and the values are
+        ChannelCheckpoints objects.
+    """
     all_checkpoints: dict[int, ChannelCheckpoints] = {}
     print("Starting checkpoints...")
     channel_id: int = 0
@@ -1422,23 +2075,31 @@ def start_checkpoints(limit: int = 10) -> Dict[int, ChannelCheckpoints]:
                 guild_id=guild_id,
                 channel_name=channel_name,
                 channel_id=channel_id,
-                number=limit
+                max_checkpoints=limit
             )
     print("Checkpoints started.")
     return all_checkpoints
+# endregion
 
 
 # region Missed msgs
 
 
 async def process_missed_messages() -> None:
-    '''
-    Process messages that were sent since the bot was last online.
-    This does not process reaction to messages older than the last checkpoint
+    """
+    This function iterates through all guilds and their text channels to fetch
+    messages that were sent while the bot was offline. It processes reactions to
+    these messages and updates checkpoints to keep track of the last processed
+    message in each channel.
+
+    This does not process reactions to messages older than the last checkpoint
     (i.e. older than the last message sent before the bot went offline). That
     would require keeping track of every single message and reactions on the
     server in a database.
-    '''
+    Global Variables:
+        all_channel_checkpoints (dict): A dictionary storing checkpoints for
+        each channel.
+    """
     global all_channel_checkpoints
     missed_messages_processed_message: str = "Missed messages processed."
 
@@ -1512,6 +2173,15 @@ async def process_reaction(emoji: PartialEmoji | Emoji | str,
                            sender: Member | User,
                            receiver: Member | User | None = None,
                            receiver_id: int | None = None) -> None:
+    """
+    Processes a reaction event to mine a coin for a receiver.
+    
+    Args:
+        emoji: The emoji used in the reaction.
+        sender: The user who sent the reaction.
+        receiver: The user who receives the coin. Defaults to None.
+        receiver_id: The ID of the user who receives the coin. Defaults to None.
+    """
 
     emoji_id: int | str | None = 0
     match emoji:
@@ -1582,6 +2252,16 @@ async def process_reaction(emoji: PartialEmoji | Emoji | str,
 
 
 def get_last_block_timestamp() -> float | None:
+    """
+    Retrieves the timestamp of the last block in the blockchain.
+
+    Returns:
+        float | None: The timestamp of the last block if available,
+        otherwise None.
+
+    Raises:
+        Exception: If there is an error retrieving the last block.
+    """
     last_block_timestamp: float | None = None
     try:
         # Get the last block's timestamp for logging
@@ -1608,8 +2288,25 @@ async def add_block_transaction(
     sender: Member | User | int,
     receiver: Member | User | int,
     amount: int,
-    method: str
-) -> None:
+    method: str) -> None:
+    """
+    Adds a transaction to the blockchain.
+
+    Args:
+        blockchain: The blockchain instance to which the transaction will
+            be added.
+        sender: The sender of the transaction. Can be a Member, User,
+            or an integer User ID.
+        receiver: The receiver of the transaction. Can be a Member, User,
+            or an integer ID.
+        amount: The amount of the transaction.
+        method: The method of the transaction; "reaction", "slot_machine",
+            "transfer".
+
+    Raises:
+        Exception: If there is an error adding the transaction to
+            the blockchain.
+    """
     if isinstance(sender, int):
         sender_id = sender
     else:
@@ -1650,17 +2347,23 @@ async def add_block_transaction(
 
 
 async def terminate_bot() -> NoReturn:
+    """
+    Closes the bot, shuts down the blockchain server, and exits the script.
+
+    Returns:
+        NoReturn: This function does not return any value.
+    """
     print("Closing bot...")
     await bot.close()
     print("Bot closed.")
     print("Shutting down the blockchain app...")
     waitress_process.send_signal(signal.SIGTERM)
     waitress_process.wait()
-    """ print("Shutting down blockchain flask app...")
-    try:
-        requests.post("http://127.0.0.1:5000/shutdown")
-    except Exception as e:
-        print(e) """
+    # print("Shutting down blockchain flask app...")
+    # try:
+    #     requests.post("http://127.0.0.1:5000/shutdown")
+    # except Exception as e:
+    #     print(e)
     await asyncio.sleep(1)  # Give time for all tasks to finish
     print("The script will now exit.")
     sys_exit(1)
@@ -1670,6 +2373,17 @@ async def terminate_bot() -> NoReturn:
 
 
 # def load_guild_ids(file_name: str = "data/guild_ids.txt") -> List[int]:
+#     """
+#     Loads guild IDs from a specified file and updates the file with any
+#     new guild IDs.
+
+#     Args:
+#         file_name: The path to the file containing the guild IDs. Defaults
+#             to "data/guild_ids.txt".
+
+#     Returns:
+#         List[int]: A list of guild IDs.
+#     """
 #     print("Loading guild IDs...")
 #     # Create missing directories
 #     directories: str = file_name[:file_name.rfind("/")]
@@ -1699,7 +2413,16 @@ async def terminate_bot() -> NoReturn:
 # region Coin label
 
 
-def generate_coin_label(number: int) -> str:
+def format_coin_label(number: int) -> str:
+    """
+    Returns the appropriate label for the given number of coins.
+
+    Args:
+        number (int): The number of coins.
+
+    Returns:
+        str: "coin" if the number is 1 or -1, otherwise "coins".
+    """
     if number == 1 or number == -1:
         return coin
     else:
@@ -1751,6 +2474,15 @@ print("Log initialized.")
 
 @bot.event
 async def on_ready() -> None:
+    """
+    Event handler that is called when the bot is ready.
+    This function performs the following actions:
+    - Prints a message indicating that the bot has started.
+    - Initializes global checkpoints for all channels.
+    - Attempts to sync the bot's commands with Discord and prints the result.
+    If an error occurs during the command sync process, it catches the exception
+    and prints an error message.
+    """
     print("Bot started.")
 
     global all_channel_checkpoints
@@ -1779,6 +2511,18 @@ async def on_ready() -> None:
 # region Message
 @bot.event
 async def on_message(message: Message) -> None:
+    """
+    Handles incoming messages and saves channel checkpoints.
+    If the channel ID of the incoming message is already in the global
+    `all_channel_checkpoints` dictionary, it saves the message ID to the
+    corresponding checkpoint. If the channel ID is not in the dictionary,
+    it creates a new `ChannelCheckpoints` instance for the channel and adds
+    it to the dictionary.
+    Args:
+        message (Message): The incoming message object.
+    Returns:
+        None
+    """
     global all_channel_checkpoints
     channel_id: int = message.channel.id
 
@@ -1821,30 +2565,21 @@ async def on_message(message: Message) -> None:
 # region Reaction
 @bot.event
 async def on_raw_reaction_add(payload: RawReactionActionEvent) -> None:
-    # `payload` is an instance of the RawReactionActionEvent class from the
-    # discord.raw_models module that contains the data of the reaction event.
-    if payload.guild_id is None:
-        return
+    """
+    Handles the event when a reaction is added to a message.
+    The process_reaction_function is called, which adds a transaction if the
+    reaction is the coin emoji set in the configuration.
+
+    Args:
+        payload: An instance of the RawReactionActionEvent
+            class from the discord.raw_models module that contains the data of
+            the reaction event.
+    """
 
     if payload.event_type == "REACTION_ADD":
         if payload.message_author_id is None:
             return
 
-        # Look for slot machine reactions
-        message_id: int = payload.message_id
-        reacter_id: int = payload.user_id
-        if message_id in starting_bonus_messages_waiting:
-            if (payload.emoji.name == "🎲" and
-                    (starting_bonus_messages_waiting[message_id].invoker_id
-                     == reacter_id)):
-                print("Die rolled!")
-        del message_id
-        del reacter_id
-
-        # TODO What is this for?
-        emoji_id: int | None = payload.emoji.id
-        if emoji_id is None:
-            return
         sender: Member | None = payload.member
         if sender is None:
             print("ERROR: Sender is None.")
@@ -1868,14 +2603,13 @@ async def transfer(interaction: Interaction, amount: int, user: Member) -> None:
     Transfer a specified amount of coins to another user.
 
     Args:
-        interaction (Interaction): The interaction object representing the
-        command invocation.
+        interaction: The interaction object representing the command invocation.
     """
     sender: User | Member = interaction.user
     sender_id: int = sender.id
     receiver: Member = user
     receiver_id: int = receiver.id
-    coin_label_a: str = generate_coin_label(amount)
+    coin_label_a: str = format_coin_label(amount)
     print(f"User {sender_id} is requesting to transfer "
           f"{amount} {coin_label_a} to user {receiver_id}...")
     balance: int | None = None
@@ -1894,7 +2628,7 @@ async def transfer(interaction: Interaction, amount: int, user: Member) -> None:
         print(f"{sender} ({sender_id}) does not have enough {coins} to "
               f"transfer {amount} {coin_label_a} to {sender} ({sender_id}). "
               f"Balance: {balance}.")
-        coin_label_b: str = generate_coin_label(balance)
+        coin_label_b: str = format_coin_label(balance)
         await interaction.response.send_message(f"You do not have enough "
                                                 f"{coins}. You have {balance} "
                                                 f"{coin_label_b}.",
@@ -1941,14 +2675,14 @@ async def transfer(interaction: Interaction, amount: int, user: Member) -> None:
 async def balance(interaction: Interaction,
                   user: Member | None = None,
                   incognito: bool = False) -> None:
-    """ Check the balance of a user. If no user is specified, the balance of the
+    """
+    Check the balance of a user. If no user is specified, the balance of the
     user who invoked the command is checked.
 
     Args:
-        interaction (Interaction): The interaction object representing the
-        command invocation.
+        interaction: The interaction object representing the command invocation.
 
-        user (str, optional): The user to check the balance. Defaults to None.
+        user: The user to check the balance. Defaults to None.
     """
     user_to_check: Member | str
     if user is None:
@@ -1968,7 +2702,7 @@ async def balance(interaction: Interaction,
         await interaction.response.send_message(message, ephemeral=incognito)
         del message
     else:
-        coin_label: str = generate_coin_label(balance)
+        coin_label: str = format_coin_label(balance)
         message = f"{user_to_check} has {balance} {coin_label}."
         await interaction.response.send_message(message, ephemeral=incognito)
         del coin_label
@@ -1998,16 +2732,29 @@ async def reels(interaction: Interaction,
                 inspect: bool | None = None) -> None:
     """
     Design the slot machine reels by adding and removing symbols.
+    After saving the changes, various statistics are calculated and displayed,
+    namely:
+    - The symbols and their amounts in each reel.
+    - The total amount of symbol units in each reel.
+    - The total amount of symbol units across all reels.
+    - Probabilities of all possible outcomes in the game.
+    - Expected total return.
+    - Expected return.
+    - RTP for different wagers.
+    Only users with the "Administrator" or "Slot Machine Technician" role
+    can utilize this command.
 
     Args:
-        interaction (Interaction): The interaction object representing the
+        interaction: The interaction object representing the
         command invocation.
 
-        add_symbol (str, optional): add_symbol a symbol to the reels.
+        add_symbol: add_symbol a symbol to the reels.
         Defaults to None.
 
-        remove_symbol (str, optional): Remove a symbol from the reels.
+        remove_symbol: Remove a symbol from the reels.
         Defaults to None.
+
+        inspect: Doesn't do anything.
     """
     await interaction.response.defer()
     # Check if user has the necessary role
@@ -2203,6 +2950,18 @@ async def slots(interaction: Interaction,
                 rtp: int | None = False) -> None:
     """
     Command to play a slot machine.
+    
+    If it's the first time the user plays, they will be offered a
+    starting bonus of an amount that is decided by a die.
+
+    Three blank emojis are displayed and then the reels will stop in a few
+    seconds, or the user can stop them manually by hitting the stop buttons that
+    appear. The message containing the blank emojis are updated each time a reel
+    is stopped.
+    If they get a net positive outcome, the amount will be added to their
+    balance. If they get a net negative outcome, the loss amount will be
+    transferred to the casino's account.
+    See the "show_help" parameter for more information about the game.
 
     Args:
     interaction  -- The interaction object representing the
@@ -2213,12 +2972,10 @@ async def slots(interaction: Interaction,
     jackpot      -- Reports the current jackpot pool (default False)
     reboot       -- Removes the invoker from active_slot_machine_players
                     (default False)
-    show_help    -- Sends information about the command/game (default False)
+    show_help   -- Sends information about the command/game (default False)
     """
     # TODO Add TOS parameter
-    # TODO Add help parameter
     # TODO Add service parameter
-    # TODO Add RTP parameter
     # IMPROVE Make incompatible parameters not selectable together
     wager_int: int | None = insert_coins
     if wager_int is None:
@@ -2240,7 +2997,8 @@ async def slots(interaction: Interaction,
             emoji_name: str = combo_events[event]['emoji_name']
             emoji_id: int = combo_events[event]['emoji_id']
             emoji: PartialEmoji = PartialEmoji(name=emoji_name, id=emoji_id)
-            row: str = f"> {emoji} {emoji} {emoji}    {event_name_friendly}\n> \n"
+            row: str = (
+                f"> {emoji} {emoji} {emoji}    {event_name_friendly}\n> \n")
             pay_table += row
         # strip the last ">"
         pay_table = pay_table[:pay_table.rfind("\n> ")]
@@ -2383,7 +3141,7 @@ async def slots(interaction: Interaction,
     elif jackpot:
         # Check the jackpot amount
         jackpot_pool: int = slot_machine.jackpot
-        coin_label: str = generate_coin_label(jackpot_pool)
+        coin_label: str = format_coin_label(jackpot_pool)
         message = (f"### {Coin} Slot Machine\n"
                    f"-# JACKPOT: {jackpot_pool} "
                    f"{coin_label}.")
@@ -2462,8 +3220,8 @@ async def slots(interaction: Interaction,
             active_slot_machine_players.remove(user_id)
         return
     elif user_balance < wager_int:
-        coin_label_w: str = generate_coin_label(wager_int)
-        coin_label_b: str = generate_coin_label(user_balance)
+        coin_label_w: str = format_coin_label(wager_int)
+        coin_label_b: str = format_coin_label(user_balance)
         message = (f"You do not have enough {coins} "
                    f"to stake {wager_int} {coin_label_w}.\n"
                    f"Your current balance is {user_balance} {coin_label_b}.")
@@ -2583,11 +3341,11 @@ async def slots(interaction: Interaction,
     # print(f"event_name: '{event_name}'")
     # print(f"event_name_friendly: '{event_name_friendly}'")
     # print(f"win money: '{win_money}'")
-    coin_label_wm: str = generate_coin_label(win_money)
+    coin_label_wm: str = format_coin_label(win_money)
     if event_name == "jackpot_fail":
         jackpot_pool: int = slot_machine.jackpot
-        coin_label_fee: str = generate_coin_label(jackpot_pool)
-        coin_label_jackpot: str = generate_coin_label(jackpot_pool)
+        coin_label_fee: str = format_coin_label(jackpot_pool)
+        coin_label_jackpot: str = format_coin_label(jackpot_pool)
         event_message = (f"{event_name_friendly}! Unfortunately, you did "
                          "not pay the jackpot fee of "
                          f"{jackpot_fee} {coin_label_fee}, meaning "
@@ -2638,7 +3396,7 @@ async def slots(interaction: Interaction,
     # print(f"win_money: {win_money}")
     # print(f"net_return: {net_return}")
     # print(f"total_return: {total_return}")
-    coin_label_nr: str = generate_coin_label(net_return)
+    coin_label_nr: str = format_coin_label(net_return)
     if net_return > 0:
         log_line = (f"{user_name} ({user_id}) won the {event_name} "
                     f"({event_name_friendly}) reward "
@@ -2656,7 +3414,8 @@ async def slots(interaction: Interaction,
             log_line = (f"{user_name} ({user_id}) got "
                         f"the {event_name} event ({event_name_friendly}) "
                         "and lost their entire wager of "
-                        f"{wager_int} {coin_label_nr} on the {Coin} slot machine, "
+                        f"{wager_int} {coin_label_nr} on "
+                        f"the {Coin} slot machine, "
                         "yet they neither lost any coins nor profited.")
         elif win_money > 0:
             # With the default config, this will happen if the fees are higher
@@ -2696,7 +3455,7 @@ async def slots(interaction: Interaction,
     del coin_label_wm
 
     # Generate collect message
-    coin_label_tr: str = generate_coin_label(total_return)
+    coin_label_tr: str = format_coin_label(total_return)
     collect_message: str | None = None
     if (total_return > 0):
         collect_message = (f"-# You collect {total_return} {coin_label_tr}.")
@@ -2799,6 +3558,7 @@ async def slots(interaction: Interaction,
 # endregion
 
 
+# TODO Prevent mining coins multiple times on the same message.
 # TODO Track reaction removals
 # TODO Add more games
 
