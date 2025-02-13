@@ -3091,7 +3091,7 @@ async def slots(interaction: Interaction,
             "each symbol.\n"
             "\n"
             "To check the RTP (return to player) for a given stake, use "
-            "the `RTP` parameter.\n"
+            "the `rtp` parameter.\n"
             "\n"
             "### Contact\n"
             "If you are having issues, you can reboot the slot machine by "
@@ -3105,6 +3105,7 @@ async def slots(interaction: Interaction,
         await interaction.response.send_message(help_message_1, ephemeral=True)
         await interaction.followup.send(help_message_2, ephemeral=True)
         await interaction.followup.send(help_message_3, ephemeral=True)
+        return
     elif rtp:
         wager_int = rtp
         wager = Integer(rtp)
