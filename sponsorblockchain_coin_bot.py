@@ -1,5 +1,5 @@
 # region Imports
-import sb_blockchain
+import sponsorblockchain
 import threading
 import subprocess
 import signal
@@ -1997,7 +1997,7 @@ def start_flask_app_waitress() -> None:
 
     print("Starting Flask app with Waitress...")
     program = "waitress-serve"
-    app_name = "sb_blockchain"
+    app_name = "sponsorblockchain"
     host = "*"
     # Use the environment variable or default to 8000
     port: str = os_environ.get("PORT", "8080")
@@ -2037,7 +2037,7 @@ def start_flask_app() -> None:
     # For use with the Flask development server
     print("Starting flask app...")
     try:
-        sb_blockchain.app.run(port=5000, debug=True, use_reloader=False)
+        sponsorblockchain.app.run(port=5000, debug=True, use_reloader=False)
     except Exception as e:
         print(f"Error running Flask app: {e}")
 # endregion
@@ -2265,7 +2265,7 @@ def get_last_block_timestamp() -> float | None:
     last_block_timestamp: float | None = None
     try:
         # Get the last block's timestamp for logging
-        last_block: None | sb_blockchain.Block = blockchain.get_last_block()
+        last_block: None | sponsorblockchain.Block = blockchain.get_last_block()
         if last_block is not None:
             last_block_timestamp = last_block.timestamp
             del last_block
@@ -2284,7 +2284,7 @@ def get_last_block_timestamp() -> float | None:
 
 
 async def add_block_transaction(
-    blockchain: sb_blockchain.Blockchain,
+    blockchain: sponsorblockchain.Blockchain,
     sender: Member | User | int,
     receiver: Member | User | int,
     amount: int,
@@ -2327,15 +2327,15 @@ async def add_block_transaction(
     del receiver_id_unhashed
     print("Adding transaction to blockchain...")
     try:
-        data: List[Dict[str, sb_blockchain.TransactionDict]] = (
+        data: List[Dict[str, sponsorblockchain.TransactionDict]] = (
             [{"transaction": {
                 "sender": sender_id_hash,
                 "receiver": receiver_id_hash,
                 "amount": amount,
                 "method": method
             }}])
-        data_casted: List[str | Dict[str, sb_blockchain.TransactionDict]] = (
-            cast(List[str | Dict[str, sb_blockchain.TransactionDict]], data))
+        data_casted: List[str | Dict[str, sponsorblockchain.TransactionDict]] = (
+            cast(List[str | Dict[str, sponsorblockchain.TransactionDict]], data))
         blockchain.add_block(data=data_casted, difficulty=0)
     except Exception as e:
         print(f"Error adding transaction to blockchain: {e}")
@@ -2444,7 +2444,7 @@ if __name__ == "__main__":
 
     print(f"Initializing blockchain...")
     try:
-        blockchain = sb_blockchain.Blockchain()
+        blockchain = sponsorblockchain.Blockchain()
         print(f"Blockchain initialized.")
     except Exception as e:
         print(f"Error initializing blockchain: {e}")
@@ -2644,7 +2644,7 @@ async def transfer(interaction: Interaction, amount: int, user: Member) -> None:
         amount=amount,
         method="transfer"
     )
-    last_block: sb_blockchain.Block | None = blockchain.get_last_block()
+    last_block: sponsorblockchain.Block | None = blockchain.get_last_block()
     if last_block is None:
         print("ERROR: Last block is None.")
         administrator: str = (await bot.fetch_user(ADMINISTRATOR_ID)).mention
