@@ -62,9 +62,19 @@ class ReelResults(TypedDict):
     reel2: ReelResult
     reel3: ReelResult
 
+class SpinEmoji(TypedDict):
+    emoji_name: str
+    emoji_id: int
+
+class SpinEmojis(TypedDict):
+    spin1: SpinEmoji
+    spin2: SpinEmoji
+    spin3: SpinEmoji
+
 class SlotMachineConfig(TypedDict):
     combo_events: dict[str, Symbol]
     reels: Reels
+    reel_spin_emojis: SpinEmojis
     fees: dict[str, int | float]
     jackpot_pool: int
 
@@ -609,6 +619,7 @@ class SlotMachine:
             self.calculate_all_probabilities())
         self._jackpot: int = self.load_jackpot()
         self._fees: dict[str, int | float] = self.configuration["fees"]
+        self.header: str = f"### {Coin} Slot Machine"
 
     def load_reels(self) -> Reels:
         """
@@ -781,6 +792,20 @@ class SlotMachine:
                     "high_win": 3,
                     "jackpot": 1
                 },
+            },
+            "reel_spin_emojis": {
+                "spin1": {
+                    "emoji_name": "slot_spin_1",
+                    "emoji_id": 0
+                },
+                "spin2": {
+                    "emoji_name": "slot_spin_1",
+                    "emoji_id": 0
+                },
+                "spin3": {
+                    "emoji_name": "slot_spin_1",
+                    "emoji_id": 0
+                }
             },
             "fees": {
                 "low_wager_main": 1,
@@ -1745,8 +1770,8 @@ class SlotMachineView(View):
     def __init__(self,
                  invoker: User | Member,
                  slot_machine: SlotMachine,
-                 wager: int,
-                 fees: int,
+                 text_row_1: str,
+                 text_row_2: str,
                  interaction: Interaction) -> None:
         """
         Initialize the SlotMachineView instance.
@@ -1768,7 +1793,6 @@ class SlotMachineView(View):
             fees: The total fees paid this time.
             empty_space: A string of empty spaces for formatting.
             message_header: The first row of the message.
-            message_reel_status: The status message for the reels.
             message_collect_screen: The message displayed on the collect screen.
             message_results_row: The message displaying the results row.
             message: The complete message to be displayed.
@@ -1777,6 +1801,7 @@ class SlotMachineView(View):
             reels_results: The results of the reels.
             button_clicked: Indicates if a button has been clicked.
             stop_reel_buttons: A list containing the stop reel buttons.
+            TODO Update docstrings
         """
         super().__init__(timeout=20)
         self.current_reel_number: int = 1
@@ -1784,25 +1809,29 @@ class SlotMachineView(View):
         self.invoker: User | Member = invoker
         self.invoker_id: int = invoker.id
         self.slot_machine: SlotMachine = slot_machine
-        self.wager: int = wager
-        self.fees: int = fees
         # TODO Move message variables to global scope
         self.empty_space: LiteralString = "\N{HANGUL FILLER}" * 11
-        self.message_header: str = f"### {Coin} Slot Machine\n"
-        self.message_reel_status: str = "The reels are spinning..."
-        self.message_collect_screen: str = (f"-# Coin: {self.wager}\n"
-                                            f"-# Fee: {self.fees}\n"
-                                            f"{self.empty_space}")
-        self.message_results_row: str = f"🔳\t\t🔳\t\t🔳"
-        self.message: str = (f"{self.message_header}\n"
-                             f"{self.message_collect_screen}\n"
-                             f"{self.message_reel_status}\n"
-                             "\n"
+        self.message_header_row: str = slot_machine.header
+        self.message_text_row_1: str = text_row_1
+        self.message_text_row_2: str = text_row_2
+
+        
+        self.spin_emojis: SpinEmojis = self.slot_machine.configuration["reel_spin_emojis"]
+        self.spin_emoji_1_name: str = self.spin_emojis["spin1"]["emoji_name"]
+        self.spin_emoji_1_id: int = self.spin_emojis["spin1"]["emoji_id"]
+        self.spin_emoji_1 = PartialEmoji(name=self.spin_emoji_1_name,
+                                    id=self.spin_emoji_1_id,
+                                    animated=True)
+        self.message_reels_row: str = f"{self.spin_emoji_1}\t\t{self.spin_emoji_1}\t\t{self.spin_emoji_1}\n"
+        self.message: str = (f"{self.message_header_row}\n"
+                             f"{self.message_text_row_1}\n"
+                             f"{self.message_text_row_2}\n"
+                             f"{self.empty_space}\n"
+                             f"{self.message_reels_row}\n"
                              f"{self.empty_space}")
         self.combo_events: Dict[str, Symbol] = (
             self.slot_machine.configuration["combo_events"])
         self.interaction: Interaction = interaction
-        blank_emoji: PartialEmoji = PartialEmoji.from_str("🔳")
         self.reels_results: ReelResults
         self.reels_results = {
             "reel1": {
@@ -1814,7 +1843,7 @@ class SlotMachineView(View):
                         "fixed_amount": 0
                         }
                 },
-                "emoji": blank_emoji
+                "emoji": self.spin_emoji_1
             },
             "reel2": {
                 "associated_combo_event": {
@@ -1825,7 +1854,7 @@ class SlotMachineView(View):
                         "fixed_amount": 0
                         }
                 },
-                "emoji": blank_emoji
+                "emoji": self.spin_emoji_1
             },
             "reel3": {
                 "associated_combo_event": {
@@ -1836,7 +1865,7 @@ class SlotMachineView(View):
                         "fixed_amount": 0
                         }
                 },
-                "emoji": blank_emoji
+                "emoji": self.spin_emoji_1
             }
         }
         self.button_clicked: bool = False
@@ -1889,21 +1918,16 @@ class SlotMachineView(View):
         # Add the emoji to the result
         self.reels_results[reel_name] = reel_result
         self.reels_stopped += 1
-        reel_status: str = (
-            "The reels are spinning..." if self.reels_stopped < 3 else
-            "The reels have stopped.")
-        empty_space: LiteralString = "\N{HANGUL FILLER}" * 11
-        self.message_reel_status = reel_status
-        self.message_results_row: str = (
+        self.message_reels_row: str = (
             f"{self.reels_results['reel1']['emoji']}\t\t"
             f"{self.reels_results['reel2']['emoji']}\t\t"
             f"{self.reels_results['reel3']['emoji']}")
-        self.message = (f"{self.message_header}\n"
-                        f"{self.message_collect_screen}\n"
-                        f"{reel_status}\n"
+        self.message = (f"{self.message_header_row}\n"
+                        f"{self.message_text_row_1}\n"
+                        f"{self.message_text_row_2}\n"
                         f"{self.empty_space}\n"
-                        f"{self.message_results_row}\n"
-                        f"{empty_space}")
+                        f"{self.message_reels_row}\n"
+                        f"{self.empty_space}")
 
     # stop_button_callback
     async def on_button_click(self,
@@ -3271,25 +3295,33 @@ async def slots(interaction: Interaction,
         jackpot_fee_unrounded: float = wager_int * high_wager_jackpot_fee
         jackpot_fee = round(jackpot_fee_unrounded)
     fees: int = jackpot_fee + main_fee
-    slot_machine_view = SlotMachineView(invoker=user,
-                                        slot_machine=slot_machine,
-                                        wager=wager_int,
-                                        fees=fees,
-                                        interaction=interaction)
-    # TODO Add animation
+    
     # Workaround for Discord stripping trailing whitespaces
     empty_space: LiteralString = "\N{HANGUL FILLER}" * 11
 
     # TODO DRY
-    slots_message: str = (f"### {Coin} Slot Machine\n"
-                          f"-# Coin: {wager_int}\n"
-                          f"-# Fee: {fees}\n"
+    spin_emojis: SpinEmojis = slot_machine.configuration["reel_spin_emojis"]
+    spin_emoji_1_name: str = spin_emojis["spin1"]["emoji_name"]
+    spin_emoji_1_id: int = spin_emojis["spin1"]["emoji_id"]
+    spin_emoji_1 = PartialEmoji(name=spin_emoji_1_name,
+                                id=spin_emoji_1_id,
+                                animated=True)
+    reels_row: str = f"{spin_emoji_1}\t\t{spin_emoji_1}\t\t{spin_emoji_1}"
+    slot_machine_header: str = slot_machine.header
+    wager_row: str = f"-# Coin: {wager_int}"
+    fees_row: str = f"-# Fee: {fees}"
+    slots_message: str = (f"{slot_machine_header}\n"
+                          f"{wager_row}\n"
+                          f"{fees_row}\n"
                           f"{empty_space}\n"
-                          "The reels are spinning...\n"
-                          "\n"
-                          f"🔳\t\t🔳\t\t🔳\n"
+                          f"{reels_row}\n"
                           f"{empty_space}")
 
+    slot_machine_view = SlotMachineView(invoker=user,
+                                        slot_machine=slot_machine,
+                                        text_row_1=wager_row,
+                                        text_row_2=fees_row,
+                                        interaction=interaction)
     await interaction.response.send_message(content=slots_message,
                                             view=slot_machine_view,
                                             ephemeral=private_room)
@@ -3323,8 +3355,8 @@ async def slots(interaction: Interaction,
     results: ReelResults = slot_machine_view.reels_results
 
     # Create some variables for the outcome messages
-    slot_machine_header: str = slot_machine_view.message_header
-    slot_machine_results_row: str = slot_machine_view.message_results_row
+    slot_machine_header: str = slot_machine_view.message_header_row
+    slot_machine_reels_row: str = slot_machine_view.message_reels_row
     del slot_machine_view
 
     # Calculate win amount
@@ -3477,19 +3509,19 @@ async def slots(interaction: Interaction,
             outcome_message_line_2 = collect_message
         del event_message
         del collect_message
+        print(f"outcome_message_line_1: {outcome_message_line_1}")
+        print(f"outcome_message_line_2: {outcome_message_line_2}")
 
         # edit original message
         slots_message_outcome: str = (f"{slot_machine_header}\n"
                                       f"{outcome_message_line_1}\n"
                                       f"{outcome_message_line_2}\n"
                                       f"{empty_space}\n"
-                                      "The reels have stopped.\n"
-                                      f"{empty_space}\n"
-                                      f"{slot_machine_results_row}\n"
+                                      f"{slot_machine_reels_row}\n"
                                       f"{empty_space}")
         del outcome_message_line_1
         del outcome_message_line_2
-        del slot_machine_results_row
+        del slot_machine_reels_row
         await interaction.edit_original_response(content=slots_message_outcome)
         del slots_message_outcome
 
