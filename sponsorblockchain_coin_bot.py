@@ -1534,6 +1534,45 @@ class SlotMachine:
         return event_name_friendly
     # endregion
 
+    def make_message(self,
+                     text_row_1: str | None = None,
+                     text_row_2: str | None = None,
+                     reels_row: str | None = None) -> str:
+        """
+        Constructs a message that imitates a slot machine.
+
+        Args:
+            text_row_1: The text for the first row.
+            text_row_2: The text for the second row.
+            reels_row: The text for the reels row.
+
+        Returns:
+            str: The formatted message string.
+        """
+        # Workaround for Discord stripping trailing whitespaces
+        empty_space: LiteralString = "\N{HANGUL FILLER}" * 11
+        if text_row_1 is None:
+            text_row_1 = empty_space
+        if text_row_2 is None and reels_row is not None:
+            text_row_2 = empty_space
+
+        if reels_row:
+            message: str = (f"{self.header}\n"
+                            f"{text_row_1}\n"
+                            f"{text_row_2}\n"
+                            f"{empty_space}\n"
+                            f"{reels_row}\n"
+                            f"{empty_space}")
+        else:
+            if text_row_2 is None:
+                message = (f"{self.header}\n"
+                        f"{text_row_1}")
+            else:
+                message = (f"{self.header}\n"
+                        f"{text_row_1}\n"
+                        f"{text_row_2}")
+        return message
+
 # region UserSaveData
 
 
@@ -1814,8 +1853,6 @@ class SlotMachineView(View):
         self.message_header_row: str = slot_machine.header
         self.message_text_row_1: str = text_row_1
         self.message_text_row_2: str = text_row_2
-
-        
         self.spin_emojis: SpinEmojis = self.slot_machine.configuration["reel_spin_emojis"]
         self.spin_emoji_1_name: str = self.spin_emojis["spin1"]["emoji_name"]
         self.spin_emoji_1_id: int = self.spin_emojis["spin1"]["emoji_id"]
@@ -1823,12 +1860,9 @@ class SlotMachineView(View):
                                     id=self.spin_emoji_1_id,
                                     animated=True)
         self.message_reels_row: str = f"{self.spin_emoji_1}\t\t{self.spin_emoji_1}\t\t{self.spin_emoji_1}\n"
-        self.message: str = (f"{self.message_header_row}\n"
-                             f"{self.message_text_row_1}\n"
-                             f"{self.message_text_row_2}\n"
-                             f"{self.empty_space}\n"
-                             f"{self.message_reels_row}\n"
-                             f"{self.empty_space}")
+        self.message: str = slot_machine.make_message(text_row_1=self.message_text_row_1,
+                                                      text_row_2=self.message_text_row_2,
+                                                      reels_row=self.message_reels_row)
         self.combo_events: Dict[str, Symbol] = (
             self.slot_machine.configuration["combo_events"])
         self.interaction: Interaction = interaction
@@ -1922,12 +1956,10 @@ class SlotMachineView(View):
             f"{self.reels_results['reel1']['emoji']}\t\t"
             f"{self.reels_results['reel2']['emoji']}\t\t"
             f"{self.reels_results['reel3']['emoji']}")
-        self.message = (f"{self.message_header_row}\n"
-                        f"{self.message_text_row_1}\n"
-                        f"{self.message_text_row_2}\n"
-                        f"{self.empty_space}\n"
-                        f"{self.message_reels_row}\n"
-                        f"{self.empty_space}")
+        self.message = self.slot_machine.make_message(
+            text_row_1=self.message_text_row_1,
+            text_row_2=self.message_text_row_2,
+            reels_row=self.message_reels_row)
 
     # stop_button_callback
     async def on_button_click(self,
@@ -3145,21 +3177,22 @@ async def slots(interaction: Interaction,
                 rtp_display = f"~{rtp_fraction:.4%}"
             else:
                 rtp_display = f"<{lowest_number_float}%"
-        message = (f"### {Coin} Slot Machine\n"
-                   f"-# RTP (stake={wager_int} {coins}): {rtp_display}")
+        message = slot_machine.make_message(
+            f"-# RTP (stake={wager_int} {coins}): {rtp_display}")
         await interaction.response.send_message(message, ephemeral=True)
         return
     if reboot:
-        message = (f"### {Coin} Slot Machine\n"
-                   f"-# The {Coin} slot machine is restarting...")
+        message = slot_machine.make_message(
+            f"-# The {Coin} slot machine is restarting..."
+        )
         await interaction.response.send_message(message,
                                                 ephemeral=private_room)
         del message
         await asyncio.sleep(8)
         if user_id in active_slot_machine_players:
             active_slot_machine_players.remove(user_id)
-        message = (f"### {Coin} Slot Machine\n"
-                   f"-# Welcome to the {Coin} Casino!\n")
+        message = slot_machine.make_message(
+                   f"-# Welcome to the {Coin} Casino!")
         await interaction.edit_original_response(content=message)
         del message
         return
@@ -3167,7 +3200,8 @@ async def slots(interaction: Interaction,
         # Check the jackpot amount
         jackpot_pool: int = slot_machine.jackpot
         coin_label: str = format_coin_label(jackpot_pool)
-        message = (f"### {Coin} Slot Machine\n"
+        message_header: str = slot_machine.header
+        message = (f"{message_header}\n"
                    f"-# JACKPOT: {jackpot_pool} "
                    f"{coin_label}.")
         del coin_label
@@ -3295,11 +3329,7 @@ async def slots(interaction: Interaction,
         jackpot_fee_unrounded: float = wager_int * high_wager_jackpot_fee
         jackpot_fee = round(jackpot_fee_unrounded)
     fees: int = jackpot_fee + main_fee
-    
-    # Workaround for Discord stripping trailing whitespaces
-    empty_space: LiteralString = "\N{HANGUL FILLER}" * 11
 
-    # TODO DRY
     spin_emojis: SpinEmojis = slot_machine.configuration["reel_spin_emojis"]
     spin_emoji_1_name: str = spin_emojis["spin1"]["emoji_name"]
     spin_emoji_1_id: int = spin_emojis["spin1"]["emoji_id"]
@@ -3307,15 +3337,11 @@ async def slots(interaction: Interaction,
                                 id=spin_emoji_1_id,
                                 animated=True)
     reels_row: str = f"{spin_emoji_1}\t\t{spin_emoji_1}\t\t{spin_emoji_1}"
-    slot_machine_header: str = slot_machine.header
     wager_row: str = f"-# Coin: {wager_int}"
     fees_row: str = f"-# Fee: {fees}"
-    slots_message: str = (f"{slot_machine_header}\n"
-                          f"{wager_row}\n"
-                          f"{fees_row}\n"
-                          f"{empty_space}\n"
-                          f"{reels_row}\n"
-                          f"{empty_space}")
+    slots_message: str = slot_machine.make_message(text_row_1=wager_row,
+                                                   text_row_2=fees_row,
+                                                   reels_row=reels_row)
 
     slot_machine_view = SlotMachineView(invoker=user,
                                         slot_machine=slot_machine,
@@ -3355,7 +3381,6 @@ async def slots(interaction: Interaction,
     results: ReelResults = slot_machine_view.reels_results
 
     # Create some variables for the outcome messages
-    slot_machine_header: str = slot_machine_view.message_header_row
     slot_machine_reels_row: str = slot_machine_view.message_reels_row
     del slot_machine_view
 
@@ -3496,10 +3521,11 @@ async def slots(interaction: Interaction,
         collect_message = None
     del coin_label_nr
 
+    # TODO Move code to SlotMachine.make_message
     if event_message or collect_message:
         # Display outcome messages
-        outcome_message_line_1: str = empty_space
-        outcome_message_line_2: str = empty_space
+        outcome_message_line_1: str | None = None
+        outcome_message_line_2: str | None = None
         if event_message and not collect_message:
             outcome_message_line_1 = event_message
         elif collect_message and not event_message:
@@ -3509,16 +3535,12 @@ async def slots(interaction: Interaction,
             outcome_message_line_2 = collect_message
         del event_message
         del collect_message
-        print(f"outcome_message_line_1: {outcome_message_line_1}")
-        print(f"outcome_message_line_2: {outcome_message_line_2}")
 
         # edit original message
-        slots_message_outcome: str = (f"{slot_machine_header}\n"
-                                      f"{outcome_message_line_1}\n"
-                                      f"{outcome_message_line_2}\n"
-                                      f"{empty_space}\n"
-                                      f"{slot_machine_reels_row}\n"
-                                      f"{empty_space}")
+        slots_message_outcome: str = slot_machine.make_message(
+            text_row_1=outcome_message_line_1,
+            text_row_2=outcome_message_line_2,
+            reels_row=slot_machine_reels_row)
         del outcome_message_line_1
         del outcome_message_line_2
         del slot_machine_reels_row
