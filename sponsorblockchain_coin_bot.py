@@ -55,7 +55,7 @@ class ChannelCheckpoints:
     ChannelCheckpoints is a class that manages checkpoints for a specific
     channel in a guild. It allows for saving, loading, and managing
     message IDs as checkpoints.
-    
+
     Methods:
         __init__(self,
             guild_name,
@@ -76,6 +76,7 @@ class ChannelCheckpoints:
         load(self):
             Loads the checkpoints from the file specified by self.file_name.
         """
+
     def __init__(self,
                  guild_name: str,
                  guild_id: int,
@@ -141,7 +142,7 @@ class ChannelCheckpoints:
             the directory corresponding to the channel ID.
         4. Creates an empty checkpoints file at the path specified
             by `self.file_name`.
-        
+
         The directory structure is created based on the path specified
         in `self.file_name`.
         The guild and channel names are written to files in directories named
@@ -240,7 +241,7 @@ class Log:
     Provides functionality for logging events with timestamps to a file.
     For timestamps, the local time zone is used by default, but a different
     time zone can be specified.
-        
+
     The log cannot be verified or generated from the blockchain.
     Use a validated transactions file for verification (see
     Blockchain.validate_transactions_file()).
@@ -348,6 +349,7 @@ class BotConfiguration:
         read(): Reads the bot configuration from a file and overrides it
             with environment variables if they exist.
         """
+
     def __init__(self, file_name: str = "data/bot_configuration.json") -> None:
         """
         Initializes the bot configuration.
@@ -535,6 +537,7 @@ class SlotMachine:
             Make a friendly event name from the event name.
         """
     # region Slot config
+
     def __init__(self, file_name: str = "data/slot_machine.json") -> None:
         """
         Initializes the SlotMachine class with the given configuration file.
@@ -642,7 +645,8 @@ class SlotMachine:
             int: The calculated jackpot amount.
         """
         self.configuration = self.load_config()
-        combo_events: Dict[str, ReelSymbol] = self.configuration["combo_events"]
+        combo_events: Dict[str,
+                           ReelSymbol] = self.configuration["combo_events"]
         jackpot_seed: int = combo_events["jackpot"]["fixed_amount"]
         jackpot_pool: int = self.configuration["jackpot_pool"]
         if jackpot_pool < jackpot_seed:
@@ -1033,7 +1037,8 @@ class SlotMachine:
         self.configuration = self.load_config()
         probabilities: Dict[str, Float] = self.calculate_all_probabilities()
         events: KeysView[str] = probabilities.keys()
-        combo_events: Dict[str, ReelSymbol] = self.configuration["combo_events"]
+        combo_events: Dict[str, ReelSymbol] = (
+            self.configuration["combo_events"])
 
         # Symbol
         W: Expr = symbols('W')  # wager
@@ -1383,7 +1388,7 @@ class SlotMachine:
         if (not (
             results["reel1"]["associated_combo_event"].keys()
             == results["reel2"]["associated_combo_event"].keys()
-            == results["reel3"]["associated_combo_event"].keys())):
+                == results["reel3"]["associated_combo_event"].keys())):
             return ("standard_lose", "No win", 0)
 
         low_wager_standard_fee = 1
@@ -1393,7 +1398,8 @@ class SlotMachine:
         no_jackpot_mode: bool = False if jackpot_fee_paid else True
         # Since associated_combo_event is a dict with only one key,
         # we can get the key name (thus event name) by getting the first key
-        event_name: str = next(iter(results["reel1"]["associated_combo_event"]))
+        event_name: str = next(
+            iter(results["reel1"]["associated_combo_event"]))
         # print(f"event_name: {event_name}")
         wager_multiplier: float = (
             results["reel1"]["associated_combo_event"][event_name]
@@ -1452,7 +1458,8 @@ class SlotMachine:
         Returns:
             str: A user-friendly version of the event name.
         """
-        combo_events: Dict[str, ReelSymbol] = self.configuration["combo_events"]
+        combo_events: Dict[str,
+                           ReelSymbol] = self.configuration["combo_events"]
         wager_multiplier: float = (
             combo_events[event_name]["wager_multiplier"])
         fixed_amount_payout: int = (
@@ -1508,11 +1515,11 @@ class SlotMachine:
         else:
             if text_row_2 is None:
                 message = (f"{self.header}\n"
-                        f"{text_row_1}")
+                           f"{text_row_1}")
             else:
                 message = (f"{self.header}\n"
-                        f"{text_row_1}\n"
-                        f"{text_row_2}")
+                           f"{text_row_1}\n"
+                           f"{text_row_2}")
         return message
 
 # region UserSaveData
@@ -1537,6 +1544,7 @@ class UserSaveData:
             Returns the value associated with the key if it exists,
             otherwise None.
     """
+
     def __init__(self, user_id: int, user_name: str) -> None:
         self.user_id: int = user_id
         self.user_name: str = user_name
@@ -1633,6 +1641,7 @@ class StartingBonusView(View):
             sends a message to the user indicating that they took too long and
             can run the command again when ready.
         """
+
     def __init__(self,
                  invoker: User | Member,
                  starting_bonus_awards: Dict[int, int],
@@ -1795,12 +1804,13 @@ class SlotMachineView(View):
         self.message_header_row: str = slot_machine.header
         self.message_text_row_1: str = text_row_1
         self.message_text_row_2: str = text_row_2
-        self.spin_emojis: SpinEmojis = self.slot_machine.configuration["reel_spin_emojis"]
+        self.spin_emojis: SpinEmojis = (
+            self.slot_machine.configuration["reel_spin_emojis"])
         self.spin_emoji_1_name: str = self.spin_emojis["spin1"]["emoji_name"]
         self.spin_emoji_1_id: int = self.spin_emojis["spin1"]["emoji_id"]
         self.spin_emoji_1 = PartialEmoji(name=self.spin_emoji_1_name,
-                                    id=self.spin_emoji_1_id,
-                                    animated=True)
+                                         id=self.spin_emoji_1_id,
+                                         animated=True)
         self.message_reels_row: str = f"{self.spin_emoji_1}\t\t{self.spin_emoji_1}\t\t{self.spin_emoji_1}\n"
         self.message: str = slot_machine.make_message(text_row_1=self.message_text_row_1,
                                                       text_row_2=self.message_text_row_2,
@@ -1817,7 +1827,7 @@ class SlotMachineView(View):
                         "emoji_id": 0,
                         "wager_multiplier": 1.0,
                         "fixed_amount": 0
-                        }
+                    }
                 },
                 "emoji": self.spin_emoji_1
             },
@@ -1828,7 +1838,7 @@ class SlotMachineView(View):
                         "emoji_id": 0,
                         "wager_multiplier": 1.0,
                         "fixed_amount": 0
-                        }
+                    }
                 },
                 "emoji": self.spin_emoji_1
             },
@@ -1839,7 +1849,7 @@ class SlotMachineView(View):
                         "emoji_id": 0,
                         "wager_multiplier": 1.0,
                         "fixed_amount": 0
-                        }
+                    }
                 },
                 "emoji": self.spin_emoji_1
             }
@@ -2173,7 +2183,7 @@ async def process_reaction(emoji: PartialEmoji | Emoji | str,
                            receiver_id: int | None = None) -> None:
     """
     Processes a reaction event to mine a coin for a receiver.
-    
+
     Args:
         emoji: The emoji used in the reaction.
         sender: The user who sent the reaction.
@@ -2282,11 +2292,11 @@ def get_last_block_timestamp() -> float | None:
 
 
 async def add_block_transaction(
-    blockchain: sponsorblockchain.Blockchain,
-    sender: Member | User | int,
-    receiver: Member | User | int,
-    amount: int,
-    method: str) -> None:
+        blockchain: sponsorblockchain.Blockchain,
+        sender: Member | User | int,
+        receiver: Member | User | int,
+        amount: int,
+        method: str) -> None:
     """
     Adds a transaction to the blockchain.
 
@@ -2948,7 +2958,7 @@ async def slots(interaction: Interaction,
                 rtp: int | None = False) -> None:
     """
     Command to play a slot machine.
-    
+
     If it's the first time the user plays, they will be offered a
     starting bonus of an amount that is decided by a die.
 
@@ -2984,10 +2994,10 @@ async def slots(interaction: Interaction,
 
     if show_help:
         pay_table: str = ""
-        combo_events: Dict[str,
-                           ReelSymbol] = slot_machine.configuration["combo_events"]
+        combo_events: Dict[str, ReelSymbol] = (
+            slot_machine.configuration["combo_events"])
         combo_event_count: int = len(combo_events)
-        
+
         for event in combo_events:
             event_name: str = event
             event_name_friendly: str = (
@@ -3130,11 +3140,15 @@ async def slots(interaction: Interaction,
         await interaction.response.send_message(message,
                                                 ephemeral=private_room)
         del message
-        await asyncio.sleep(8)
+        await asyncio.sleep(4)
+        # Reload config from file
+        slot_machine.configuration = slot_machine.load_config()
+        await asyncio.sleep(4)
+        # Remove user from active players
         if user_id in active_slot_machine_players:
             active_slot_machine_players.remove(user_id)
         message = slot_machine.make_message(
-                   f"-# Welcome to the {Coin} Casino!")
+            f"-# Welcome to the {Coin} Casino!")
         await interaction.edit_original_response(content=message)
         del message
         return
