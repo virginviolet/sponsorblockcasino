@@ -5,16 +5,19 @@ from io import TextIOWrapper
 import time
 import os
 import json
+import pandas as pd
+import sponsorblockchain_extension_coin_bot
 from flask import Flask, request, jsonify, Response, send_file
 from dotenv import load_dotenv
 from sys import exit as sys_exit
-import pandas as pd
 from typing import Generator, Tuple, Dict, List, Any, TypedDict
 
 app = Flask(__name__)
 # Load .env file for the server token
 load_dotenv()
 SERVER_TOKEN: str | None = os.getenv('SERVER_TOKEN')
+# Register the API routes from extension
+sponsorblockchain_extension_coin_bot.register_routes(app)
 # endregion
 
 # region Type defs
@@ -687,8 +690,6 @@ def get_balance() -> Tuple[Response, int]:
         return jsonify({"balance": balance}), 200
     else:
         return jsonify({"message": "No transactions found for user."}), 404
-
-
 # endregion
 
 
