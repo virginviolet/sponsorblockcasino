@@ -1,1 +1,9 @@
-{"COIN": "coin", "COINS": "coins", "COIN_EMOJI_ID": "0", "ADMINISTRATOR_ID": "0"}
+{
+    "coin": "coin",
+    "Coin": "Coin",
+    "coins": "coins",
+    "Coins": "Coins",
+    "COIN_EMOJI_ID": "0",
+    "CASINO_HOUSE_ID": "0",
+    "ADMINISTRATOR_ID": "0"
+}
