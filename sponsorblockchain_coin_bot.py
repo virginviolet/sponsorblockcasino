@@ -24,71 +24,13 @@ from sys import exit as sys_exit
 from sympy import (symbols, Expr, Add, Mul, Float, Integer, Eq, Lt, Ge, Gt,
                    Rational, simplify, Piecewise, pretty)
 from _collections_abc import dict_items
-from typing import (
-    Dict, KeysView, List, LiteralString, NoReturn, TextIO, cast, NamedTuple,
-    Literal, Any, TypedDict)
+from typing import (Dict, KeysView, List, LiteralString, NoReturn, TextIO, cast,
+                    Literal, Any)
+from sponsorblockchain_coin_bot_types import (BotConfig, Reels, Symbol,
+                                              ReelResult, ReelResults,
+                                              SpinEmojis, SlotMachineConfig,
+                                              StartingBonusMessage)
 # endregion
-
-# region Type aliases
-
-
-class BotConfig(TypedDict):
-    coin: str
-    Coin: str
-    coins: str
-    Coins: str
-    COIN_EMOJI_ID: str
-    CASINO_HOUSE_ID: str
-    ADMINISTRATOR_ID: str
-
-
-class Reels(TypedDict):
-    reel1: dict[str, int]
-    reel2: dict[str, int]
-    reel3: dict[str, int]
-
-class Symbol(TypedDict):
-    emoji_name: str
-    emoji_id: int
-    fixed_amount: int
-    wager_multiplier: float
-
-class ReelResult(TypedDict):
-    associated_combo_event: Dict[str, Symbol]
-    emoji: PartialEmoji
-
-class ReelResults(TypedDict):
-    reel1: ReelResult
-    reel2: ReelResult
-    reel3: ReelResult
-
-class SpinEmoji(TypedDict):
-    emoji_name: str
-    emoji_id: int
-
-class SpinEmojis(TypedDict):
-    spin1: SpinEmoji
-    spin2: SpinEmoji
-    spin3: SpinEmoji
-
-class SlotMachineConfig(TypedDict):
-    combo_events: dict[str, Symbol]
-    reels: Reels
-    reel_spin_emojis: SpinEmojis
-    fees: dict[str, int | float]
-    jackpot_pool: int
-
-# endregion
-
-# region Named tuple
-
-
-class StartingBonusMessage(NamedTuple):
-    message_id: int
-    invoker_id: int
-    invoker_name: str
-# endregion
-
 
 # region Bot setup
 intents: Intents = Intents.default()
