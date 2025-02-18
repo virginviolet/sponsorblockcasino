@@ -26,7 +26,7 @@ from sympy import (symbols, Expr, Add, Mul, Float, Integer, Eq, Lt, Ge, Gt,
 from _collections_abc import dict_items
 from typing import (Dict, KeysView, List, LiteralString, NoReturn, TextIO, cast,
                     Literal, Any)
-from sponsorblockchain_coin_bot_types import (BotConfig, Reels, Symbol,
+from sponsorblockchain_coin_bot_types import (BotConfig, Reels, ReelSymbol,
                                               ReelResult, ReelResults,
                                               SpinEmojis, SlotMachineConfig,
                                               StartingBonusMessage)
@@ -642,7 +642,7 @@ class SlotMachine:
             int: The calculated jackpot amount.
         """
         self.configuration = self.load_config()
-        combo_events: Dict[str, Symbol] = self.configuration["combo_events"]
+        combo_events: Dict[str, ReelSymbol] = self.configuration["combo_events"]
         jackpot_seed: int = combo_events["jackpot"]["fixed_amount"]
         jackpot_pool: int = self.configuration["jackpot_pool"]
         if jackpot_pool < jackpot_seed:
@@ -1033,7 +1033,7 @@ class SlotMachine:
         self.configuration = self.load_config()
         probabilities: Dict[str, Float] = self.calculate_all_probabilities()
         events: KeysView[str] = probabilities.keys()
-        combo_events: Dict[str, Symbol] = self.configuration["combo_events"]
+        combo_events: Dict[str, ReelSymbol] = self.configuration["combo_events"]
 
         # Symbol
         W: Expr = symbols('W')  # wager
@@ -1452,7 +1452,7 @@ class SlotMachine:
         Returns:
             str: A user-friendly version of the event name.
         """
-        combo_events: Dict[str, Symbol] = self.configuration["combo_events"]
+        combo_events: Dict[str, ReelSymbol] = self.configuration["combo_events"]
         wager_multiplier: float = (
             combo_events[event_name]["wager_multiplier"])
         fixed_amount_payout: int = (
@@ -1805,7 +1805,7 @@ class SlotMachineView(View):
         self.message: str = slot_machine.make_message(text_row_1=self.message_text_row_1,
                                                       text_row_2=self.message_text_row_2,
                                                       reels_row=self.message_reels_row)
-        self.combo_events: Dict[str, Symbol] = (
+        self.combo_events: Dict[str, ReelSymbol] = (
             self.slot_machine.configuration["combo_events"])
         self.interaction: Interaction = interaction
         self.reels_results: ReelResults
@@ -1885,7 +1885,7 @@ class SlotMachineView(View):
                                                   id=symbol_emoji_id)
         # Copy keys and values from the appropriate sub-dictionary
         # in combo_events
-        combo_event_properties: Symbol = {**self.combo_events[symbol_name]}
+        combo_event_properties: ReelSymbol = {**self.combo_events[symbol_name]}
         symbol_name: str = symbol_name
         reel_result: ReelResult = {
             "associated_combo_event": {symbol_name: combo_event_properties},
@@ -2985,7 +2985,7 @@ async def slots(interaction: Interaction,
     if show_help:
         pay_table: str = ""
         combo_events: Dict[str,
-                           Symbol] = slot_machine.configuration["combo_events"]
+                           ReelSymbol] = slot_machine.configuration["combo_events"]
         combo_event_count: int = len(combo_events)
         
         for event in combo_events:
@@ -3544,7 +3544,7 @@ async def slots(interaction: Interaction,
 
     if event_name == "jackpot":
         # Reset the jackpot
-        combo_events: Dict[str, Symbol] = (
+        combo_events: Dict[str, ReelSymbol] = (
             slot_machine.configuration["combo_events"])
         jackpot_seed: int = combo_events["jackpot"]["fixed_amount"]
         slot_machine.jackpot = jackpot_seed

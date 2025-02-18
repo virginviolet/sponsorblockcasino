@@ -18,7 +18,7 @@ class Reels(TypedDict):
     reel3: dict[str, int]
 
 
-class Symbol(TypedDict):
+class ReelSymbol(TypedDict):
     emoji_name: str
     emoji_id: int
     fixed_amount: int
@@ -26,7 +26,7 @@ class Symbol(TypedDict):
 
 
 class ReelResult(TypedDict):
-    associated_combo_event: Dict[str, Symbol]
+    associated_combo_event: Dict[str, ReelSymbol]
     emoji: PartialEmoji
 
 
@@ -48,7 +48,7 @@ class SpinEmojis(TypedDict):
 
 
 class SlotMachineConfig(TypedDict):
-    combo_events: dict[str, Symbol]
+    combo_events: dict[str, ReelSymbol]
     reels: Reels
     reel_spin_emojis: SpinEmojis
     fees: dict[str, int | float]
