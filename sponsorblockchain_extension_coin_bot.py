@@ -5,8 +5,8 @@ import os
 import json
 import zipfile
 from dotenv import load_dotenv
+from werkzeug.datastructures.file_storage import FileStorage
 from typing import Tuple
-
 from sponsorblockchain_coin_bot_types import SlotMachineConfig, BotConfig
 # endregion
 
@@ -199,4 +199,48 @@ def register_routes(app: Flask) -> None:
             as_attachment=True,
             download_name="checkpoints.zip")
         return response, 200
+    
+    @app.route("/upload_checkpoints", methods=["POST"])
+    # API Route: Upload checkpoints
+    def upload_checkpoints() -> Tuple[Response, int]:
+        print("Received request to upload checkpoints.")
+        message: str
+        token: str | None = request.headers.get("token")
+        if not token:
+            return jsonify({"message": "Token is required."}), 400
+        if token != SERVER_TOKEN:
+            message = "Invalid token."
+            print(message)
+            return jsonify({"message": message}), 400
+        if "file" not in request.files:
+            message = "File is required."
+            print(message)
+            return jsonify({"message": message}), 400
+        file: FileStorage = request.files["file"]
+        file_name: None | str = file.filename
+        if file_name == "" or file.filename is None:
+            message = "File is required."
+            print(message)
+            return jsonify({"message": message}), 400
+        try:
+            if not os.path.exists(checkpoints_path):
+                os.makedirs(checkpoints_path)
+            file_path: str = os.path.join('data', file.filename)
+            file.save(file_path)
+            print("File saved.")
+            print("Extracting checkpoints...")
+            with zipfile.ZipFile(file_path, "r") as zip_file:
+                zip_file.extractall(checkpoints_path)
+            print("Checkpoints extracted.")
+            print("Removing uploaded file...")
+            os.remove(file_path)
+            print("Uploaded file removed.")
+            message = "Checkpoints uploaded."
+            print(message)
+            return jsonify({"message": message}), 200
+        except Exception as e:
+            message = f"Error uploading checkpoints: {str(e)}"
+            print(message)
+            return jsonify(
+                {"message": message}), 500
     # endregion
