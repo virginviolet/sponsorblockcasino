@@ -1,9 +1,12 @@
 # region Imports
-from flask import Flask, request, jsonify, Response
+from io import BytesIO
+from flask import Flask, request, jsonify, Response, send_file
 import os
 import json
+import zipfile
 from dotenv import load_dotenv
 from typing import Tuple
+
 from sponsorblockchain_coin_bot_types import SlotMachineConfig, BotConfig
 # endregion
 
@@ -13,6 +16,7 @@ load_dotenv()
 SERVER_TOKEN: str | None = os.getenv('SERVER_TOKEN')
 slot_machine_config_path = "data/slot_machine.json"
 bot_config_path = "data/bot_config.json"
+checkpoints_path = "data/checkpoints"
 # endregion
 
 # region Function
@@ -51,67 +55,148 @@ def register_routes(app: Flask) -> None:
     @app.route("/set_slot_machine_config", methods=["POST"])
     # API Route: Add a slot machine config
     def set_slot_machine_config() -> Tuple[Response, int]:
+        print("Received request to set slot machine config.")
         token: str | None = request.headers.get("token")
+        message: str
         if not token:
-            return jsonify({"message": "Token is required."}), 400
+            message = "Token is required."
+            print(message)
+            return jsonify({"message": message}), 400
         if token != SERVER_TOKEN:
-            return jsonify({"message": "Invalid token."}), 400
+            message = "Invalid token."
+            print(message)
+            return jsonify({"message": message}), 400
         data: SlotMachineConfig = request.get_json()
         if not data:
-            return jsonify({"message": "Data is required."}), 400
+            message = "Data is required."
+            print(message)
+            return jsonify({"message": message}), 400
         try:
             save_slot_config(config=data)
             # Use the `reboot` parameter of the /slots command
             # to reload the slot machine config
-            return jsonify({"message": "Slot machine config updated."}), 200
+            message = "Slot machine config updated."
+            print(message)
+            return jsonify({"message": message}), 200
         except Exception as e:
+            message = f"Error saving slot machine config: {str(e)}"
             return jsonify(
-                {"message": f"Error saving slot machine config: {str(e)}"}), 500
+                {"message": message}), 500
 
     @app.route("/get_slot_machine_config", methods=["GET"])
     # API Route: Get the slot machine config
     def get_slot_machine_config() -> Tuple[Response, int]:
+        print("Received request to get slot machine config.")
+        message: str
         token: str | None = request.headers.get("token")
         if not token:
-            return jsonify({"message": "Token is required."}), 400
+            message = "Token is required."
+            print(message)
+            return jsonify({"message": message}), 400
         if token != SERVER_TOKEN:
-            return jsonify({"message": "Invalid token."}), 400
+            message = "Invalid token."
+            print(message)
+            return jsonify({"message": message}), 400
         if not os.path.exists(slot_machine_config_path):
-            return jsonify({"message": "Slot machine config not found."}), 404
+            message = "Slot machine config not found."
+            print(message)
+            return jsonify({"message": message}), 404
         with open(slot_machine_config_path, "r") as file:
             data: SlotMachineConfig = json.load(file)
+            print("Slot machine config will be returned.")
             return jsonify(data), 200
 
     @app.route("/set_bot_config", methods=["POST"])
     # API Route: Set the bot config
     def set_bot_config() -> Tuple[Response, int]:
+        print("Received request to set bot config.")
+        message: str
         token: str | None = request.headers.get("token")
         if not token:
-            return jsonify({"message": "Token is required."}), 400
+            message = "Token is required."
+            print(message)
+            return jsonify({"message": message}), 400
         if token != SERVER_TOKEN:
-            return jsonify({"message": "Invalid token."}), 400
+            message = "Invalid token."
+            print(message)
+            return jsonify({"message": message}), 400
         data: BotConfig = request.get_json()
         if not data:
-            return jsonify({"message": "Data is required."}), 400
+            message = "Data is required."
+            print(message)
+            return jsonify({"message": message}), 400
         try:
             save_bot_config(config=data)
-            return jsonify({"message": "Bot config updated."}), 200
+            message = "Bot config updated."
+            print(message)
+            return jsonify({"message": message}), 200
         except Exception as e:
+            message = f"Error saving bot config: {str(e)}"
+            print(message)
             return jsonify(
-                {"message": f"Error saving bot config: {str(e)}"}), 500
+                {"message": message}), 500
 
     @app.route("/get_bot_config", methods=["GET"])
     # API Route: Get the bot config
     def get_bot_config() -> Tuple[Response, int]:
+        print("Received request to get bot config.")
+        message: str
         token: str | None = request.headers.get("token")
         if not token:
-            return jsonify({"message": "Token is required."}), 400
+            message = "Token is required."
+            print(message)
+            return jsonify({"message": message}), 400
         if token != SERVER_TOKEN:
-            return jsonify({"message": "Invalid token."}), 400
+            message = "Invalid token."
+            print(message)
+            return jsonify({"message": message}), 400
         if not os.path.exists(bot_config_path):
-            return jsonify({"message": "Bot config not found."}), 404
+            message = "Bot config not found."
+            print(message)
+            return jsonify({"message": message}), 404
         with open(bot_config_path, "r") as file:
             data: BotConfig = json.load(file)
+            print("Bot config will be returned.")
             return jsonify(data), 200
-        
+    
+    @app.route("/download_checkpoints", methods=["GET"])
+    # API Route: Download the checkpoints
+    def download_checkpoints() -> Tuple[Response, int]:
+        print("Received request to download checkpoints.")
+        message: str
+        token: str | None = request.headers.get("token")
+        if not token:
+            message = "Token is required."
+            print(message)
+            return jsonify({"message": message}), 400
+        if token != SERVER_TOKEN:
+            message = "Invalid token."
+            print(message)
+            return jsonify({"message": message}), 400
+        if not os.path.exists(checkpoints_path):
+            message = "Checkpoints not found."
+            print(message)
+            return jsonify({"message": message}), 404
+        try:
+            # Easier to store the file in memory than to add threading to remove
+            # the file after the response is sent
+            print("Creating zip file in memory...")
+            memory_file = BytesIO()
+            with zipfile.ZipFile(
+                memory_file, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for root, _, files in os.walk(checkpoints_path):
+                    for file in files:
+                        zip_file.write(os.path.join(root, file))
+            print("Zip file created in memory.")
+        except Exception as e:
+            return jsonify(
+                {"message": f"Error downloading checkpoints: {str(e)}"}), 500
+        memory_file.seek(0)
+        print("Checkpoints will be sent.")
+        response: Response = send_file(
+            memory_file,
+            mimetype="application/zip",
+            as_attachment=True,
+            download_name="checkpoints.zip")
+        return response, 200
     # endregion
