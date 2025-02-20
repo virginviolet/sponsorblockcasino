@@ -6,7 +6,6 @@ import json
 import zipfile
 import shutil
 from dotenv import load_dotenv
-from werkzeug.datastructures.file_storage import FileStorage
 from typing import Tuple
 from sponsorblockchain_coin_bot_types import SlotMachineConfig, BotConfig
 # endregion
@@ -17,7 +16,8 @@ load_dotenv()
 SERVER_TOKEN: str | None = os.getenv('SERVER_TOKEN')
 slot_machine_config_path = "data/slot_machine.json"
 bot_config_path = "data/bot_config.json"
-checkpoints_path = "data/checkpoints"
+checkpoints_dir_path = "data/checkpoints"
+save_data_dir_path = "data/save_data"
 # endregion
 
 # region Function
@@ -81,8 +81,7 @@ def register_routes(app: Flask) -> None:
             return jsonify({"message": message}), 200
         except Exception as e:
             message = f"Error saving slot machine config: {str(e)}"
-            return jsonify(
-                {"message": message}), 500
+            return jsonify({"message": message}), 500
 
     @app.route("/get_slot_machine_config", methods=["GET"])
     # API Route: Get the slot machine config
@@ -134,8 +133,7 @@ def register_routes(app: Flask) -> None:
         except Exception as e:
             message = f"Error saving bot config: {str(e)}"
             print(message)
-            return jsonify(
-                {"message": message}), 500
+            return jsonify({"message": message}), 500
 
     @app.route("/get_bot_config", methods=["GET"])
     # API Route: Get the bot config
@@ -174,7 +172,7 @@ def register_routes(app: Flask) -> None:
             message = "Invalid token."
             print(message)
             return jsonify({"message": message}), 400
-        if not os.path.exists(checkpoints_path):
+        if not os.path.exists(checkpoints_dir_path):
             message = "Checkpoints not found."
             print(message)
             return jsonify({"message": message}), 404
@@ -185,7 +183,7 @@ def register_routes(app: Flask) -> None:
             memory_file = BytesIO()
             with zipfile.ZipFile(
                 memory_file, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                for root, _, files in os.walk(checkpoints_path):
+                for root, _, files in os.walk(checkpoints_dir_path):
                     for file in files:
                         zip_file.write(os.path.join(root, file))
             print("Zip file created in memory.")
@@ -215,15 +213,15 @@ def register_routes(app: Flask) -> None:
             return jsonify({"message": message}), 400
         file_content: bytes = request.data
         try:
-            if not os.path.exists(checkpoints_path):
-                os.makedirs(checkpoints_path)
+            if not os.path.exists(checkpoints_dir_path):
+                os.makedirs(checkpoints_dir_path)
             file_path: str = 'checkpoints.zip'
             with open(file_path, "wb") as file:
                 file.write(file_content)
             print("File saved.")
             print("Extracting checkpoints...")
             checkpoints_parent_path: str = (
-                checkpoints_path[:checkpoints_path.rfind("/")])
+                checkpoints_dir_path[:checkpoints_dir_path.rfind("/")])
             with zipfile.ZipFile(file_path, "r") as zip_file:
                 zip_file.extractall(checkpoints_parent_path)
             print("Checkpoints extracted.")
@@ -236,8 +234,7 @@ def register_routes(app: Flask) -> None:
         except Exception as e:
             message = f"Error uploading checkpoints: {str(e)}"
             print(message)
-            return jsonify(
-                {"message": message}), 500
+            return jsonify({"message": message}), 500
         
     @app.route("/delete_checkpoints", methods=["DELETE"])
     # API Route: Delete checkpoints
@@ -252,9 +249,9 @@ def register_routes(app: Flask) -> None:
             print(message)
             return jsonify({"message": message}), 400
         try:
-            if os.path.exists(checkpoints_path):
+            if os.path.exists(checkpoints_dir_path):
                 print("Deleting checkpoints...")
-                shutil.rmtree(checkpoints_path)
+                shutil.rmtree(checkpoints_dir_path)
                 print("Checkpoints deleted.")
             message = "Checkpoints deleted."
             print(message)
@@ -264,4 +261,41 @@ def register_routes(app: Flask) -> None:
             print(message)
             return jsonify(
                 {"message": message}), 500
+    
+    @app.route("/download_save_data", methods=["GET"])
+    # API Route: Download the save data
+    def download_save_data() -> Tuple[Response, int]:
+        print("Received request to download save data.")
+        message: str
+        token: str | None = request.headers.get("token")
+        if not token:
+            message = "Token is required."
+            print(message)
+            return jsonify({"message": message}), 400
+        if token != SERVER_TOKEN:
+            message = "Invalid token."
+            print(message)
+            return jsonify({"message": message}), 400
+        try:
+            # Easier to store the file in memory than to add threading to remove
+            # the file after the response is sent
+            print("Creating zip file in memory...")
+            memory_file = BytesIO()
+            with zipfile.ZipFile(
+                memory_file, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for root, _, files in os.walk(save_data_dir_path):
+                    for file in files:
+                        zip_file.write(os.path.join(root, file))
+            print("Zip file created in memory.")
+            print("Save data will be sent.")
+            memory_file.seek(0)
+            return send_file(
+                memory_file,
+                mimetype="application/zip",
+                as_attachment=True,
+                download_name="save_data.zip"), 200
+        except Exception as e:
+            message = f"Error downloading save data: {str(e)}"
+            print(message)
+            return jsonify({"message": message}), 500
     # endregion
