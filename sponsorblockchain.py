@@ -543,48 +543,67 @@ blockchain = Blockchain()
 @app.route("/add_block", methods=["POST"])
 # API Route: Add a new block to the blockchain
 def add_block() -> Tuple[Response, int]:
+    print("Received request to add a block.")
+    message: str
     token: str | None = request.headers.get("token")
     if not token:
-        return jsonify({"message": "Token is required."}), 400
+        message = "Token is required."
+        print(message)
+        return jsonify({"message": message}), 400
     if token != SERVER_TOKEN:
-        return jsonify({"message": "Invalid token."}), 400
+        message = "Invalid token."
+        print(message)
+        return jsonify({"message": message}), 400
 
     data: (
         List[str | Dict[str, TransactionDict]]) = request.get_json().get("data")
     if not data:
-        return jsonify({"message": "Data is required."}), 400
+        message = "Data is required."
+        print(message)
+        return jsonify({"message": message}), 400
 
     blockchain.add_block(data)
     try:
         last_block: None | Block = blockchain.get_last_block()
         if last_block and last_block.data != data:
-            return jsonify({"message": "Block could not be added."}), 500
+            message = "Block could not be added."
+            print(message)
+            return jsonify({"message": message}), 500
         else:
-            return jsonify({"message": "Block added successfully.",
+            message = "Block added successfully."
+            print(message)
+            return jsonify({"message": message,
                             "block": last_block.__dict__}), 200
     except Exception as e:
-        print(f"An error occurred: {e}")
-        return jsonify({"message": "An error occurred."}), 500
+        message = f"An error occurred: {e}"
+        print(message)
+        return jsonify({"message": message}), 500
 
 
 @app.route("/get_chain", methods=["GET"])
 # API Route: Get the blockchain
 def get_chain() -> Tuple[Response, int]:
+    print("Received request to get the blockchain.")
     print("Retrieving blockchain...")
     with open(blockchain.blockchain_file_name, "r") as file:
         chain_data: list[dict[str, Any]] = [
             json.loads(line) for line in file.readlines()]
         print("Blockchain retrieved.")
+        print("Blockchain will be returned.")
         return jsonify({"length": len(chain_data), "chain": chain_data}), 200
 
 
 @app.route("/download_chain", methods=["GET"])
 # API Route: Download the blockchain
 def download_chain() -> Tuple[Response | Any, int]:
+    print("Received request to download the blockchain.")
     file_exists: bool = os.path.exists(blockchain.blockchain_file_name)
     if not file_exists:
-        return jsonify({"message": "No blockchain found."}), 404
+        message = "No blockchain found."
+        print(message)
+        return jsonify({"message": message}), 404
     else:
+        print("Blockchain will be sent as a file.")
         return send_file(
             blockchain.blockchain_file_name,
             as_attachment=True), 200
@@ -593,19 +612,27 @@ def download_chain() -> Tuple[Response | Any, int]:
 @app.route("/get_last_block", methods=["GET"])
 # API Route: Get the last block of the blockchain
 def get_last_block() -> Tuple[Response, int]:
+    print("Received request to get the last block.")
     last_block: None | Block = blockchain.get_last_block()
     if last_block:
+        print("Last block found.")
+        print("Last block will be returned.")
         return jsonify({"block": last_block.__dict__}), 200
     else:
-        return jsonify({"message": "No blocks found."}), 404
+        message = "No blocks found."
+        print(message)
+        return jsonify({"message": message}), 404
 
 
 @app.route("/validate_chain", methods=["GET"])
 # API Route: Validate the blockchain
 def validate_chain() -> Tuple[Response | Dict[str, str], int]:
+    print("Received request to validate the blockchain.")
     is_valid: bool = blockchain.is_chain_valid()
-    return jsonify({"message": "The blockchain is valid." if is_valid else
-                    "The blockchain is not valid."}), 200
+    message: str = "The blockchain is valid." if is_valid else (
+        "The blockchain is not valid.")
+    print(message)
+    return jsonify({"message": message}), 200
 
 
 @app.route("/validate_transactions", methods=["GET"])
@@ -628,15 +655,22 @@ def validate_transactions() -> Tuple[Response | Dict[str, str], int]:
 @app.route("/shutdown", methods=["POST"])
 # API Route: Shutdown the Flask app
 def shutdown() -> Tuple[Response, int]:
+    print("Received request to shutdown the blockchain app.")
     try:
+        message: str
         token: str | None = request.headers.get("token")
         if not token:
-            return jsonify({"message": "Token is required."}), 400
+            message = "Token is required."
+            print(message)
+            return jsonify({"message": message}), 400
         if token != SERVER_TOKEN:
-            return jsonify({"message": f"Invalid token."}), 400
+            message = "Invalid token."
+            print(message)
+            return jsonify({"message": message}), 400
     except Exception as e:
-        print(f"An error occurred: {e}")
-        return jsonify({"message": "An error occurred."}), 500
+        message = f"An error occurred: {e}"
+        print(message)
+        return jsonify({"message": message}), 500
 
     print("The blockchain app will now exit.")
     sys_exit(0)
@@ -645,10 +679,14 @@ def shutdown() -> Tuple[Response, int]:
 @app.route("/download_transactions", methods=["GET"])
 # API Route: Download the transactions file
 def download_transactions() -> Tuple[Response | Any, int]:
+    print("Received request to download the transactions file.")
     file_exists: bool = os.path.exists(blockchain.transactions_file_name)
     if not file_exists:
-        return jsonify({"message": "No transactions found."}), 404
+        message = "No transactions found."
+        print(message)
+        return jsonify({"message": message}), 404
     else:
+        print("Transactions file will be sent as a file.")
         return send_file(
             blockchain.transactions_file_name,
             as_attachment=True), 200
@@ -657,18 +695,23 @@ def download_transactions() -> Tuple[Response | Any, int]:
 @app.route("/get_balance", methods=["GET"])
 # API Route: Get the balance of a user
 def get_balance() -> Tuple[Response, int]:
+    print("Received request to get balance for a user.")
     user: str | None = request.args.get(str("user"))
     user_unhashed: str | None = request.args.get("user_unhashed")
+    message: str
 
     # Debugging: Print the received query parameters
     print(f"Received user: {user}")
     print(f"Received user_unhashed: {user_unhashed}")
 
     if not user and not user_unhashed:
-        return jsonify({"message": "User or user_unhashed is required."}), 400
+        message = "User or user_unhashed is required."
+        print(message)
+        return jsonify({"message": message}), 400
     elif user and user_unhashed:
-        return jsonify({"message": "Only one of user or user_unhashed is "
-                        "allowed."}), 400
+        message = "Only one of user or user_unhashed is allowed."
+        print(message)
+        return jsonify({"message": message}), 400
 
     # Validate the transactions file
     blockchain.is_transactions_file_valid()
@@ -687,9 +730,12 @@ def get_balance() -> Tuple[Response, int]:
     if balance is not None:
         # Convert to int64 to int for JSON serialization
         balance = int(balance)
+        print("Balance will be returned.")
         return jsonify({"balance": balance}), 200
     else:
-        return jsonify({"message": "No transactions found for user."}), 404
+        message = "No transactions found for user."
+        print(message)
+        return jsonify({"message": message}), 404
 # endregion
 
 
