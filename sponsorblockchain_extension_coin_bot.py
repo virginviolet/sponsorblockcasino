@@ -157,7 +157,7 @@ def register_routes(app: Flask) -> None:
             data: BotConfig = json.load(file)
             print("Bot config will be returned.")
             return jsonify(data), 200
-    
+
     @app.route("/download_checkpoints", methods=["GET"])
     # API Route: Download the checkpoints
     def download_checkpoints() -> Tuple[Response, int]:
@@ -182,7 +182,7 @@ def register_routes(app: Flask) -> None:
             print("Creating zip file in memory...")
             memory_file = BytesIO()
             with zipfile.ZipFile(
-                memory_file, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                    memory_file, "w", zipfile.ZIP_DEFLATED) as zip_file:
                 for root, _, files in os.walk(checkpoints_dir_path):
                     for file in files:
                         zip_file.write(os.path.join(root, file))
@@ -198,7 +198,7 @@ def register_routes(app: Flask) -> None:
             as_attachment=True,
             download_name="checkpoints.zip")
         return response, 200
-    
+
     @app.route("/upload_checkpoints", methods=["POST"])
     # API Route: Upload checkpoints
     def upload_checkpoints() -> Tuple[Response, int]:
@@ -235,7 +235,7 @@ def register_routes(app: Flask) -> None:
             message = f"Error uploading checkpoints: {str(e)}"
             print(message)
             return jsonify({"message": message}), 500
-        
+
     @app.route("/delete_checkpoints", methods=["DELETE"])
     # API Route: Delete checkpoints
     def delete_checkpoints() -> Tuple[Response, int]:
@@ -261,7 +261,7 @@ def register_routes(app: Flask) -> None:
             print(message)
             return jsonify(
                 {"message": message}), 500
-    
+
     @app.route("/download_save_data", methods=["GET"])
     # API Route: Download the save data
     def download_save_data() -> Tuple[Response, int]:
@@ -282,7 +282,7 @@ def register_routes(app: Flask) -> None:
             print("Creating zip file in memory...")
             memory_file = BytesIO()
             with zipfile.ZipFile(
-                memory_file, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                    memory_file, "w", zipfile.ZIP_DEFLATED) as zip_file:
                 for root, _, files in os.walk(save_data_dir_path):
                     for file in files:
                         zip_file.write(os.path.join(root, file))
@@ -296,6 +296,43 @@ def register_routes(app: Flask) -> None:
                 download_name="save_data.zip"), 200
         except Exception as e:
             message = f"Error downloading save data: {str(e)}"
+            print(message)
+            return jsonify({"message": message}), 500
+
+    @app.route("/upload_save_data", methods=["POST"])
+    # API Route: Upload save data
+    def upload_save_data() -> Tuple[Response, int]:
+        print("Received request to upload save data.")
+        message: str
+        token: str | None = request.headers.get("token")
+        if not token:
+            return jsonify({"message": "Token is required."}), 400
+        if token != SERVER_TOKEN:
+            message = "Invalid token."
+            print(message)
+            return jsonify({"message": message}), 400
+        file_content: bytes = request.data
+        try:
+            if not os.path.exists(save_data_dir_path):
+                os.makedirs(save_data_dir_path)
+            file_path: str = 'save_data.zip'
+            with open(file_path, "wb") as file:
+                file.write(file_content)
+            print("File saved.")
+            print("Extracting save data...")
+            save_data_parent_path: str = (
+                save_data_dir_path[:save_data_dir_path.rfind("/")])
+            with zipfile.ZipFile(file_path, "r") as zip_file:
+                zip_file.extractall(save_data_parent_path)
+            print("Save data extracted.")
+            print("Removing uploaded file...")
+            os.remove(file_path)
+            print("Uploaded file removed.")
+            message = "Save data uploaded."
+            print(message)
+            return jsonify({"message": message}), 200
+        except Exception as e:
+            message = f"Error uploading save data: {str(e)}"
             print(message)
             return jsonify({"message": message}), 500
     # endregion
