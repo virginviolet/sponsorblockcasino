@@ -212,25 +212,19 @@ def register_routes(app: Flask) -> None:
             message = "Invalid token."
             print(message)
             return jsonify({"message": message}), 400
-        if "file" not in request.files:
-            message = "File is required."
-            print(message)
-            return jsonify({"message": message}), 400
-        file: FileStorage = request.files["file"]
-        file_name: None | str = file.filename
-        if file_name == "" or file.filename is None:
-            message = "File is required."
-            print(message)
-            return jsonify({"message": message}), 400
+        file_content: bytes = request.data
         try:
             if not os.path.exists(checkpoints_path):
                 os.makedirs(checkpoints_path)
-            file_path: str = os.path.join('data', file.filename)
-            file.save(file_path)
+            file_path: str = 'checkpoints.zip'
+            with open(file_path, "wb") as file:
+                file.write(file_content)
             print("File saved.")
             print("Extracting checkpoints...")
+            checkpoints_parent_path: str = (
+                checkpoints_path[:checkpoints_path.rfind("/")])
             with zipfile.ZipFile(file_path, "r") as zip_file:
-                zip_file.extractall(checkpoints_path)
+                zip_file.extractall(checkpoints_parent_path)
             print("Checkpoints extracted.")
             print("Removing uploaded file...")
             os.remove(file_path)
