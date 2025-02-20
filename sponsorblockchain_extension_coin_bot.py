@@ -4,6 +4,7 @@ from flask import Flask, request, jsonify, Response, send_file
 import os
 import json
 import zipfile
+import shutil
 from dotenv import load_dotenv
 from werkzeug.datastructures.file_storage import FileStorage
 from typing import Tuple
@@ -234,6 +235,32 @@ def register_routes(app: Flask) -> None:
             return jsonify({"message": message}), 200
         except Exception as e:
             message = f"Error uploading checkpoints: {str(e)}"
+            print(message)
+            return jsonify(
+                {"message": message}), 500
+        
+    @app.route("/delete_checkpoints", methods=["DELETE"])
+    # API Route: Delete checkpoints
+    def delete_checkpoints() -> Tuple[Response, int]:
+        print("Received request to delete checkpoints.")
+        message: str
+        token: str | None = request.headers.get("token")
+        if not token:
+            return jsonify({"message": "Token is required."}), 400
+        if token != SERVER_TOKEN:
+            message = "Invalid token."
+            print(message)
+            return jsonify({"message": message}), 400
+        try:
+            if os.path.exists(checkpoints_path):
+                print("Deleting checkpoints...")
+                shutil.rmtree(checkpoints_path)
+                print("Checkpoints deleted.")
+            message = "Checkpoints deleted."
+            print(message)
+            return jsonify({"message": message}), 200
+        except Exception as e:
+            message = f"Error deleting checkpoints: {str(e)}"
             print(message)
             return jsonify(
                 {"message": message}), 500
