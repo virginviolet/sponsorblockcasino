@@ -55,7 +55,7 @@ class SlotMachineConfig(TypedDict):
     jackpot_pool: int
 
 
-class StartingBonusMessage(NamedTuple):
-    message_id: int
-    invoker_id: int
-    invoker_name: str
+class SaveData(TypedDict):
+    user_name: str
+    user_id: int
+    starting_bonus_received: bool

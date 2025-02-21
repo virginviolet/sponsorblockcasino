@@ -29,7 +29,7 @@ from typing import (Dict, KeysView, List, LiteralString, NoReturn, TextIO, cast,
 from sponsorblockchain_coin_bot_types import (BotConfig, Reels, ReelSymbol,
                                               ReelResult, ReelResults,
                                               SpinEmojis, SlotMachineConfig,
-                                              StartingBonusMessage)
+                                              SaveData)
 # endregion
 
 # region Bot setup
@@ -43,7 +43,6 @@ load_dotenv()
 DISCORD_TOKEN: str | None = getenv('DISCORD_TOKEN')
 # Number of messages to keep track of in each channel
 channel_checkpoint_limit: int = 3
-starting_bonus_messages_waiting: Dict[int, StartingBonusMessage] = {}
 active_slot_machine_players: set[int] = set()
 # endregion
 
@@ -1548,8 +1547,28 @@ class UserSaveData:
     def __init__(self, user_id: int, user_name: str) -> None:
         self.user_id: int = user_id
         self.user_name: str = user_name
-        self.file_name: str = f"data/save_data/{user_id}.json"
-        self.starting_bonus_received: bool = False
+        self.file_name: str = f"data/save_data/{user_id}/save_data.json"
+        self._starting_bonus_received: bool
+        if not exists(self.file_name):
+            self._starting_bonus_received = False
+            self.create()
+        else:
+            self._starting_bonus_received = self.load("starting_bonus_received") == "True"
+
+
+    @property
+    def starting_bonus_received(self) -> bool:
+        """
+        Indicates if the user has received the starting bonus.
+        """
+        return self.load("starting_bonus_received") == "True"
+    
+    @starting_bonus_received.setter
+    def starting_bonus_received(self, value: bool) -> None:
+        """
+        Sets the status of the starting bonus received.
+        """
+        self.save("starting_bonus_received", str(value))
 
     def create(self) -> None:
         """
@@ -1563,29 +1582,24 @@ class UserSaveData:
             self.file_name: The path to the save data file.
             self.user_name: The name of the user.
             self.user_id: The ID of the user.
-            self.starting_bonus_received: Indicates if the starting bonus
+            self._starting_bonus_received: Indicates if the starting bonus
                                              has been received.
         """
-        # Create missing directories
+        # Create missing directories and create save data file
         directories: str = self.file_name[:self.file_name.rfind("/")]
         for i, directory in enumerate(directories.split("/")):
             path: str = "/".join(directories.split("/")[:i+1])
             if not exists(directory):
                 makedirs(path, exist_ok=True)
             if directory.isdigit() and int(directory) == self.user_id:
-                name_file_name: str = f"{path}/user_name.json"
-                with open(name_file_name, "w") as file:
-                    file.write(json.dumps(
-                        {"user_name": self.user_name,
-                         "user_id": self.user_id,
-                         "starting_bonus_received": (
-                             self.starting_bonus_received)
-                         }))
-                    pass
-
-        # Create the save data file
-        with open(self.file_name, "w"):
-            pass
+                with open(self.file_name, "w") as file:
+                    file_contents: SaveData = {
+                        "user_name": self.user_name,
+                        "user_id": self.user_id,
+                        "starting_bonus_received": self._starting_bonus_received
+                        }
+                    file_contents_json: str = json.dumps(file_contents)
+                    file.write(file_contents_json)
 
     def save(self, key: str, value: str) -> None:
         """
@@ -1596,11 +1610,18 @@ class UserSaveData:
             key: The key to be saved.
             value: The value to be saved.
         """
-        if not exists(self.file_name):
-            self.create()
+        
+        # Read the existing data
+        save_data: SaveData
+        with open(self.file_name, "r") as file:
+            save_data = json.load(file)
+        
+        # Update the data with the new key-value pair
+        save_data[key] = value
 
-        with open(self.file_name, "w") as f:
-            f.write(json.dumps({key: value}))
+        # Write the updated data back to the file
+        with open(self.file_name, "w") as file:
+            json.dump(save_data, file)
 
     def load(self, key: str) -> str | None:
         """
@@ -1725,7 +1746,7 @@ class StartingBonusView(View):
                 amount=starting_bonus,
                 method="starting_bonus"
             )
-            self.save_data.save("starting_bonus_received", "True")
+            self.save_data.starting_bonus_received = True
             last_block_timestamp: float | None = get_last_block_timestamp()
             if last_block_timestamp is None:
                 print("ERROR: Could not get last block timestamp.")
@@ -3179,9 +3200,7 @@ async def slots(interaction: Interaction,
     user_name: str = user.name
     save_data: UserSaveData = (
         UserSaveData(user_id=user_id, user_name=user_name))
-    starting_bonus_received: bool = (
-        save_data.load("starting_bonus_received") == "True")
-
+    starting_bonus_received: bool = save_data.starting_bonus_received
     if not starting_bonus_received:
         # Send message to inform user of starting bonus
         starting_bonus_awards: Dict[int, int] = {
@@ -3571,6 +3590,9 @@ async def slots(interaction: Interaction,
 
 # TODO Prevent mining coins multiple times on the same message.
 # TODO Track reaction removals
+# TODO Prevent annoying/misleading message about that you cannot play on multiple slot machines at the same time
+# TODO Leaderboard
+# TODO Add casino jobs
 # TODO Add more games
 
 # region Main
