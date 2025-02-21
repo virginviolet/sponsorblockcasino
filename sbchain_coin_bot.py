@@ -2509,6 +2509,7 @@ global Coins
 global coin_emoji_id
 global casino_house_id
 global administrator_id
+global slot_machine
 configuration = BotConfiguration()
 coin: str = configuration.coin
 Coin: str = configuration.Coin
@@ -3046,6 +3047,7 @@ async def slots(interaction: Interaction,
     global coin_emoji_id
     global casino_house_id
     global administrator_id
+    global slot_machine
     wager_int: int | None = insert_coins
     if wager_int is None:
         wager_int = 1
@@ -3221,6 +3223,7 @@ async def slots(interaction: Interaction,
         coin_emoji_id = configuration.coin_emoji_id
         casino_house_id = configuration.casino_house_id
         administrator_id = configuration.administrator_id
+        slot_machine = SlotMachine()
         await asyncio.sleep(4)
         # Remove user from active players
         if user_id in active_slot_machine_players:
