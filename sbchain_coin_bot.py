@@ -11,7 +11,7 @@ import math
 from time import sleep, time
 from datetime import datetime
 from discord import (Guild, Intents, Interaction, Member, Message, Client,
-                     Emoji, PartialEmoji, Role, User, TextChannel, app_commands,
+                     Emoji, PartialEmoji, Role, User, TextChannel, VoiceChannel, app_commands,
                      utils)
 from discord.ui import View, Button
 from discord.ext import commands
@@ -2589,7 +2589,8 @@ async def on_message(message: Message) -> None:
         guild_name: str = guild.name
         guild_id: int = guild.id
         channel = message.channel
-        if isinstance(channel, TextChannel):
+        if ((isinstance(channel, TextChannel)) or
+            isinstance(channel, VoiceChannel)):
             channel_name: str = channel.name
             all_channel_checkpoints[channel_id] = ChannelCheckpoints(
                 guild_name=guild_name,
@@ -2598,11 +2599,11 @@ async def on_message(message: Message) -> None:
                 channel_id=channel_id
             )
         else:
-            print("ERROR: Channel is not a text channel.")
-            administrator: str = (
-                (await bot.fetch_user(ADMINISTRATOR_ID)).mention)
-            await message.channel.send("An error occurred. "
-                                       f"{administrator} pls fix.")
+            # print("ERROR: Channel is not a text channel or voice channel.")
+            # administrator: str = (
+            #     (await bot.fetch_user(ADMINISTRATOR_ID)).mention)
+            # await message.channel.send("An error occurred. "
+            #                            f"{administrator} pls fix.")
             return
 # endregion
 
