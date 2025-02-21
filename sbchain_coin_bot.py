@@ -1933,7 +1933,7 @@ class SlotMachineView(View):
             text_row_1=self.message_text_row_1,
             text_row_2=self.message_text_row_2,
             reels_row=self.message_reels_row)
-
+    
     # stop_button_callback
     async def on_button_click(self,
                               interaction: Interaction,
@@ -2662,6 +2662,10 @@ async def transfer(interaction: Interaction, amount: int, user: Member) -> None:
     print(f"User {sender_id} is requesting to transfer "
           f"{amount} {coin_label_a} to user {receiver_id}...")
     balance: int | None = None
+    if amount <= 0:
+        message = "You cannot transfer 0 or a negative amount of coins."
+        await interaction.response.send_message(message, ephemeral=True)
+        return
     try:
         balance = blockchain.get_balance(user_unhashed=sender_id)
     except Exception as e:
@@ -3029,6 +3033,14 @@ async def slots(interaction: Interaction,
     wager_int: int | None = insert_coins
     if wager_int is None:
         wager_int = 1
+    if wager_int < 0:
+        message = "You cannot insert a negative amount of coins."
+        await interaction.response.send_message(message, ephemeral=True)
+        return
+    elif wager_int == 0:
+        message = "You cannot insert 0 coins."
+        await interaction.response.send_message(message, ephemeral=True)
+        return
     # TODO Log/stat outcomes (esp. wager amounts)
     user: User | Member = interaction.user
     user_id: int = user.id
