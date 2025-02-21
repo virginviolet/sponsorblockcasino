@@ -7,7 +7,7 @@ import zipfile
 import shutil
 from dotenv import load_dotenv
 from typing import Tuple
-from sponsorblockchain_coin_bot_types import SlotMachineConfig, BotConfig
+from sbchain_coin_bot_types import SlotMachineConfig, BotConfig
 # endregion
 
 # region Constants

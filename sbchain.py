@@ -6,7 +6,7 @@ import time
 import os
 import json
 import pandas as pd
-import sponsorblockchain_extension_coin_bot
+import sbchain_extension_coin_bot
 from flask import Flask, request, jsonify, Response, send_file
 from dotenv import load_dotenv
 from sys import exit as sys_exit
@@ -17,7 +17,7 @@ app = Flask(__name__)
 load_dotenv()
 SERVER_TOKEN: str | None = os.getenv('SERVER_TOKEN')
 # Register the API routes from extension
-sponsorblockchain_extension_coin_bot.register_routes(app)
+sbchain_extension_coin_bot.register_routes(app)
 # endregion
 
 # region Type defs
