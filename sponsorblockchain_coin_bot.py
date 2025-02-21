@@ -1596,12 +1596,13 @@ class UserSaveData:
                     file_contents: SaveData = {
                         "user_name": self.user_name,
                         "user_id": self.user_id,
-                        "starting_bonus_received": self._starting_bonus_received
+                        "starting_bonus_received": self._starting_bonus_received,
+                        "messages_mined": []
                         }
                     file_contents_json: str = json.dumps(file_contents)
                     file.write(file_contents_json)
 
-    def save(self, key: str, value: str) -> None:
+    def save(self, key: str, value: str | List[int]) -> None:
         """
         Saves a key-value pair to a JSON file. If the file does not exist,
         it creates a new one.
@@ -1615,7 +1616,6 @@ class UserSaveData:
         save_data: SaveData
         with open(self.file_name, "r") as file:
             save_data = json.load(file)
-        
         # Update the data with the new key-value pair
         save_data[key] = value
 
@@ -1623,7 +1623,7 @@ class UserSaveData:
         with open(self.file_name, "w") as file:
             json.dump(save_data, file)
 
-    def load(self, key: str) -> str | None:
+    def load(self, key: str) -> str | List[int] | None:
         """
         Loads the value associated with the given key from a JSON file.
         Args:
@@ -1635,12 +1635,11 @@ class UserSaveData:
         if not exists(self.file_name):
             return None
 
-        all_data: Dict[str, str] = {}
+        all_data: SaveData
         with open(self.file_name, "r") as file:
-            for line in file:
-                data: Dict[str, str] = json.loads(line)
-                all_data.update(data)
-            return all_data[key]
+            all_data = json.load(file)
+        requested_value: str | List[int] | None = all_data.get(key)
+        return requested_value
 # endregion
 
 # region Bonus die button
@@ -2176,7 +2175,10 @@ async def process_missed_messages() -> None:
                             sender = user
                             receiver = message.author
                             emoji: PartialEmoji | Emoji | str = reaction.emoji
-                            await process_reaction(emoji, sender, receiver)
+                            await process_reaction(message_id=message_id,
+                                                   emoji=emoji,
+                                                   sender=sender,
+                                                   receiver=receiver,)
             print("Messages from "
                   f"channel {channel.name} ({channel.id}) fetched.")
             if fresh_last_message_id is None:
@@ -2198,7 +2200,8 @@ async def process_missed_messages() -> None:
 # region Coin reaction
 
 
-async def process_reaction(emoji: PartialEmoji | Emoji | str,
+async def process_reaction(message_id: int,
+                           emoji: PartialEmoji | Emoji | str,
                            sender: Member | User,
                            receiver: Member | User | None = None,
                            receiver_id: int | None = None) -> None:
@@ -2236,6 +2239,18 @@ async def process_reaction(emoji: PartialEmoji | Emoji | str,
 
         if sender_id == receiver_id:
             return
+
+        # Check if the user has mined the message already
+        sender_name: str = sender.name
+        save_data: UserSaveData = UserSaveData(
+            user_id=sender_id, user_name=sender_name)
+        message_mined_data: str | List[int] | None = save_data.load("messages_mined")
+        message_mined: List[int] = message_mined_data if isinstance(message_mined_data, list) else []
+        if message_id in message_mined:
+            return
+        # Add the message ID to the list of mined messages
+        message_mined.append(message_id)
+        save_data.save(key="messages_mined", value=message_mined)
 
         print(f"{sender} ({sender_id}) is mining 1 {coin} "
               f"for {receiver} ({receiver_id})...")
@@ -2614,11 +2629,14 @@ async def on_raw_reaction_add(payload: RawReactionActionEvent) -> None:
             print("ERROR: Sender is None.")
             return
         receiver_user_id: int = payload.message_author_id
-        await process_reaction(emoji=payload.emoji,
+        message_id: int = payload.message_id
+        await process_reaction(message_id=message_id,
+                               emoji=payload.emoji,
                                sender=sender,
                                receiver_id=receiver_user_id)
         del receiver_user_id
         del sender
+        del message_id
 # endregion
 
 
@@ -3588,7 +3606,6 @@ async def slots(interaction: Interaction,
 # endregion
 
 
-# TODO Prevent mining coins multiple times on the same message.
 # TODO Track reaction removals
 # TODO Prevent annoying/misleading message about that you cannot play on multiple slot machines at the same time
 # TODO Leaderboard

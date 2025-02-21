@@ -1,4 +1,4 @@
-from typing import Dict, TypedDict, NamedTuple
+from typing import Dict, TypedDict, List
 from discord import PartialEmoji
 
 
@@ -59,3 +59,4 @@ class SaveData(TypedDict):
     user_name: str
     user_id: int
     starting_bonus_received: bool
+    messages_mined: List[int]
