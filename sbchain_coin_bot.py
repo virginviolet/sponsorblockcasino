@@ -564,7 +564,7 @@ class SlotMachine:
             self.calculate_all_probabilities())
         self._jackpot: int = self.load_jackpot()
         self._fees: dict[str, int | float] = self.configuration["fees"]
-        self.header: str = f"### {Coin} Slot Machine"
+        self.header: str = f"### {Coin} slot machine"
 
     def load_reels(self) -> Reels:
         """
@@ -3229,7 +3229,7 @@ async def slots(interaction: Interaction,
         if user_id in active_slot_machine_players:
             active_slot_machine_players.remove(user_id)
         message = slot_machine.make_message(
-            f"-# Welcome to the {Coin} Casino!")
+            f"-# Welcome to the {Coin} casino!")
         await interaction.edit_original_response(content=message)
         del message
         return
