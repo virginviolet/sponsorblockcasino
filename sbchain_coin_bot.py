@@ -2829,7 +2829,7 @@ async def reels(interaction: Interaction,
     if administrator_role is None and technician_role is None:
         # TODO Maybe let other users see the reels
         message: str = ("Only slot machine technicians may look at the reels.")
-        await interaction.response.send_message(message, ephemeral=True)
+        await interaction.followup.send(message, ephemeral=True)
         del message
         return
     if amount is None:
@@ -2842,13 +2842,13 @@ async def reels(interaction: Interaction,
     slot_machine.reels = slot_machine.load_reels()
     new_reels: Reels = slot_machine.reels
     if add_symbol and remove_symbol:
-        await interaction.response.send_message("You can only add or remove a "
+        await interaction.followup.send("You can only add or remove a "
                                                 "symbol at a time.",
                                                 ephemeral=True)
         return
     if add_symbol and reel is None:
         if amount % 3 != 0:
-            await interaction.response.send_message("The amount of symbols to "
+            await interaction.followup.send("The amount of symbols to "
                                                     "add must be a multiple "
                                                     "of 3.",
                                                     ephemeral=True)
