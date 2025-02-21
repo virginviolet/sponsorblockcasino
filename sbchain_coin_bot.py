@@ -3196,6 +3196,8 @@ async def slots(interaction: Interaction,
         await asyncio.sleep(4)
         # Reload config from file
         slot_machine.configuration = slot_machine.load_config()
+        global configuration
+        configuration = BotConfiguration()
         await asyncio.sleep(4)
         # Remove user from active players
         if user_id in active_slot_machine_players:
