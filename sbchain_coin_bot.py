@@ -32,6 +32,7 @@ from sbchain_coin_bot_types import (BotConfig, Reels, ReelSymbol,
                                               SaveData)
 # endregion
 
+
 # region Bot setup
 intents: Intents = Intents.default()
 intents.message_content = True
