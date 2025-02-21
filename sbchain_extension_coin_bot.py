@@ -15,7 +15,7 @@ from sbchain_coin_bot_types import SlotMachineConfig, BotConfig
 load_dotenv()
 SERVER_TOKEN: str | None = os.getenv('SERVER_TOKEN')
 slot_machine_config_path = "data/slot_machine.json"
-bot_config_path = "data/bot_config.json"
+bot_config_path = "data/bot_configuration.json"
 checkpoints_dir_path = "data/checkpoints"
 save_data_dir_path = "data/save_data"
 # endregion

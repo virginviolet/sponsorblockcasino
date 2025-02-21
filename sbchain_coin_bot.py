@@ -1741,7 +1741,7 @@ class StartingBonusView(View):
             del message
             await add_block_transaction(
                 blockchain=blockchain,
-                sender=CASINO_HOUSE_ID,
+                sender=casino_house_id,
                 receiver=self.invoker,
                 amount=starting_bonus,
                 method="starting_bonus"
@@ -2226,7 +2226,7 @@ async def process_reaction(message_id: int,
             return
         case str():
             return
-    if emoji_id == COIN_EMOJI_ID:
+    if emoji_id == coin_emoji_id:
         if receiver is None:
             # Get receiver from id
             if receiver_id is not None:
@@ -2501,14 +2501,22 @@ if __name__ == "__main__":
 print("Starting bot...")
 
 print("Loading bot configuration...")
+global configuration
+global coin
+global Coin
+global coins
+global Coins
+global coin_emoji_id
+global casino_house_id
+global administrator_id
 configuration = BotConfiguration()
 coin: str = configuration.coin
 Coin: str = configuration.Coin
 coins: str = configuration.coins
 Coins: str = configuration.Coins
-COIN_EMOJI_ID: int = configuration.coin_emoji_id
-CASINO_HOUSE_ID: int = configuration.casino_house_id
-ADMINISTRATOR_ID: int = configuration.administrator_id
+coin_emoji_id: int = configuration.coin_emoji_id
+casino_house_id: int = configuration.casino_house_id
+administrator_id: int = configuration.administrator_id
 slot_machine = SlotMachine()
 print("Bot configuration loaded.")
 
@@ -2582,7 +2590,7 @@ async def on_message(message: Message) -> None:
         if guild is None:
             print("ERROR: Guild is None.")
             administrator: str = (
-                (await bot.fetch_user(ADMINISTRATOR_ID)).mention)
+                (await bot.fetch_user(administrator_id)).mention)
             await message.channel.send("An error occurred. "
                                        f"{administrator} pls fix.")
             return
@@ -2670,7 +2678,7 @@ async def transfer(interaction: Interaction, amount: int, user: Member) -> None:
         balance = blockchain.get_balance(user_unhashed=sender_id)
     except Exception as e:
         print(f"Error getting balance for user {sender} ({sender_id}): {e}")
-        administrator: str = (await bot.fetch_user(ADMINISTRATOR_ID)).mention
+        administrator: str = (await bot.fetch_user(administrator_id)).mention
         await interaction.response.send_message("Error getting balance."
                                                 f"{administrator} pls fix.")
     if balance is None:
@@ -2700,7 +2708,7 @@ async def transfer(interaction: Interaction, amount: int, user: Member) -> None:
     last_block: sbchain.Block | None = blockchain.get_last_block()
     if last_block is None:
         print("ERROR: Last block is None.")
-        administrator: str = (await bot.fetch_user(ADMINISTRATOR_ID)).mention
+        administrator: str = (await bot.fetch_user(administrator_id)).mention
         await interaction.response.send_message(f"Error transferring {coins}. "
                                                 f"{administrator} pls fix.")
         await terminate_bot()
@@ -3030,6 +3038,14 @@ async def slots(interaction: Interaction,
     # TODO Add TOS parameter
     # TODO Add service parameter
     # IMPROVE Make incompatible parameters not selectable together
+    global configuration
+    global coin
+    global Coin
+    global coins
+    global Coins
+    global coin_emoji_id
+    global casino_house_id
+    global administrator_id
     wager_int: int | None = insert_coins
     if wager_int is None:
         wager_int = 1
@@ -3066,7 +3082,7 @@ async def slots(interaction: Interaction,
         jackpot_seed: int = (
             slot_machine.configuration["combo_events"]
             ["jackpot"]["fixed_amount"])
-        administrator: str = (await bot.fetch_user(ADMINISTRATOR_ID)).name
+        administrator: str = (await bot.fetch_user(administrator_id)).name
         help_message_1: str = (
             f"## {Coin} Slot Machine Help\n"
             f"Win big by playing the {Coin} slot machine!*\n\n"
@@ -3196,8 +3212,15 @@ async def slots(interaction: Interaction,
         await asyncio.sleep(4)
         # Reload config from file
         slot_machine.configuration = slot_machine.load_config()
-        global configuration
+        # TODO Replace with clean implementation
         configuration = BotConfiguration()
+        coin = configuration.coin
+        Coin = configuration.Coin
+        coins = configuration.coins
+        Coins = configuration.Coins
+        coin_emoji_id = configuration.coin_emoji_id
+        casino_house_id = configuration.casino_house_id
+        administrator_id = configuration.administrator_id
         await asyncio.sleep(4)
         # Remove user from active players
         if user_id in active_slot_machine_players:
@@ -3266,7 +3289,7 @@ async def slots(interaction: Interaction,
     #     print("Starting bonus already received.")
 
     administrator: str = (
-        (await bot.fetch_user(ADMINISTRATOR_ID)).mention)
+        (await bot.fetch_user(administrator_id)).mention)
 
     # Check balance
     user_id_hash: str = sha256(str(user_id).encode()).hexdigest()
@@ -3565,11 +3588,11 @@ async def slots(interaction: Interaction,
         transfer_amount: int
         if net_return > 0:
             transfer_amount = net_return
-            sender = CASINO_HOUSE_ID
+            sender = casino_house_id
             receiver = user
         else:
             sender = user
-            receiver = CASINO_HOUSE_ID
+            receiver = casino_house_id
             # flip to positive value (transferring a negative amount would mean
             # reducing the receiver's balance)
             transfer_amount = -net_return
