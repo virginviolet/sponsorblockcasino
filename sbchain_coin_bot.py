@@ -390,21 +390,31 @@ class BotConfiguration:
         """
         print("Initializing bot configuration...")
         self.file_name: str = file_name
-        self.configuration: BotConfig = (
-            self.read())
-        self.coin = str(self.configuration["coin"])
-        self.Coin = str(self.configuration["Coin"])
-        self.coins = str(self.configuration["coins"])
-        self.Coins = str(self.configuration["Coins"])
-        self.coin_emoji_id: int = int(str(self.configuration["coin_emoji_id"]))
+        attributes_set = False
+        while attributes_set is False:
+            try:
+                self.configuration: BotConfig = self.read()
+                self.coin = str(self.configuration["coin"])
+                self.Coin = str(self.configuration["Coin"])
+                self.coins = str(self.configuration["coins"])
+                self.Coins = str(self.configuration["Coins"])
+                self.coin_emoji_id: int = int(str(self.configuration["coin_emoji_id"]))
+                self.administrator_id: int = int(str(self.configuration["administrator_id"]))
+                self.casino_house_id: int = int(str(self.configuration["casino_house_id"]))
+                attributes_set = True
+            except KeyError as e:
+                print(f"ERROR: Missing key in bot configuration: {e}\n"
+                      "The bot configuration file will be replaced "
+                      "with template values.")
+                self.create()
+            self.administrator_id: int = int(
+                str(self.configuration["administrator_id"]))
+            self.casino_house_id: int = int(
+                str(self.configuration["casino_house_id"]))
         if self.coin_emoji_id == 0:
             print("WARNING: `coin_emoji_id` has not set "
                   "in bot_configuration.json nor "
                   "in the environment variables.")
-        self.administrator_id: int = int(
-            str(self.configuration["administrator_id"]))
-        self.casino_house_id: int = int(
-            str(self.configuration["casino_house_id"]))
         if self.administrator_id == 0:
             print("WARNING: `administrator_id` has not been set "
                   f"in '{self.file_name}' nor "
@@ -574,16 +584,26 @@ class SlotMachine:
         """
         print("Starting the slot machines...")
         self.file_name: str = file_name
-        self.configuration: SlotMachineConfig = (
-            self.load_config())
-        self._reels: Reels = self.load_reels()
-        # self.emoji_ids: Dict[str, int] = cast(Dict[str, int],
-        #                                       self.configuration["emoji_ids"])
-        self._probabilities: Dict[str, Float] = (
-            self.calculate_all_probabilities())
-        self._jackpot: int = self.load_jackpot()
-        self._fees: dict[str, int | float] = self.configuration["fees"]
-        self.header: str = f"### {Coin} Slot Machine"
+        attributes_set = False
+        while attributes_set is False:
+            try:
+                self.configuration: SlotMachineConfig = (
+                    self.load_config())
+                self._reels: Reels = self.load_reels()
+                # self.emoji_ids: Dict[str, int] = cast(Dict[str, int],
+                #                                       self.configuration["emoji_ids"])
+                self._probabilities: Dict[str, Float] = (
+                    self.calculate_all_probabilities())
+                self._jackpot: int = self.load_jackpot()
+                self._fees: dict[str, int | float] = self.configuration["fees"]
+                self.header: str = f"### {Coin} Slot Machine"
+                attributes_set = True
+            except KeyError as e:
+                print(f"ERROR: Missing key in slot machine configuration: {e}\n"
+                      "The slot machine configuration file will be replaced "
+                      "with template values.")
+                self.create_config()
+
         print("Slot machines started.")
 
     def load_reels(self) -> Reels:
