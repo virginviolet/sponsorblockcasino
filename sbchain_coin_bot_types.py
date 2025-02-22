@@ -53,10 +53,12 @@ class SlotMachineConfig(TypedDict):
     reel_spin_emojis: SpinEmojis
     fees: dict[str, int | float]
     jackpot_pool: int
+    new_bonus_wait_seconds: int
 
 
 class SaveData(TypedDict):
     user_name: str
     user_id: int
-    starting_bonus_received: bool
+    starting_bonus_available: bool | float
     messages_mined: List[int]
+    has_visited_casino: bool

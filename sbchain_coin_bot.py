@@ -10,9 +10,10 @@ import random
 import math
 from time import sleep, time
 from datetime import datetime
+from humanfriendly import format_timespan
 from discord import (Guild, Intents, Interaction, Member, Message, Client,
-                     Emoji, PartialEmoji, Role, User, TextChannel, VoiceChannel, app_commands,
-                     utils)
+                     Emoji, PartialEmoji, Role, User, TextChannel, VoiceChannel,
+                     app_commands, utils)
 from discord.ui import View, Button
 from discord.ext import commands
 from discord.raw_models import RawReactionActionEvent
@@ -30,16 +31,6 @@ from sbchain_coin_bot_types import (BotConfig, Reels, ReelSymbol,
                                               ReelResult, ReelResults,
                                               SpinEmojis, SlotMachineConfig,
                                               SaveData)
-# endregion
-
-# region Global variables
-coin: str = ""
-Coin: str = ""
-coins: str = ""
-Coins: str = ""
-coin_emoji_id: int = 0
-casino_house_id: int = 0
-administrator_id: int = 0
 # endregion
 
 # region Bot setup
@@ -398,9 +389,12 @@ class BotConfiguration:
                 self.Coin = str(self.configuration["Coin"])
                 self.coins = str(self.configuration["coins"])
                 self.Coins = str(self.configuration["Coins"])
-                self.coin_emoji_id: int = int(str(self.configuration["coin_emoji_id"]))
-                self.administrator_id: int = int(str(self.configuration["administrator_id"]))
-                self.casino_house_id: int = int(str(self.configuration["casino_house_id"]))
+                self.coin_emoji_id: int = (
+                    int(str(self.configuration["coin_emoji_id"])))
+                self.administrator_id: int = (
+                    int(str(self.configuration["administrator_id"])))
+                self.casino_house_id: int = (
+                    int(str(self.configuration["casino_house_id"])))
                 attributes_set = True
             except KeyError as e:
                 print(f"ERROR: Missing key in bot configuration: {e}\n"
@@ -590,13 +584,15 @@ class SlotMachine:
                 self.configuration: SlotMachineConfig = (
                     self.load_config())
                 self._reels: Reels = self.load_reels()
-                # self.emoji_ids: Dict[str, int] = cast(Dict[str, int],
-                #                                       self.configuration["emoji_ids"])
+                # self.emoji_ids: Dict[str, int] = (
+                #     cast(Dict[str, int], self.configuration["emoji_ids"]))
                 self._probabilities: Dict[str, Float] = (
                     self.calculate_all_probabilities())
                 self._jackpot: int = self.load_jackpot()
                 self._fees: dict[str, int | float] = self.configuration["fees"]
                 self.header: str = f"### {Coin} Slot Machine"
+                self.next_bonus_wait_seconds: int = (
+                    self.configuration["new_bonus_wait_seconds"])
                 attributes_set = True
             except KeyError as e:
                 print(f"ERROR: Missing key in slot machine configuration: {e}\n"
@@ -801,7 +797,8 @@ class SlotMachine:
                 "medium_wager_jackpot": 0.01,
                 "high_wager_jackpot": 0.01
             },
-            "jackpot_pool": 101
+            "jackpot_pool": 101,
+            "new_bonus_wait_seconds": 86400
         }
         # Save the configuration to the file
         with open(self.file_name, "w") as file:
@@ -1402,7 +1399,7 @@ class SlotMachine:
         return symbol
     # endregion
 
-    # region Slot money
+    # region Slot win money
     def calculate_award_money(self,
                               wager: int,
                               results: ReelResults
@@ -1523,6 +1520,7 @@ class SlotMachine:
         return event_name_friendly
     # endregion
 
+    # region Slot message
     def make_message(self,
                      text_row_1: str | None = None,
                      text_row_2: str | None = None,
@@ -1561,6 +1559,7 @@ class SlotMachine:
                            f"{text_row_1}\n"
                            f"{text_row_2}")
         return message
+    # endregion
 
 # region UserSaveData
 
@@ -1589,27 +1588,69 @@ class UserSaveData:
         self.user_id: int = user_id
         self.user_name: str = user_name
         self.file_name: str = f"data/save_data/{user_id}/save_data.json"
-        self._starting_bonus_received: bool
+        self._starting_bonus_available: bool | float
+        self._has_visited_casino: bool
         if not exists(self.file_name):
-            self._starting_bonus_received = False
+            self._starting_bonus_available = True
+            self._has_visited_casino = False
             self.create()
         else:
-            self._starting_bonus_received = self.load("starting_bonus_received") == "True"
+            starting_bonus_available: str | List[int] | bool | float | None = (
+                self.load("starting_bonus_available"))
+            if isinstance(starting_bonus_available, (bool, float)):
+                self._starting_bonus_available = starting_bonus_available
+            elif starting_bonus_available is None:
+                print("Value of 'starting_bonus_available' is None. "
+                      "Setting to True.")
+                self._starting_bonus_available = True
+            else:
+                print("ERROR: Value of 'starting_bonus_available' "
+                      "is not a boolean or float. Setting to False.")
+                self._starting_bonus_available = False
 
 
     @property
-    def starting_bonus_received(self) -> bool:
+    def starting_bonus_available(self) -> bool | float:
         """
-        Indicates if the user has received the starting bonus.
+        Indicates if they can receive a starting bonus.
         """
-        return self.load("starting_bonus_received") == "True"
+        value: str | List[int] | bool | float | None = (
+            self.load("starting_bonus_available"))
+        if isinstance(value, (bool, float)):
+            return value
+        else:
+            print("ERROR: Value of 'starting_bonus_available' "
+                  "is not a boolean or float. Setting to False.")
+            return False
     
-    @starting_bonus_received.setter
-    def starting_bonus_received(self, value: bool) -> None:
+    @starting_bonus_available.setter
+    def starting_bonus_available(self, value: bool | float) -> None:
         """
         Sets the status of the starting bonus received.
         """
-        self.save("starting_bonus_received", str(value))
+        self._starting_bonus_available = value
+        self.save("starting_bonus_available", value)
+
+    @property
+    def has_visited_casino(self) -> bool:
+        """
+        Indicates if the user has visited the casino.
+        """
+        value: str | List[int] | bool | float | None = self.load("has_visited_casino")
+        if isinstance(value, bool):
+            return value
+        else:
+            print("ERROR: Value of 'has_visited_casino' is not a boolean. "
+                  "Setting to False.")
+            return False
+
+    @has_visited_casino.setter
+    def has_visited_casino(self, value: bool) -> None:
+        """
+        Sets the status of the user's visit to the casino.
+        """
+        self._has_visited_casino = value
+        self.save("has_visited_casino", value)
 
     def create(self) -> None:
         """
@@ -1623,8 +1664,8 @@ class UserSaveData:
             self.file_name: The path to the save data file.
             self.user_name: The name of the user.
             self.user_id: The ID of the user.
-            self._starting_bonus_received: Indicates if the starting bonus
-                                             has been received.
+            self._starting_bonus_available: Indicates if the user can receive
+            free coins.
         """
         # Create missing directories and create save data file
         directories: str = self.file_name[:self.file_name.rfind("/")]
@@ -1637,13 +1678,15 @@ class UserSaveData:
                     file_contents: SaveData = {
                         "user_name": self.user_name,
                         "user_id": self.user_id,
-                        "starting_bonus_received": self._starting_bonus_received,
+                        "starting_bonus_available": (
+                            self._starting_bonus_available),
+                        "has_visited_casino": False,
                         "messages_mined": []
-                        }
+                    }
                     file_contents_json: str = json.dumps(file_contents)
                     file.write(file_contents_json)
 
-    def save(self, key: str, value: str | List[int]) -> None:
+    def save(self, key: str, value: str | List[int] | float) -> None:
         """
         Saves a key-value pair to a JSON file. If the file does not exist,
         it creates a new one.
@@ -1664,7 +1707,7 @@ class UserSaveData:
         with open(self.file_name, "w") as file:
             json.dump(save_data, file)
 
-    def load(self, key: str) -> str | List[int] | None:
+    def load(self, key: str) -> str | List[int] | bool | float | None:
         """
         Loads the value associated with the given key from a JSON file.
         Args:
@@ -1680,7 +1723,15 @@ class UserSaveData:
         with open(self.file_name, "r") as file:
             all_data = json.load(file)
         requested_value: str | List[int] | None = all_data.get(key)
-        return requested_value
+        if ((isinstance(requested_value, str)) and
+            (requested_value.lower() == "true")):
+            return True
+        elif (
+            (isinstance(requested_value, str)) and
+            (requested_value.lower() == "false")):
+            return False
+        else:
+            return requested_value
 # endregion
 
 # region Bonus die button
@@ -1786,7 +1837,7 @@ class StartingBonusView(View):
                 amount=starting_bonus,
                 method="starting_bonus"
             )
-            self.save_data.starting_bonus_received = True
+            self.save_data.starting_bonus_available = False
             last_block_timestamp: float | None = get_last_block_timestamp()
             if last_block_timestamp is None:
                 print("ERROR: Could not get last block timestamp.")
@@ -1872,10 +1923,13 @@ class SlotMachineView(View):
         self.spin_emoji_1 = PartialEmoji(name=self.spin_emoji_1_name,
                                          id=self.spin_emoji_1_id,
                                          animated=True)
-        self.message_reels_row: str = f"{self.spin_emoji_1}\t\t{self.spin_emoji_1}\t\t{self.spin_emoji_1}\n"
-        self.message: str = slot_machine.make_message(text_row_1=self.message_text_row_1,
-                                                      text_row_2=self.message_text_row_2,
-                                                      reels_row=self.message_reels_row)
+        self.message_reels_row: str = (f"{self.spin_emoji_1}\t\t"
+                                       f"{self.spin_emoji_1}\t\t"
+                                       f"{self.spin_emoji_1}\n")
+        self.message: str = (
+            slot_machine.make_message(text_row_1=self.message_text_row_1,
+                                      text_row_2=self.message_text_row_2,
+                                      reels_row=self.message_reels_row))
         self.combo_events: Dict[str, ReelSymbol] = (
             self.slot_machine.configuration["combo_events"])
         self.interaction: Interaction = interaction
@@ -2315,8 +2369,10 @@ async def process_reaction(message_id: int,
         sender_name: str = sender.name
         save_data: UserSaveData = UserSaveData(
             user_id=sender_id, user_name=sender_name)
-        message_mined_data: str | List[int] | None = save_data.load("messages_mined")
-        message_mined: List[int] = message_mined_data if isinstance(message_mined_data, list) else []
+        message_mined_data: str | List[int] | bool | float | None = (
+            save_data.load("messages_mined"))
+        message_mined: List[int] = (
+            message_mined_data if isinstance(message_mined_data, list) else [])
         if message_id in message_mined:
             return
         # Add the message ID to the list of mined messages
@@ -2544,6 +2600,16 @@ def format_coin_label(number: int) -> str:
         return coins
 # endregion
 
+# region Global variables
+coin: str = ""
+Coin: str = ""
+coins: str = ""
+Coins: str = ""
+coin_emoji_id: int = 0
+casino_house_id: int = 0
+administrator_id: int = 0
+all_channel_checkpoints: Dict[int, ChannelCheckpoints] = {}
+# endregion
 
 # region Flask
 if __name__ == "__main__":
@@ -3095,11 +3161,11 @@ async def slots(interaction: Interaction,
     if wager_int is None:
         wager_int = 1
     if wager_int < 0:
-        message = "You cannot insert a negative amount of coins."
-        await interaction.response.send_message(message, ephemeral=True)
+        message = "Thief!"
+        await interaction.response.send_message(message)
         return
     elif wager_int == 0:
-        message = "You cannot insert 0 coins."
+        message = "Insert coins to play!"
         await interaction.response.send_message(message, ephemeral=True)
         return
     # TODO Log/stat outcomes (esp. wager amounts)
@@ -3128,6 +3194,7 @@ async def slots(interaction: Interaction,
             slot_machine.configuration["combo_events"]
             ["jackpot"]["fixed_amount"])
         administrator: str = (await bot.fetch_user(administrator_id)).name
+        # FIX Fees table percentage weirdness
         help_message_1: str = (
             f"## {Coin} Slot Machine Help\n"
             f"Win big by playing the {Coin} slot machine!*\n\n"
@@ -3247,7 +3314,7 @@ async def slots(interaction: Interaction,
             f"-# RTP (stake={wager_int} {coins}): {rtp_display}")
         await interaction.response.send_message(message, ephemeral=True)
         return
-    if reboot:
+    elif reboot:
         message = slot_machine.make_message(
             f"-# The {Coin} slot machine is restarting..."
         )
@@ -3295,19 +3362,61 @@ async def slots(interaction: Interaction,
     user_name: str = user.name
     save_data: UserSaveData = (
         UserSaveData(user_id=user_id, user_name=user_name))
-    starting_bonus_received: bool = save_data.starting_bonus_received
-    if not starting_bonus_received:
+    starting_bonus_available: bool | float = save_data.starting_bonus_available
+
+    # Check balance
+    user_id_hash: str = sha256(str(user_id).encode()).hexdigest()
+    user_balance: int | None = blockchain.get_balance(user=user_id_hash)
+    if user_balance is None:
+        # Would happen if the blockchain is deleted but not the save data
+        administrator: str = (
+            (await bot.fetch_user(administrator_id)).mention)
+        message = ("This is odd. It appears you do not have an account.\n"
+                   f"{administrator} should look into this.")
+        await interaction.response.send_message(content=message)
+        del message
+        if user_id in active_slot_machine_players:
+            active_slot_machine_players.remove(user_id)
+        return
+    elif user_balance <= 0 and time() < starting_bonus_available:
+        seconds_left = int(starting_bonus_available - time())
+        time_left: str = format_timespan(seconds_left)
+        message = (f"You are out of {Coins}. Come back in {time_left} "
+                "to get some coins.")
+        await interaction.response.send_message(message, ephemeral=True)
+        del message
+        active_slot_machine_players.remove(user_id)
+        return
+    elif user_balance <= 0 and starting_bonus_available is False:
+        starting_bonus_available = True
+    
+    print(f"user_balance: {user_balance}")
+    print(f"time() < starting_bonus_available: {time() < starting_bonus_available}")
+    should_give_bonus: bool = (
+        (starting_bonus_available == True) or
+        ((isinstance(starting_bonus_available, float)) and
+         (time() >= starting_bonus_available)))
+    if should_give_bonus:
         # Send message to inform user of starting bonus
         starting_bonus_awards: Dict[int, int] = {
             1: 50, 2: 100, 3: 200, 4: 300, 5: 400, 6: 500}
         starting_bonus_table: str = "> **Die roll**\t**Amount**\n"
         for die_roll, amount in starting_bonus_awards.items():
             starting_bonus_table += f"> {die_roll}\t\t\t\t{amount}\n"
-        # TODO Divide into separate messages
-        message: str = (f"Welcome to the {Coin} Casino! This seems to be your "
-                        "first time here.\n"
-                        "A standard 6-sided die will decide your starting "
-                        "bonus.\n"
+        has_played_before: bool = save_data.has_visited_casino
+        print(f"has_played_before: {has_played_before}")
+        message_preamble: str
+        if has_played_before:
+            message_preamble = (f"Welcome back! You spent all your {coins} "
+                                "and we want to give you another chance.\n"
+                                f"Roll the die and we will give you a bonus.")
+        else:
+            message_preamble = (f"Welcome to the {Coin} Casino! This seems "
+                              "to be your first time here.\n"
+                              "A standard 6-sided die will decide your "
+                              "starting bonus.")
+        # TODO Move the table to a separate message
+        message: str = (f"{message_preamble}\n"
                         "The possible outcomes are displayed below.\n\n"
                         f"{starting_bonus_table}")
 
@@ -3320,35 +3429,12 @@ async def slots(interaction: Interaction,
         await interaction.response.send_message(content=message,
                                                 view=starting_bonus_view)
         await starting_bonus_view.wait()
+        save_data.has_visited_casino = True
         if user_id in active_slot_machine_players:
             active_slot_machine_players.remove(user_id)
         return
-    # else:
-    #     print("Starting bonus already received.")
-
-    administrator: str = (
-        (await bot.fetch_user(administrator_id)).mention)
-
-    # Check balance
-    user_id_hash: str = sha256(str(user_id).encode()).hexdigest()
-    user_balance: int | None = blockchain.get_balance(user=user_id_hash)
-    if user_balance is None:
-        # Would happen if the blockchain is deleted but not the save data
-        message = ("This is odd. It appears you do not have an account.\n"
-                   f"{administrator} should look into this.")
-        await interaction.response.send_message(content=message)
-        del message
-        if user_id in active_slot_machine_players:
-            active_slot_machine_players.remove(user_id)
-        return
-    elif user_balance == 0:
-        message = (f"You're all out of {coins}!\n")
-        await interaction.response.send_message(content=message)
-        del message
-        if user_id in active_slot_machine_players:
-            active_slot_machine_players.remove(user_id)
-        return
-    elif user_balance < wager_int:
+    
+    if user_balance < wager_int:
         coin_label_w: str = format_coin_label(wager_int)
         coin_label_b: str = format_coin_label(user_balance)
         message = (f"You do not have enough {coins} "
@@ -3659,6 +3745,22 @@ async def slots(interaction: Interaction,
     log.log(line=log_line, timestamp=log_timestamp)
     del log_timestamp
     del log_line
+
+    coins_left: int = user_balance + net_return
+    if coins_left <= 0 and starting_bonus_available is False:
+        next_bonus_time_left: str = format_timespan(
+            slot_machine.next_bonus_wait_seconds) 
+        invoker: str = user.mention
+        message: str = (f"{invoker} You're all out of {coins}!\n"
+                        f"Come back in {next_bonus_time_left} "
+                        "for a new starting bonus.")
+        del next_bonus_time_left
+        await interaction.followup.send(content=message, ephemeral=private_room)
+        del message
+        next_bonus_point_in_time: float = (
+            time() + slot_machine.next_bonus_wait_seconds)
+        save_data.starting_bonus_available = next_bonus_point_in_time
+        del next_bonus_point_in_time
 
     if user_id in active_slot_machine_players:
         active_slot_machine_players.remove(user_id)
