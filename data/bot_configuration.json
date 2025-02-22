@@ -3,7 +3,7 @@
     "Coin": "Coin",
     "coins": "coins",
     "Coins": "Coins",
-    "COIN_EMOJI_ID": "0",
-    "CASINO_HOUSE_ID": "0",
-    "ADMINISTRATOR_ID": "0"
+    "coin_emoji_id": "0",
+    "casino_house_id": "0",
+    "administrator_id": "0"
 }
