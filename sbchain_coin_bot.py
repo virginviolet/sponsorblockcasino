@@ -2842,7 +2842,7 @@ async def reels(interaction: Interaction,
                 remove_symbol: str | None = None,
                 amount: int | None = None,
                 reel: str | None = None,
-                close_off: bool = False,
+                close_off: bool = True,
                 inspect: bool | None = None) -> None:
     """
     Design the slot machine reels by adding and removing symbols.
