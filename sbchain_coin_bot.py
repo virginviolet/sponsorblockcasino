@@ -32,6 +32,15 @@ from sbchain_coin_bot_types import (BotConfig, Reels, ReelSymbol,
                                               SaveData)
 # endregion
 
+# region Global variables
+coin: str = ""
+Coin: str = ""
+coins: str = ""
+Coins: str = ""
+coin_emoji_id: int = 0
+casino_house_id: int = 0
+administrator_id: int = 0
+# endregion
 
 # region Bot setup
 intents: Intents = Intents.default()
@@ -270,6 +279,8 @@ class Log:
             time_zone: The time zone to be used for logging. If None, the
                         local time zone is used. Defaults to None.
         """
+
+        print("Initializing log...")
         self.file_name: str = file_name
         self.time_zone: str | None = time_zone
         timestamp: float = time()
@@ -277,6 +288,7 @@ class Log:
             self.log(f"The time zone is set to '{time_zone}'.", timestamp)
         else:
             self.log("The time zone is set to the local time zone.", timestamp)
+        print("Log initialized.")
 
     def create(self) -> None:
         """
@@ -376,26 +388,28 @@ class BotConfiguration:
             If `administrator_id` is 0, a warning is printed indicating
                 that ADMINISTRATOR_ID is not set.
         """
+        print("Initializing bot configuration...")
         self.file_name: str = file_name
         self.configuration: BotConfig = (
             self.read())
-        self.coin: str = str(self.configuration["coin"])
-        self.Coin: str = str(self.configuration["Coin"])
-        self.coins: str = str(self.configuration["coins"])
-        self.Coins: str = str(self.configuration["Coins"])
-        self.coin_emoji_id: int = int(str(self.configuration["COIN_EMOJI_ID"]))
+        self.coin = str(self.configuration["coin"])
+        self.Coin = str(self.configuration["Coin"])
+        self.coins = str(self.configuration["coins"])
+        self.Coins = str(self.configuration["Coins"])
+        self.coin_emoji_id: int = int(str(self.configuration["coin_emoji_id"]))
         if self.coin_emoji_id == 0:
-            print("WARNING: COIN_EMOJI_ID has not set "
+            print("WARNING: `coin_emoji_id` has not set "
                   "in bot_configuration.json nor "
                   "in the environment variables.")
         self.administrator_id: int = int(
-            str(self.configuration["ADMINISTRATOR_ID"]))
+            str(self.configuration["administrator_id"]))
         self.casino_house_id: int = int(
-            str(self.configuration["CASINO_HOUSE_ID"]))
+            str(self.configuration["casino_house_id"]))
         if self.administrator_id == 0:
-            print("WARNING: ADMINISTRATOR_ID has not set "
-                  "in bot_configuration.json nor "
+            print("WARNING: `administrator_id` has not been set "
+                  f"in '{self.file_name}' nor "
                   "in the environment variables.")
+        print(f"Bot configuration initialized.")
 
     def create(self) -> None:
         """
@@ -410,9 +424,9 @@ class BotConfiguration:
         - coins: Plural form of the default coin name in lowercase.
         - Coins: Plural form of the default coin name with the first
                     letter capitalized.
-        - COIN_EMOJI_ID: Placeholder for the emoji ID of the coin.
-        - CASINO_HOUSE_ID: Placeholder for the ID of the casino house.
-        - ADMINISTRATOR_ID: Placeholder for the ID of the bot administrator.
+        - coin_emoji_id: Placeholder for the emoji ID of the coin.
+        - casino_house_id: Placeholder for the ID of the casino house.
+        - administrator_id: Placeholder for the ID of the bot administrator.
         Raises:
             OSError: If there is an error creating directories or writing
                         the configuration file.
@@ -430,9 +444,9 @@ class BotConfiguration:
             "Coin": "Coin",
             "coins": "coins",
             "Coins": "Coins",
-            "COIN_EMOJI_ID": "0",
-            "CASINO_HOUSE_ID": "0",
-            "ADMINISTRATOR_ID": "0"
+            "coin_emoji_id": "0",
+            "casino_house_id": "0",
+            "administrator_id": "0"
         }
         # Save the configuration to the file
         with open(self.file_name, "w") as file:
@@ -454,20 +468,24 @@ class BotConfiguration:
             configuration: BotConfig = (
                 json.loads(file.read()))
             # Override the configuration with environment variables
+            # IMPROVE Can we use a TypedDict for env_vars?
             env_vars: Dict[str, str] = {
                 "coin": "coin",
                 "Coin": "Coin",
                 "coins": "coins",
                 "Coins": "Coins",
-                "COIN_EMOJI_ID": "COIN_EMOJI_ID",
-                "CASINO_HOUSE_ID": "CASINO_HOUSE_ID",
-                "ADMINISTRATOR_ID": "ADMINISTRATOR_ID"
+                "coin_emoji_id": "coin_emoji_id",
+                "casino_house_id": "casino_house_id",
+                "administrator_id": "administrator_id"
             }
             # TODO Add reels env vars
 
             for env_var, config_key in env_vars.items():
                 if os_environ.get(env_var):
                     configuration[config_key] = os_environ.get(env_var, "")
+                    print(f"NOTE: {config_key} overridden by "
+                          "environment variable "
+                          f"to {configuration[config_key]}.")
 
             return configuration
 
@@ -554,6 +572,7 @@ class SlotMachine:
             _jackpot: The current jackpot amount
             _fees: The fees associated with the slot machine
         """
+        print("Starting the slot machines...")
         self.file_name: str = file_name
         self.configuration: SlotMachineConfig = (
             self.load_config())
@@ -565,6 +584,7 @@ class SlotMachine:
         self._jackpot: int = self.load_jackpot()
         self._fees: dict[str, int | float] = self.configuration["fees"]
         self.header: str = f"### {Coin} Slot Machine"
+        print("Slot machines started.")
 
     def load_reels(self) -> Reels:
         """
@@ -2071,6 +2091,36 @@ def start_flask_app() -> None:
         print(f"Error running Flask app: {e}")
 # endregion
 
+# region Config
+
+
+def invoke_bot_configuration() -> None:
+    """
+    Updates the global config variables.
+    This is necessary because I need to be able to update the config with
+    a slash command.
+    """
+    print("Loading bot configuration...")
+    global configuration, coin, Coin, coins, Coins, coin_emoji_id
+    global casino_house_id, administrator_id, slot_machine
+    configuration = BotConfiguration()
+    coin = configuration.coin
+    Coin = configuration.Coin
+    coins = configuration.coins
+    Coins = configuration.Coins
+    coin_emoji_id = configuration.coin_emoji_id
+    casino_house_id = configuration.casino_house_id
+    administrator_id = configuration.administrator_id
+    print("Bot configuration loaded.")
+
+def reinitialize_slot_machine() -> None:
+    """
+    Initializes the slot machine.
+    """
+    global slot_machine
+    slot_machine = SlotMachine()
+# endregion
+
 # region CP start
 
 
@@ -2500,30 +2550,12 @@ if __name__ == "__main__":
 # region Init
 print("Starting bot...")
 
-print("Loading bot configuration...")
-global configuration
-global coin
-global Coin
-global coins
-global Coins
-global coin_emoji_id
-global casino_house_id
-global administrator_id
-global slot_machine
-configuration = BotConfiguration()
-coin: str = configuration.coin
-Coin: str = configuration.Coin
-coins: str = configuration.coins
-Coins: str = configuration.Coins
-coin_emoji_id: int = configuration.coin_emoji_id
-casino_house_id: int = configuration.casino_house_id
-administrator_id: int = configuration.administrator_id
-slot_machine = SlotMachine()
-print("Bot configuration loaded.")
+invoke_bot_configuration()
 
-print("Initializing log...")
+slot_machine = SlotMachine()
+reinitialize_slot_machine()
+
 log = Log(time_zone="Canada/Central")
-print("Log initialized.")
 
 
 @bot.event
@@ -3039,15 +3071,6 @@ async def slots(interaction: Interaction,
     # TODO Add TOS parameter
     # TODO Add service parameter
     # IMPROVE Make incompatible parameters not selectable together
-    global configuration
-    global coin
-    global Coin
-    global coins
-    global Coins
-    global coin_emoji_id
-    global casino_house_id
-    global administrator_id
-    global slot_machine
     wager_int: int | None = insert_coins
     if wager_int is None:
         wager_int = 1
@@ -3212,18 +3235,10 @@ async def slots(interaction: Interaction,
                                                 ephemeral=private_room)
         del message
         await asyncio.sleep(4)
-        # Reload config from file
-        slot_machine.configuration = slot_machine.load_config()
-        # TODO Replace with clean implementation
-        configuration = BotConfiguration()
-        coin = configuration.coin
-        Coin = configuration.Coin
-        coins = configuration.coins
-        Coins = configuration.Coins
-        coin_emoji_id = configuration.coin_emoji_id
-        casino_house_id = configuration.casino_house_id
-        administrator_id = configuration.administrator_id
-        slot_machine = SlotMachine()
+        # Re-initialize slot machine (reloads configuration from file)
+        reinitialize_slot_machine()
+        # Also update the bot configuration
+        invoke_bot_configuration()
         await asyncio.sleep(4)
         # Remove user from active players
         if user_id in active_slot_machine_players:

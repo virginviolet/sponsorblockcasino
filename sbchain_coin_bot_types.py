@@ -7,9 +7,9 @@ class BotConfig(TypedDict):
     Coin: str
     coins: str
     Coins: str
-    COIN_EMOJI_ID: str
-    CASINO_HOUSE_ID: str
-    ADMINISTRATOR_ID: str
+    coin_emoji_id: str
+    casino_house_id: str
+    administrator_id: str
 
 
 class Reels(TypedDict):
