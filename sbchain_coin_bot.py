@@ -2877,8 +2877,7 @@ async def balance(interaction: Interaction,
     balance: int | None = blockchain.get_balance(user=user_id_hash)
     message: str
     if balance is None:
-        message = f"{user_to_check} ({user_id}) has 0 " f"{coins}."
-        print(message)
+        message = f"{user_to_check} has 0 " f"{coins}."
         await interaction.response.send_message(message, ephemeral=incognito)
         del message
     else:
