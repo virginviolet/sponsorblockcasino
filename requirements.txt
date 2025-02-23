@@ -5,3 +5,4 @@ discord.py
 python-dotenv
 sympy
 pandas
+humanfriendly
