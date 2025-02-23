@@ -2875,19 +2875,21 @@ async def balance(interaction: Interaction,
     # print(f"Getting balance for user {user_to_check} ({user_id})...")
     user_id_hash: str = sha256(str(user_id).encode()).hexdigest()
     balance: int | None = blockchain.get_balance(user=user_id_hash)
-    message: str
-    if balance is None:
+    message: str = ""
+    if balance is None and user is None:
+        message = f"You have 0 {coins}."
+    elif balance is None:
         message = f"{user_to_check} has 0 " f"{coins}."
-        await interaction.response.send_message(message, ephemeral=incognito)
-        del message
+    elif user is None:
+        coin_label: str = format_coin_label(balance)
+        message = f"You have {balance} {coin_label}."
     else:
         coin_label: str = format_coin_label(balance)
         message = f"{user_to_check} has {balance} {coin_label}."
-        await interaction.response.send_message(message, ephemeral=incognito)
-        del coin_label
-        del message
+    await interaction.response.send_message(message, ephemeral=incognito)
     del user_id
     del balance
+    del message
 # endregion
 
 # region /reels
