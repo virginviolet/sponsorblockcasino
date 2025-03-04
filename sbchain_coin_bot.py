@@ -3123,7 +3123,10 @@ async def transfer_coins(sender: Member | User,
     if interaction:
         auto_approve_transfer_limit: int = (
             configuration.auto_approve_transfer_limit)
-        if amount > auto_approve_transfer_limit:
+        if ((amount > auto_approve_transfer_limit) and
+            (sender_id != grifter_swap_id) and
+            (receiver_id != grifter_swap_id)):
+            # GrifterSwap 
             print(f"Transfer amount exceeds auto-approval limit of "
                   f"{auto_approve_transfer_limit}.")
             receiver_mention: str = receiver.mention
