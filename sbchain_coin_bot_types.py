@@ -1,5 +1,5 @@
 from discord import PartialEmoji
-from typing import Dict, TypedDict, List
+from typing import Dict, TypedDict, List, TypeVar
 
 
 class BotConfig(TypedDict):
@@ -83,3 +83,6 @@ class TransactionRequest(TypedDict):
     channel_id: int
     message_id: int
     purpose: str
+
+
+T = TypeVar('T')

@@ -49,7 +49,7 @@ from typing import (Dict, KeysView, List, LiteralString, NoReturn, TextIO, cast,
 from sbchain_coin_bot_types import (BotConfig, Reels, ReelSymbol,
                                     ReelResult, ReelResults,
                                     SpinEmojis, SlotMachineConfig,
-                                    SaveData, TransactionRequest)
+                                    SaveData, TransactionRequest, T)
 # endregion
 
 # region Bot setup
@@ -1649,52 +1649,77 @@ class UserSaveData:
         self._reaction_message_received: bool
         self._when_last_bonus_received: float | None
         self._mining_messages_enabled: bool
+        self._blocked_from_receiving_coins: bool
+        self._blocked_from_receiving_coins_reason: str | None
         if not exists(self.file_name):
             self._has_visited_casino = False
             self._starting_bonus_available = True
             self._when_last_bonus_received = None
             self._reaction_message_received = False
             self._mining_messages_enabled = True
+            self._blocked_from_receiving_coins = False
+            self._blocked_from_receiving_coins_reason = None
             self.create()
         else:
-            self._has_visited_casino = self._load_has_visited_casino()
-            self._starting_bonus_available = (
-                self._load_starting_bonus_available())
-            self._when_last_bonus_received = (
-                self._load_when_last_bonus_received())
-            self._reaction_message_received = (
-                self._load_reaction_message_received())
-            self._mining_messages_enabled = (
-                self._load_mining_messages_enabled()
-            )
+            self._load_all_properties()
         # print("Save data initialized.")
 
-    def _load_has_visited_casino(self) -> bool:
+    def _load_all_properties(self) -> None:
         """
-        Loads the casino visit status from the JSON file.
+        Load all properties from the disk.
         """
-        value: str | List[int] | bool | float | None = (
-            self.load("has_visited_casino"))
-        return_value: bool
-        if isinstance(value, bool):
-            return value
-        elif value is None:
-            return_value = False
-            print("Value of 'has_visited_casino' is None. "
-                  f"Setting to {return_value}.")
-            return return_value
-        else:
-            return_value = False
-            print("ERROR: Value of 'has_visited_casino' is not a boolean. "
-                  f"Setting to {return_value}.")
-            return return_value
+        self._has_visited_casino = self._load_value(
+                key="has_visited_casino",
+                expected_type=bool, default=False)
+        self._starting_bonus_available = self._load_value(
+                key="starting_bonus_available",
+                expected_type=(bool, float), default=True)
+        self._when_last_bonus_received = self._load_value(
+                key="when_last_bonus_received",
+                expected_type=(float, type(None)), default=None)
+        self._reaction_message_received = self._load_value(
+                key="reaction_message_received",
+                expected_type=bool, default=False)
+        self._mining_messages_enabled = self._load_value(
+                key="mining_messages_enabled",
+                expected_type=bool, default=True)
+        
+    def _load_value(self,
+                    key: str,
+                    expected_type: type[T] | tuple[type, ...],
+                    default: T) -> T:
+        """
+        Load a value from the disk.
+        """
 
+        value: str | List[int] | bool | float | None = self.load(key)
+        print(f"-- Value of '{key}': {value}")
+        print(f"Expected type: {expected_type}")
+        print(f"Found type: {type(value)}")
+        print(f"Default value: {default}")
+        if isinstance(value, expected_type):
+            print(f"returning value: {value}")
+            return cast(T, value)
+        else:
+            found_type = type(value)
+            found_type_name: str = found_type.__name__
+            if isinstance(expected_type, tuple):
+                expected_type_name: str = (
+                    ', '.join(t.__name__ for t in expected_type))
+            else:
+                expected_type_name: str = expected_type.__name__
+            print(f"ERROR: Value of '{key}' ('{value}') does not match "
+                  f"the expected type. Found '{found_type_name}', expected "
+                  f"'{expected_type_name}'. "
+                  f"Setting to default value {default}.")
+            return default
+        
     @property
     def has_visited_casino(self) -> bool:
         """
         Indicates if the user has visited the casino.
         """
-        return self._load_has_visited_casino()
+        return self._has_visited_casino
 
     @has_visited_casino.setter
     def has_visited_casino(self, value: bool) -> None:
@@ -1704,30 +1729,12 @@ class UserSaveData:
         self._has_visited_casino = value
         self.save("has_visited_casino", value)
 
-    def _load_starting_bonus_available(self) -> bool | float:
-        """
-        Loads the starting bonus availability status from the JSON file.
-        """
-        value: str | List[int] | bool | float | None = (
-            self.load("starting_bonus_available"))
-        if isinstance(value, (bool, float)):
-            return value
-        elif value is None:
-            # Occurs if the key is missing, I think.
-            print("Value of 'starting_bonus_available' is None. "
-                  "Setting to True.")
-            return True
-        else:
-            print("ERROR: Value of 'starting_bonus_available' "
-                  "is not a boolean or float. Setting to False.")
-            return False
-
     @property
     def starting_bonus_available(self) -> bool | float:
         """
         Indicates if they can receive a starting bonus.
         """
-        return self._load_starting_bonus_available()
+        return self._starting_bonus_available
 
     @starting_bonus_available.setter
     def starting_bonus_available(self, value: bool | float) -> None:
@@ -1737,28 +1744,12 @@ class UserSaveData:
         self._starting_bonus_available = value
         self.save("starting_bonus_available", value)
 
-    def _load_when_last_bonus_received(self) -> float | None:
-        """
-        Loads the last bonus received timestamp from the JSON file.
-        """
-        value: str | List[int] | bool | float | None = (
-            self.load("when_last_bonus_received"))
-        if isinstance(value, float):
-            return value
-        elif value is None:
-            return None
-        else:
-            return_value = None
-            print("ERROR: Value of 'when_last_bonus_received' is neither None "
-                  f"nor a float. Setting to {return_value}.")
-            return return_value
-
     @property
     def when_last_bonus_received(self) -> float | None:
         """
         Indicates when the user last received a bonus.
         """
-        return self._load_when_last_bonus_received()
+        return self._when_last_bonus_received
 
     @when_last_bonus_received.setter
     def when_last_bonus_received(self, value: float) -> None:
@@ -1768,32 +1759,12 @@ class UserSaveData:
         self._when_last_bonus_received = value
         self.save("when_last_bonus_received", value)
 
-    def _load_reaction_message_received(self) -> bool:
-        """
-        Loads the reaction message status from the JSON file.
-        """
-        value: str | List[int] | bool | float | None = (
-            self.load("reaction_message_received"))
-        return_value: bool
-        if isinstance(value, bool):
-            return value
-        elif value is None:
-            return_value = False
-            print("Value of 'reaction_message_received' is None. "
-                  f"Setting to {return_value}.")
-            return return_value
-        else:
-            return_value = True
-            print("ERROR: Value of 'reaction_message_received' "
-                  f"is not a boolean. Setting to {return_value}.")
-            return return_value
-
     @property
     def reaction_message_received(self) -> bool:
         """
         Indicates if the user has received the reaction message.
         """
-        return self._load_reaction_message_received()
+        return self._reaction_message_received
 
     @reaction_message_received.setter
     def reaction_message_received(self, value: bool) -> None:
@@ -1803,32 +1774,12 @@ class UserSaveData:
         self._reaction_message_received = value
         self.save("reaction_message_received", value)
 
-    def _load_mining_messages_enabled(self) -> bool:
-        """
-        Loads the mining messages preference from the JSON file.
-        """
-        value: str | List[int] | bool | float | None = (
-            self.load("mining_messages_enabled"))
-        return_value: bool
-        if isinstance(value, bool):
-            return value
-        elif value is None:
-            return_value = True
-            print("Value of 'mining_messages_enabled' is None. "
-                  f"Setting to {return_value}.")
-            return return_value
-        else:
-            return_value = True
-            print("ERROR: Value of 'mining_messages_enabled' "
-                  f"is not a boolean. Setting to {return_value}.")
-            return return_value
-
     @property
     def mining_messages_enabled(self) -> bool:
         """
         Indicates if the user has enabled mining messages.
         """
-        return self._load_mining_messages_enabled()
+        return self._mining_messages_enabled
 
     @mining_messages_enabled.setter
     def mining_messages_enabled(self, value: bool) -> None:
@@ -2133,7 +2084,7 @@ class GrifterSuppliers:
             json.dump({"suppliers": self.suppliers}, file)
 # endregion
 
-# region TransfersWaitingApproval
+# region Transfers waiting
 
 
 class TransfersWaitingApproval:
@@ -3126,7 +3077,8 @@ async def transfer_coins(sender: Member | User,
         if ((amount > auto_approve_transfer_limit) and
             (sender_id != grifter_swap_id) and
             (receiver_id != grifter_swap_id)):
-            # GrifterSwap 
+            # Unhindered transfers between GrifterSwap (abuse is mitigated by
+            # the GrifterSwap supplier check in the /slots command)
             print(f"Transfer amount exceeds auto-approval limit of "
                   f"{auto_approve_transfer_limit}.")
             receiver_mention: str = receiver.mention
@@ -4191,12 +4143,12 @@ async def slots(interaction: Interaction,
         is_grifter_supplier = grifter_supplier_check()
         if is_grifter_supplier:
             message: str = (
-                f"Welcome back! We give free coins to customers who do not have "
-                "any. However, we request that you first delete your GrifterSwap "
-                "account.\n"
+                f"Welcome back! We give free coins to customers who do not "
+                "have any. However, we request that you first delete "
+                "your GrifterSwap account.\n"
                 "Here's how you can do it:\n"
-                "See your GrifterSwap balance with `!balance`, withdraw all your "
-                "coins with \n"
+                "See your GrifterSwap balance with `!balance`, withdraw all "
+                "your coins with \n"
                 "`!withdraw <currency> <amount>`, and then use `!suppliers` to "
                 "prove you're no longer a supplier.")
             # Check if the user has coins in GrifterSwap
