@@ -4808,7 +4808,7 @@ async def aml(interaction: Interaction,
         return
     elif block_user_from_receivals or unblock_user_from_receivals:
         user_to_affect: User | Member
-        action = "block" if block_user_from_receivals else "unblocked"
+        action = "blocked" if block_user_from_receivals else "unblocked"
         blocked_value: bool
         if block_user_from_receivals:
             user_to_affect = block_user_from_receivals
