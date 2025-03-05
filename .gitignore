@@ -4,6 +4,7 @@ data/transactions.tsv
 data/blockchain.json
 data/transactions.log
 data/slot_machine.json
+data/transfers_waiting_approval.json
 
 data/checkpoints/
 data/save_data/
