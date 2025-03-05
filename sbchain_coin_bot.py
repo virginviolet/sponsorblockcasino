@@ -2737,10 +2737,10 @@ async def process_missed_messages(limit: int | None = None) -> None:
                         receiver: User | Member
                         for reaction in message.reactions:
                             async for user in reaction.users():
-                                print("Reaction found: "
-                                      f"{reaction.emoji}: {user}.")
-                                print(f"Message ID: {message_id}.")
-                                print(f"{message.author}: {message.content}")
+                                # print("Reaction found: "
+                                #       f"{reaction.emoji}: {user}.")
+                                # print(f"Message ID: {message_id}.")
+                                # print(f"{message.author}: {message.content}")
                                 sender = user
                                 receiver = message.author
                                 emoji: PartialEmoji | Emoji | str = (
