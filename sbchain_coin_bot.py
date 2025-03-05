@@ -2714,37 +2714,45 @@ async def process_missed_messages(limit: int | None = None) -> None:
             fresh_last_message_id: int | None = None
             checkpoint_reached: bool = False
             # Fetch messages from the channel (reverse chronological order)
-            async for message in channel.history(limit=limit):
-                message_id: int = message.id
-                if new_channel_messages_found == 0:
-                    # The first message found will be the last message sent
-                    # This will be used as the checkpoint
-                    fresh_last_message_id = message_id
-                # print(f"{message.author}: {message.content} ({message_id}).")
-                if channel_checkpoints is not None:
-                    for checkpoint in channel_checkpoints:
-                        if message_id == checkpoint["last_message_id"]:
-                            print("Channel checkpoint reached.")
-                            checkpoint_reached = True
+            try:
+                async for message in channel.history(limit=limit):
+                    message_id: int = message.id
+                    if new_channel_messages_found == 0:
+                        # The first message found will be the last message sent
+                        # This will be used as the checkpoint
+                        fresh_last_message_id = message_id
+                    print(f"{message.author}: "
+                          f"{message.content} ({message_id}).")
+                    if channel_checkpoints is not None:
+                        for checkpoint in channel_checkpoints:
+                            if message_id == checkpoint["last_message_id"]:
+                                print("Channel checkpoint reached.")
+                                checkpoint_reached = True
+                                break
+                        if checkpoint_reached:
                             break
-                    if checkpoint_reached:
-                        break
-                    new_channel_messages_found += 1
-                    sender: Member | User
-                    receiver: User | Member
-                    for reaction in message.reactions:
-                        async for user in reaction.users():
-                            # print(f"Reaction found: {reaction.emoji}: {user}.")
-                            # print(f"Message ID: {message_id}.")
-                            # print(f"{message.author}: {message.content}")
-                            sender = user
-                            receiver = message.author
-                            emoji: PartialEmoji | Emoji | str = reaction.emoji
-                            await process_reaction(message_id=message_id,
-                                                   emoji=emoji,
-                                                   sender=sender,
-                                                   receiver=receiver,)
-                del message_id
+                        new_channel_messages_found += 1
+                        sender: Member | User
+                        receiver: User | Member
+                        for reaction in message.reactions:
+                            async for user in reaction.users():
+                                # print("Reaction found: "
+                                #       f"{reaction.emoji}: {user}.")
+                                # print(f"Message ID: {message_id}.")
+                                # print(f"{message.author}: {message.content}")
+                                sender = user
+                                receiver = message.author
+                                emoji: PartialEmoji | Emoji | str = (
+                                    reaction.emoji)
+                                await process_reaction(message_id=message_id,
+                                                       emoji=emoji,
+                                                       sender=sender,
+                                                       receiver=receiver,)
+                    del message_id
+            except Exception as e:
+                channel_name: str = channel.name
+                print("ERROR: Error fetching messages "
+                      f"from channel {channel_name} ({channel.id}): {e}")
             print("Messages from "
                   f"channel {channel.name} ({channel.id}) fetched.")
             if fresh_last_message_id is None:
