@@ -5,7 +5,7 @@ import time
 import os
 import json
 import pandas as pd
-import sbchain_extension_coin_bot
+import blockchain.extensions.sbchain_extension_coin_bot as sbchain_extension_coin_bot
 from flask import Flask, request, jsonify, Response, send_file
 from dotenv import load_dotenv
 from sys import exit as sys_exit
