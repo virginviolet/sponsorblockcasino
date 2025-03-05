@@ -11,7 +11,7 @@ try {
     $transaction = @{
         sender = $from
         receiver = $to
-        amount = 1
+        amount = $amount
         method = "manual"
     }
     Write-Host "Server URL: $Env:SERVER_URL"
