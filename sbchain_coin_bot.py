@@ -2889,7 +2889,7 @@ async def process_reaction(message_id: int,
         mining_messages_enabled: bool = save_data.mining_messages_enabled
         if about_command_mention is None:
             error_message = ("ERROR: `about_command_mention` is None. This "
-                            "usually means that the commands have not been ")
+                             "usually means that the commands have not been ")
             raise ValueError(error_message)
         if not mining_messages_enabled:
             return
@@ -3100,8 +3100,8 @@ async def transfer_coins(sender: Member | User,
     except Exception as e:
         administrator: str = (await bot.fetch_user(administrator_id)).mention
         await send_message(f"Error getting balance. {administrator} pls fix.")
-        error_message: str = ("ERROR: "
-              f"Error getting balance for user {sender} ({sender_id}): {e}")
+        error_message: str = ("ERROR: Error getting balance "
+                              f"for user {sender} ({sender_id}): {e}")
         raise Exception(error_message)
     if balance is None:
         print(f"Balance is None for user {sender} ({sender_id}).")
@@ -4730,11 +4730,13 @@ async def slots(interaction: Interaction,
 @app_commands.describe(disable_reaction_messages="Stop the bot from messaging "
                        "new players when you mine their messages")
 @app_commands.describe(stats="Show your mining stats")
+@app_commands.describe(user="User to display mining stats for")
 @app_commands.describe(incognito="Set whether the output of this command "
                        "should be visible only to you")
 async def mining(interaction: Interaction,
                  disable_reaction_messages: bool | None = None,
                  stats: bool | None = None,
+                 user: User | Member | None = None,
                  incognito: bool | None = None) -> None:
     """
     Command to configure mining settings.
@@ -4744,14 +4746,30 @@ async def mining(interaction: Interaction,
                                 command invocation.
     disable_reaction_messages -- Disable reaction messages
     """
-    user: User | Member = interaction.user
-    user_id: int = user.id
-    user_name: str = user.name
-    save_data: UserSaveData = UserSaveData(user_id=user_id,
-                                           user_name=user_name)
-    save_data.mining_messages_enabled = not disable_reaction_messages
     should_use_ephemeral: bool
+    invoker: User | Member = interaction.user
+    if ((disable_reaction_messages is not None) and
+        (user is not None) and
+            (user != invoker)):
+        message_content: str = ("You cannot set the mining settings for "
+                                "someone else.")
+        await interaction.response.send_message(
+            message_content, ephemeral=True)
+        del message_content
+        return
+    if (disable_reaction_messages is not None) and (stats is not None):
+        message_content: str = ("You cannot set the mining settings and "
+                                "view stats at the same time.")
+        await interaction.response.send_message(
+            message_content, ephemeral=True)
+        return
     if disable_reaction_messages is not None:
+        invoker_id: int = invoker.id
+        invoker_name: str = invoker.name
+        save_data: UserSaveData = UserSaveData(user_id=invoker_id,
+                                               user_name=invoker_name)
+        save_data.mining_messages_enabled = not disable_reaction_messages
+        del save_data
         message_content: str
         if disable_reaction_messages is True:
             message_content = ("I will no longer message new players "
@@ -4767,30 +4785,71 @@ async def mining(interaction: Interaction,
         await interaction.response.send_message(
             message_content, ephemeral=should_use_ephemeral)
         del message_content
+        return
     elif stats:
+        user_to_check: User | Member
+        user_parameter_used: bool = user is not None
+        if user_parameter_used:
+            user_to_check = user
+        else:
+            invoker: User | Member = interaction.user
+            user_to_check = invoker
+        user_to_check_id: int = user_to_check.id
+        user_to_check_name: str = user_to_check.name
+        user_to_check_mention: str = user_to_check.mention
+        save_data: UserSaveData = UserSaveData(user_id=user_to_check_id,
+                                               user_name=user_to_check_name)
         messages_mined: List[int] = (
             cast(List[int], save_data.load("messages_mined")))
         messages_mined_count: int = len(messages_mined)
         message_content: str
-        if messages_mined_count == 0:
-            coin_emoji = PartialEmoji(name=coin_emoji_name, id=coin_emoji_id)
+        coin_emoji = PartialEmoji(
+            name=coin_emoji_name, id=coin_emoji_id)
+        coin_label: str = format_coin_label(messages_mined_count)
+        if messages_mined_count == 0 and user_parameter_used:
+            message_content = (
+                f"{user_to_check_mention} has not mined any {coins} yet.")
+        elif messages_mined_count == 0:
             message_content = (f"You have not mined any {coins} yet. "
                                f"To mine a {coins} for someone, "
                                f"react {coin_emoji} to their message.")
+        elif user_parameter_used:
+            message_content = (
+                f"{user_to_check_mention} has mined {messages_mined_count} "
+                f"{coin_label} for others.")
         else:
-            message_content = (f"You have mined {messages_mined_count} {coins} "
-                               "for others. Keep up the good work!")
+            message_content = (
+                f"You have mined {messages_mined_count} {coin_label} "
+                "for others. Keep up the good work!")
         if incognito is True:
             should_use_ephemeral = True
         else:
             should_use_ephemeral = False
         await interaction.response.send_message(
-            message_content, ephemeral=should_use_ephemeral)
+            message_content, ephemeral=should_use_ephemeral,
+            allowed_mentions=AllowedMentions.none())
+        del message_content
+        return
+    elif user:
+        message_content: str = ("The `user` parameter is meant to be used "
+                                "with the `stats` parameter.")
+        await interaction.response.send_message(
+            message_content, ephemeral=True)
+        del message_content
+        return
+    elif incognito:
+        message_content: str = ("The `incognito` parameter is meant to be used "
+                                "with the `stats` "
+                                "or `disable_reaction_messages` parameter.")
+        await interaction.response.send_message(
+            message_content, ephemeral=True)
+        return
     else:
         message_content: str = (
             "You must provide a parameter to this command.")
         await interaction.response.send_message(message_content, ephemeral=True)
         del message_content
+        return
 
 # endregion
 
