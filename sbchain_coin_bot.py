@@ -2674,7 +2674,7 @@ def start_checkpoints(limit: int = 10) -> Dict[int, ChannelCheckpoints]:
 # region Missed msgs
 
 
-async def process_missed_messages() -> None:
+async def process_missed_messages(limit: int | None = None) -> None:
     """
     This function iterates through all guilds and their text channels to fetch
     messages that were sent while the bot was offline. It processes reactions to
@@ -2685,8 +2685,12 @@ async def process_missed_messages() -> None:
     (i.e. older than the last message sent before the bot went offline). That
     would require keeping track of every single message and reactions on the
     server in a database.
+    Parameters:
+        limit (int, optional): Limit the maximum number of messages to fetch per
+        channel. Defaults to None.
     Global Variables:
         all_channel_checkpoints (dict): A dictionary storing checkpoints for
+
         each channel.
     """
     global all_channel_checkpoints
@@ -2710,7 +2714,7 @@ async def process_missed_messages() -> None:
             fresh_last_message_id: int | None = None
             checkpoint_reached: bool = False
             # Fetch messages from the channel (reverse chronological order)
-            async for message in channel.history(limit=None):
+            async for message in channel.history(limit=limit):
                 message_id: int = message.id
                 if new_channel_messages_found == 0:
                     # The first message found will be the last message sent
@@ -3451,7 +3455,7 @@ async def on_ready() -> None:
     all_channel_checkpoints = (
         start_checkpoints(limit=channel_checkpoint_limit))
 
-    await process_missed_messages()
+    await process_missed_messages(limit=50)
 
     # global guild_ids
     # guild_ids = load_guild_ids()
