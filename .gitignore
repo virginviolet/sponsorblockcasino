@@ -12,5 +12,6 @@ guild_ids.txt
 *.7z
 *.zip
 *.tsv
+*_downloaded.json
 *_production.*
 todo.txt
