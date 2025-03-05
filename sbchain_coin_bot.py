@@ -2573,7 +2573,8 @@ def start_flask_app() -> None:
     try:
         sbchain.app.run(port=5000, debug=True, use_reloader=False)
     except Exception as e:
-        print(f"Error running Flask app: {e}")
+        error_message: str = f"ERROR: Error running Flask app: {e}"
+        raise Exception(error_message)
 # endregion
 
 # region Config
@@ -2806,8 +2807,7 @@ async def process_reaction(message_id: int,
             if receiver_id is not None:
                 receiver = await bot.fetch_user(receiver_id)
             else:
-                print("ERROR: Receiver is None.")
-                return
+                raise ValueError("Receiver is None.")
         else:
             receiver_id = receiver.id
         sender_id: int = sender.id
@@ -2853,7 +2853,7 @@ async def process_reaction(message_id: int,
             del mined_message
             del last_block_timestamp
         except Exception as e:
-            print(f"Error logging mining: {e}")
+            print(f"ERROR: Error logging mining: {e}")
             await terminate_bot()
 
         chain_validity: bool | None = None
@@ -2862,7 +2862,7 @@ async def process_reaction(message_id: int,
             chain_validity = blockchain.is_chain_valid()
         except Exception as e:
             # TODO Revert blockchain to previous state
-            print(f"Error validating blockchain: {e}")
+            print(f"ERROR: Error validating blockchain: {e}")
             chain_validity = False
 
         if chain_validity is False:
@@ -2888,9 +2888,9 @@ async def process_reaction(message_id: int,
             user_id=sender_id, user_name=sender_name)
         mining_messages_enabled: bool = save_data.mining_messages_enabled
         if about_command_mention is None:
-            print("ERROR: `about_command_mention` is None. This usually means "
-                  "that the commands have not been synced yet.")
-            return
+            error_message = ("ERROR: `about_command_mention` is None. This "
+                            "usually means that the commands have not been ")
+            raise ValueError(error_message)
         if not mining_messages_enabled:
             return
         receiver_name: str = receiver.name
@@ -2912,11 +2912,9 @@ async def process_reaction(message_id: int,
                          None) = bot.get_channel(casino_channel_id)
         user_message: Message = await channel.fetch_message(message_id)
         if isinstance(casino_channel, PrivateChannel):
-            print("ERROR: Casino channel is a private channel.")
-            return
+            raise ValueError("ERROR: casino_channel is a private channel.")
         elif casino_channel is None:
-            print("ERROR: Casino channel is None.")
-            return
+            raise ValueError("ERROR: casino_channel is None.")
         sender_mention: str = sender.mention
         message_content: str = (f"-# {sender_mention} has "
                                 f"mined a {coin} for you! "
@@ -3022,7 +3020,7 @@ async def add_block_transaction(
             cast(List[str | Dict[str, sbchain.TransactionDict]], data))
         blockchain.add_block(data=data_casted, difficulty=0)
     except Exception as e:
-        print(f"Error adding transaction to blockchain: {e}")
+        print(f"ERROR: Error adding transaction to blockchain: {e}")
         await terminate_bot()
     print("Transaction added to blockchain.")
 # endregion
@@ -3054,12 +3052,12 @@ async def transfer_coins(sender: Member | User,
                            allowed_mentions: AllowedMentions = MISSING) -> None:
         if interaction is None:
             if channel is None:
-                print("ERROR: Channel is None.")
+                print("ERROR: channel is None.")
                 return
             elif isinstance(channel,
                             (PrivateChannel, ForumChannel, CategoryChannel)):
                 # [ ] Test
-                print(f"ERROR: Channel is a {type(channel).__name__}.")
+                print(f"ERROR: channel is a {type(channel).__name__}.")
                 return
             await channel.send(content=message_text)
         else:
@@ -3100,9 +3098,11 @@ async def transfer_coins(sender: Member | User,
     try:
         balance = blockchain.get_balance(user_unhashed=sender_id)
     except Exception as e:
-        print(f"Error getting balance for user {sender} ({sender_id}): {e}")
         administrator: str = (await bot.fetch_user(administrator_id)).mention
         await send_message(f"Error getting balance. {administrator} pls fix.")
+        error_message: str = ("ERROR: "
+              f"Error getting balance for user {sender} ({sender_id}): {e}")
+        raise Exception(error_message)
     if balance is None:
         print(f"Balance is None for user {sender} ({sender_id}).")
         await send_message(f"You have 0 {coins}.")
@@ -3209,12 +3209,13 @@ async def transfer_coins(sender: Member | User,
             except Exception as e:
                 administrator: str = (
                     (await bot.fetch_user(administrator_id)).mention)
-                print(f"ERROR: Error adding transaction request to queue: {e}")
                 message_content = ("Error sending transfer request.\n"
                                    f"{administrator} pls fix.")
                 await interaction.followup.send(message_content)
                 del message_content
-                return
+                error_message = ("ERROR: Error adding transaction request "
+                                 f"to queue: {e}")
+                raise Exception(error_message)
             try:
                 aml_office_thread_id: int = configuration.aml_office_thread_id
                 aml_office_thread: (
@@ -3240,14 +3241,14 @@ async def transfer_coins(sender: Member | User,
             except Exception as e:
                 administrator: str = (
                     (await bot.fetch_user(administrator_id)).mention)
-                print("ERROR: "
-                      f"Error sending transfer request to AML office: {e}")
                 message_content = (
                     "There was an error notifying the AML office.\n"
                     f"{administrator} pls fix.")
                 await interaction.followup.send(message_content)
                 del message_content
-                return
+                error_message = ("ERROR: Error sending transfer request "
+                                 f"to AML office: {e}")
+                raise Exception(error_message)
             return
 
     await add_block_transaction(
@@ -3419,7 +3420,7 @@ if __name__ == "__main__":
         flask_thread.start()
         print("Flask app thread started.")
     except Exception as e:
-        print(f"Error starting Flask app thread: {e}")
+        print(f"ERROR: Error starting Flask app thread: {e}")
     sleep(1)
 
     print(f"Initializing blockchain...")
@@ -3427,7 +3428,7 @@ if __name__ == "__main__":
         blockchain = sbchain.Blockchain()
         print(f"Blockchain initialized.")
     except Exception as e:
-        print(f"Error initializing blockchain: {e}")
+        print(f"ERROR: Error initializing blockchain: {e}")
         print("This script will be terminated.")
         sys_exit(1)
 # endregion
@@ -3486,14 +3487,14 @@ async def on_ready() -> None:
                 break
         print("Command IDs fetched.")
         if about_command is None:
-            print("Error: Could not find the about command. "
+            print("ERROR: Could not find the about command. "
                   "Using string instead.")
             about_command_mention = f"about_{coin.lower()}"
         else:
             about_command_mention = about_command.mention
         print(f"Bot is ready!")
     except Exception as e:
-        print(f"Error syncing commands: {e}")
+        raise Exception(f"ERROR: Error syncing commands: {e}")
 # endregion
 
 
@@ -3532,7 +3533,7 @@ async def on_message(message: Message) -> None:
             #     (await bot.fetch_user(administrator_id)).mention)
             # await message.channel.send("An error occurred. "
             #                            f"{administrator} pls fix.")
-            return
+            raise Exception("Guild is None.")
         guild_name: str = guild.name
         guild_id: int = guild.id
         channel = message.channel
@@ -3663,8 +3664,7 @@ async def transfer(interaction: Interaction,
         CategoryChannel | Thread | DMChannel | GroupChannel |
         None) = interaction.channel
     if channel is None:
-        print("ERROR: Channel is None.")
-        return
+        raise Exception("ERROR: channel is None.")
     channel_id: int = channel.id
     await transfer_coins(sender=sender,
                          receiver=receiver,
@@ -3813,7 +3813,7 @@ async def reels(interaction: Interaction,
                 add_symbol in slot_machine.reels[reel]):
             slot_machine.reels[reel][add_symbol] += amount
         else:
-            print(f"Error: Invalid reel or symbol '{reel}' or '{add_symbol}'")
+            print(f"ERROR: Invalid reel or symbol '{reel}' or '{add_symbol}'")
     if add_symbol:
         print(f"Adding symbol: {add_symbol}")
         print(f"Amount: {amount}")
@@ -3826,7 +3826,7 @@ async def reels(interaction: Interaction,
             slot_machine.reels = new_reels
             print(f"Added {per_reel_amount} {add_symbol} to each reel.")
         else:
-            print(f"Error: Invalid symbol '{add_symbol}'")
+            print(f"ERROR: Invalid symbol '{add_symbol}'")
         print(slot_machine.reels)
         # if amount
     elif remove_symbol and reel:
@@ -3837,7 +3837,7 @@ async def reels(interaction: Interaction,
                 remove_symbol in slot_machine.reels[reel]):
             slot_machine.reels[reel][remove_symbol] -= amount
         else:
-            print(f"Error: Invalid reel '{reel}' or symbol '{remove_symbol}'")
+            print(f"ERROR: Invalid reel '{reel}' or symbol '{remove_symbol}'")
     elif remove_symbol:
         print(f"Removing symbol: {remove_symbol}")
         print(f"Amount: {amount}")
@@ -3850,7 +3850,7 @@ async def reels(interaction: Interaction,
             slot_machine.reels = new_reels
             print(f"Removed {per_reel_amount} {remove_symbol} from each reel.")
         else:
-            print(f"Error: Invalid symbol '{remove_symbol}'")
+            print(f"ERROR: Invalid symbol '{remove_symbol}'")
         print(slot_machine.reels)
 
     print("Saving reels...")
@@ -4813,11 +4813,9 @@ async def about_coin(interaction: Interaction) -> None:
                      PrivateChannel |
                      None) = bot.get_channel(casino_channel_id)
     if isinstance(casino_channel, PrivateChannel):
-        print("ERROR: Casino channel is a private channel.")
-        return
+        raise ValueError("casino_channel is a private channel.")
     elif casino_channel is None:
-        print("ERROR: Casino channel is None.")
-        return
+        raise ValueError("casino_channel is None.")
     casino_channel_mention: str = casino_channel.mention
     message_content: str = (f"## {Coin}\n"
                             f"{Coin} is a proof-of-yapping cryptocurrency "
@@ -4944,13 +4942,13 @@ async def aml(interaction: Interaction,
                   CategoryChannel | Thread | PrivateChannel
                   | None) = bot.get_channel(channel_id)
         if channel is None:
-            print("ERROR: Channel is None.")
-            return
+            print("ERROR: channel is None.")
+            continue
         elif isinstance(channel,
                         (PrivateChannel, ForumChannel, CategoryChannel)):
             # [ ] Test
-            print(f"ERROR: Channel is a {type(channel).__name__}.")
-            return
+            print(f"ERROR: channel is a {type(channel).__name__}.")
+            continue
         transfer_message_id: int = transfer["message_id"]
         transfer_message: Message = (
             await channel.fetch_message(transfer_message_id))
@@ -5042,5 +5040,7 @@ async def aml(interaction: Interaction,
 if DISCORD_TOKEN:
     bot.run(DISCORD_TOKEN)
 else:
-    print("Error: DISCORD_TOKEN is not set in the environment variables.")
+    error_message: str = ("ERROR: DISCORD_TOKEN is not set "
+                          "in the environment variables.")
+    raise ValueError(error_message)
 # endregion
