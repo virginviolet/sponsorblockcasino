@@ -479,7 +479,8 @@ class BotConfiguration:
                 str | int, self._default_config[attribute])
             if (configured_value == default_value):
                 print(f"WARNING: `{attribute}` has not been set "
-                      f"in '{self.file_name}' nor in the environment variables.")
+                      f"in '{self.file_name}' "
+                      "nor in the environment variables.")
         print(f"Bot configuration initialized.")
 
     def create(self) -> None:
@@ -1242,13 +1243,14 @@ class SlotMachine:
                     # This event's contributions to the *expected total return*
                     piece_expected_total_return_contribution = (
                         Mul(p_event, event_total_return))
-                    message: str
-                    message = ("Expected total return contribution: "
-                               f"{piece_expected_total_return_contribution}")
-                    print_if_not_silent(message)
+                    message_content: str
+                    message_content = (
+                        "Expected total return contribution: "
+                        f"{piece_expected_total_return_contribution}")
+                    print_if_not_silent(message_content)
                     # Remove variables with common names to
                     # prevent accidental use
-                    del message
+                    del message_content
                     # This event's contribution to the *expected return*
                     piece_expected_return_contribution = (
                         Mul(p_event, event_return))
@@ -1305,10 +1307,10 @@ class SlotMachine:
                                     "[total return - W]")
                 piece_expected_total_return_contribution = (
                     Mul(p_event, event_total_return))
-                message = ("Expected total return contribution: "
-                           f"{piece_expected_total_return_contribution}")
-                print_if_not_silent(message)
-                del message
+                message_content = ("Expected total return contribution: "
+                                   f"{piece_expected_total_return_contribution}")
+                print_if_not_silent(message_content)
+                del message_content
                 piece_expected_return_contribution = (
                     Mul(p_event, event_return))
                 print_if_not_silent("Expected return contribution: "
@@ -1598,21 +1600,21 @@ class SlotMachine:
             text_row_2 = empty_space
 
         if reels_row:
-            message: str = (f"{self.header}\n"
-                            f"{text_row_1}\n"
-                            f"{text_row_2}\n"
-                            f"{empty_space}\n"
-                            f"{reels_row}\n"
-                            f"{empty_space}")
+            message_content: str = (f"{self.header}\n"
+                                    f"{text_row_1}\n"
+                                    f"{text_row_2}\n"
+                                    f"{empty_space}\n"
+                                    f"{reels_row}\n"
+                                    f"{empty_space}")
         else:
             if text_row_2 is None:
-                message = (f"{self.header}\n"
-                           f"{text_row_1}")
+                message_content = (f"{self.header}\n"
+                                   f"{text_row_1}")
             else:
-                message = (f"{self.header}\n"
-                           f"{text_row_1}\n"
-                           f"{text_row_2}")
-        return message
+                message_content = (f"{self.header}\n"
+                                   f"{text_row_1}\n"
+                                   f"{text_row_2}")
+        return message_content
     # endregion
 
 # region UserSaveData
@@ -1996,11 +1998,11 @@ class StartingBonusView(View):
             await interaction.response.edit_message(view=self)
             die_roll: int = random.randint(1, 6)
             starting_bonus: int = self.starting_bonus_awards[die_roll]
-            message: str = (
+            message_content: str = (
                 f"You rolled a {die_roll} and won {starting_bonus} {coins}!\n"
                 "You may now play on the slot machines. Good luck!")
-            await interaction.followup.send(message)
-            del message
+            await interaction.followup.send(message_content)
+            del message_content
             await add_block_transaction(
                 blockchain=blockchain,
                 sender=casino_house_id,
@@ -2029,11 +2031,11 @@ class StartingBonusView(View):
         that they took too long and can run the command again when ready.
         """
         self.die_button.disabled = True
-        message = ("You took too long to roll the die. When you're "
-                   "ready, you may run the command again.")
+        message_content = ("You took too long to roll the die. When you're "
+                           "ready, you may run the command again.")
         await self.interaction.edit_original_response(
-            content=message, view=self)
-        del message
+            content=message_content, view=self)
+        del message_content
 # endregion
 
 # region Grifter Suppliers
@@ -2231,7 +2233,7 @@ class SlotMachineView(View):
         self.message_reels_row: str = (f"{self.spin_emoji_1}\t\t"
                                        f"{self.spin_emoji_1}\t\t"
                                        f"{self.spin_emoji_1}\n")
-        self.message: str = (
+        self.message_content: str = (
             slot_machine.make_message(text_row_1=self.message_text_row_1,
                                       text_row_2=self.message_text_row_2,
                                       reels_row=self.message_reels_row))
@@ -2328,7 +2330,7 @@ class SlotMachineView(View):
             f"{self.reels_results['reel1']['emoji']}\t\t"
             f"{self.reels_results['reel2']['emoji']}\t\t"
             f"{self.reels_results['reel3']['emoji']}")
-        self.message = self.slot_machine.make_message(
+        self.message_content = self.slot_machine.make_message(
             text_row_1=self.message_text_row_1,
             text_row_2=self.message_text_row_2,
             reels_row=self.message_reels_row)
@@ -2358,10 +2360,10 @@ class SlotMachineView(View):
             # stop the corresponding reel and edit the message with the result
             self.stop_reel_buttons[int(button_id[-1]) - 1].disabled = True
             # print(f"Button clicked: {button_id}")
-            # The self.halt_reel() method updates self.message
+            # The self.halt_reel() method updates self.message_content
             await self.invoke_reel_stop(button_id=button_id)
-            await interaction.response.edit_message(content=self.message,
-                                                    view=self)
+            await interaction.response.edit_message(
+                content=self.message_content, view=self)
             if self.reels_stopped == 3:
                 self.stop()
 
@@ -2385,7 +2387,7 @@ class SlotMachineView(View):
         for button_id in unclicked_buttons:
             await self.invoke_reel_stop(button_id=button_id)
             await self.interaction.edit_original_response(
-                content=self.message,
+                content=self.message_content,
                 view=self)
             if self.reels_stopped < 3:
                 await asyncio.sleep(1)
@@ -2738,6 +2740,7 @@ async def process_missed_messages() -> None:
                                                    emoji=emoji,
                                                    sender=sender,
                                                    receiver=receiver,)
+                del message_id
             print("Messages from "
                   f"channel {channel.name} ({channel.id}) fetched.")
             if fresh_last_message_id is None:
@@ -2903,14 +2906,14 @@ async def process_reaction(message_id: int,
             print("ERROR: Casino channel is None.")
             return
         sender_mention: str = sender.mention
-        message: str = (f"-# {sender_mention} has "
-                        f"mined a {coin} for you! "
-                        f"Enter {about_command_mention} "
-                        "in the chat box to learn more.")
-        await user_message.reply(message,
+        message_content: str = (f"-# {sender_mention} has "
+                                f"mined a {coin} for you! "
+                                f"Enter {about_command_mention} "
+                                "in the chat box to learn more.")
+        await user_message.reply(message_content,
                                  allowed_mentions=AllowedMentions.none())
         del user_message
-        del message
+        del message_content
         del channel
         del channel_id
         del sender_mention
@@ -3478,7 +3481,9 @@ async def on_message(message: Message) -> None:
     channel_id: int = message.channel.id
 
     if channel_id in all_channel_checkpoints:
-        all_channel_checkpoints[channel_id].save(message.id)
+        message_id: int = message.id
+        all_channel_checkpoints[channel_id].save(message_id)
+        del message_id
     else:
         # If a channel is created while the bot is running, we will likely end
         # up here.
@@ -3618,7 +3623,10 @@ async def transfer(interaction: Interaction,
     sender_id: int = sender.id
     receiver: Member = user
     receiver_id: int = receiver.id
-    channel: VoiceChannel | StageChannel | TextChannel | ForumChannel | CategoryChannel | Thread | DMChannel | GroupChannel | None = interaction.channel
+    channel: (
+        VoiceChannel | StageChannel | TextChannel | ForumChannel |
+        CategoryChannel | Thread | DMChannel | GroupChannel |
+        None) = interaction.channel
     if channel is None:
         print("ERROR: Channel is None.")
         return
@@ -3662,22 +3670,23 @@ async def balance(interaction: Interaction,
     # print(f"Getting balance for user {user_to_check} ({user_id})...")
     user_id_hash: str = sha256(str(user_id).encode()).hexdigest()
     balance: int | None = blockchain.get_balance(user=user_id_hash)
-    message: str = ""
+    message_content: str = ""
     if balance is None and user is None:
-        message = f"You have 0 {coins}."
+        message_content = f"You have 0 {coins}."
     elif balance is None:
-        message = f"{user_to_check} has 0 " f"{coins}."
+        message_content = f"{user_to_check} has 0 " f"{coins}."
     elif user is None:
         coin_label: str = format_coin_label(balance)
-        message = f"You have {balance} {coin_label}."
+        message_content = f"You have {balance} {coin_label}."
     else:
         coin_label: str = format_coin_label(balance)
-        message = f"{user_to_check} has {balance} {coin_label}."
+        message_content = f"{user_to_check} has {balance} {coin_label}."
     await interaction.response.send_message(
-        message, ephemeral=incognito, allowed_mentions=AllowedMentions.none())
+        message_content,
+        ephemeral=incognito, allowed_mentions=AllowedMentions.none())
     del user_id
     del balance
-    del message
+    del message_content
 # endregion
 
 # region /reels
@@ -3735,9 +3744,10 @@ async def reels(interaction: Interaction,
         utils.get(invoker_roles, name="Slot Machine Technician"))
     if technician_role is None and administrator_role is None:
         # TODO Maybe let other users see the reels
-        message: str = ("Only slot machine technicians may look at the reels.")
-        await interaction.followup.send(message, ephemeral=True)
-        del message
+        message_content: str = ("Only slot machine technicians "
+                                "may look at the reels.")
+        await interaction.followup.send(message_content, ephemeral=True)
+        del message_content
         return
     if amount is None:
         if reel is None:
@@ -3876,23 +3886,23 @@ async def reels(interaction: Interaction,
     for wager_sample, rtp_sample in rtp_dict.items():
         rtp_table += f"{wager_sample}: {rtp_sample}\n"
 
-    message: str = ("### Reels\n"
-                    f"{reels_table}\n"
-                    "### Symbols total\n"
-                    f"{amount_of_symbols}\n\n\n"
-                    "### Probabilities\n"
-                    f"{probabilities_table}\n\n"
-                    "### Expected values\n"
-                    "**Expected total return**\n"
-                    f"{expected_total_return}\n\n"
-                    "**Expected return**\n"
-                    f"{expected_return}\n"
-                    '-# "W" means wager\n\n'
-                    "### RTP\n"
-                    f"{rtp_table}")
-    print(message)
-    await interaction.followup.send(message, ephemeral=close_off)
-    del message
+    message_content: str = ("### Reels\n"
+                            f"{reels_table}\n"
+                            "### Symbols total\n"
+                            f"{amount_of_symbols}\n\n\n"
+                            "### Probabilities\n"
+                            f"{probabilities_table}\n\n"
+                            "### Expected values\n"
+                            "**Expected total return**\n"
+                            f"{expected_total_return}\n\n"
+                            "**Expected return**\n"
+                            f"{expected_return}\n"
+                            '-# "W" means wager\n\n'
+                            "### RTP\n"
+                            f"{rtp_table}")
+    print(message_content)
+    await interaction.followup.send(message_content, ephemeral=close_off)
+    del message_content
 # endregion
 
 # region /slots
@@ -3965,13 +3975,14 @@ async def slots(interaction: Interaction,
     if wager_int is None:
         wager_int = 1
     if wager_int < 0:
-        message = "Thief!"
-        await interaction.response.send_message(message, ephemeral=False)
+        message_content = "Thief!"
+        await interaction.response.send_message(
+            message_content, ephemeral=False)
         return
     elif wager_int == 0:
-        message = "Insert coins to play!"
+        message_content = "Insert coins to play!"
         await interaction.response.send_message(
-            message, ephemeral=should_use_ephemeral)
+            message_content, ephemeral=should_use_ephemeral)
         return
     # TODO Log/stat outcomes (esp. wager amounts)
     user: User | Member = interaction.user
@@ -4122,21 +4133,21 @@ async def slots(interaction: Interaction,
                 rtp_display = f"~{rtp_fraction:.4%}"
             else:
                 rtp_display = f"<{lowest_number_float}%"
-        message = slot_machine.make_message(
+        message_content = slot_machine.make_message(
             f"-# RTP (stake={wager_int} {coins}): {rtp_display}")
         if private_room is False:
             should_use_ephemeral = False
         else:
             should_use_ephemeral = True
-        await interaction.response.send_message(message,
+        await interaction.response.send_message(message_content,
                                                 ephemeral=should_use_ephemeral)
         return
     elif reboot:
-        message = slot_machine.make_message(
+        message_content = slot_machine.make_message(
             f"-# The {Coin} slot machine is restarting...")
-        await interaction.response.send_message(message,
+        await interaction.response.send_message(message_content,
                                                 ephemeral=should_use_ephemeral)
-        del message
+        del message_content
         await asyncio.sleep(4)
         # Re-initialize slot machine (reloads configuration from file)
         reinitialize_slot_machine()
@@ -4149,21 +4160,20 @@ async def slots(interaction: Interaction,
         # Remove user from active players
         if user_id in active_slot_machine_players:
             active_slot_machine_players.remove(user_id)
-        message = slot_machine.make_message(
+        message_content = slot_machine.make_message(
             f"-# Welcome to the {Coin} Casino!")
-        await interaction.edit_original_response(content=message)
-        del message
+        await interaction.edit_original_response(content=message_content)
+        del message_content
         return
     elif jackpot:
         # Check the jackpot amount
         jackpot_pool: int = slot_machine.jackpot
         coin_label: str = format_coin_label(jackpot_pool)
         message_header: str = slot_machine.header
-        message = (f"{message_header}\n"
-                   f"-# JACKPOT: {jackpot_pool} "
-                   f"{coin_label}.")
+        message_content = (f"{message_header}\n"
+                           f"-# JACKPOT: {jackpot_pool} {coin_label}.")
         del coin_label
-        await interaction.response.send_message(message,
+        await interaction.response.send_message(message_content,
                                                 ephemeral=should_use_ephemeral)
         return
 
@@ -4205,7 +4215,7 @@ async def slots(interaction: Interaction,
     elif (user_balance <= 0):
         is_grifter_supplier = grifter_supplier_check()
         if is_grifter_supplier:
-            message: str = (
+            message_content: str = (
                 f"Welcome back! We give free coins to customers who do not "
                 "have any. However, we request that you first delete "
                 "your GrifterSwap account.\n"
@@ -4220,8 +4230,8 @@ async def slots(interaction: Interaction,
             print(f"Is grifter supplier: {is_grifter_supplier}")
             if is_grifter_supplier:
                 await interaction.response.send_message(
-                    message, ephemeral=should_use_ephemeral)
-                del message
+                    message_content, ephemeral=should_use_ephemeral)
+                del message_content
                 if user_id in active_slot_machine_players:
                     active_slot_machine_players.remove(user_id)
                 return
@@ -4246,11 +4256,11 @@ async def slots(interaction: Interaction,
                 save_data.starting_bonus_available = when_eligible_for_bonus
                 min_time_between_bonuses: str = format_timespan(
                     min_seconds_between_bonuses)
-                message = (f"Come back in {min_time_between_bonuses} and "
-                           "we will give you some coins to play with.")
+                message_content = (f"Come back in {min_time_between_bonuses} "
+                                   "and we will give you some coins to play with.")
                 await interaction.response.send_message(
-                    message, ephemeral=should_use_ephemeral)
-                del message
+                    message_content, ephemeral=should_use_ephemeral)
+                del message_content
                 if user_id in active_slot_machine_players:
                     active_slot_machine_players.remove(user_id)
                 return
@@ -4259,16 +4269,16 @@ async def slots(interaction: Interaction,
         # will be false
         seconds_left = int(starting_bonus_available - time())
         time_left: str = format_timespan(seconds_left)
-        message: str = (f"You are out of {coins}. Come back in {time_left} "
-                        "to get some coins.")
+        message_content: str = (f"You are out of {coins}. Come back "
+                                f"in {time_left} to get some coins.")
         # Use ephemeral unless explicitly set to False
         if private_room is False:
             should_use_ephemeral = False
         else:
             should_use_ephemeral = True
         await interaction.response.send_message(
-            message, ephemeral=should_use_ephemeral)
-        del message
+            message_content, ephemeral=should_use_ephemeral)
+        del message_content
         active_slot_machine_players.remove(user_id)
         return
 
@@ -4297,9 +4307,9 @@ async def slots(interaction: Interaction,
                                 "A standard 6-sided die will decide your "
                                 "starting bonus.")
         # TODO Move the table to a separate message
-        message: str = (f"{message_preamble}\n"
-                        "The possible outcomes are displayed below.\n\n"
-                        f"{starting_bonus_table}")
+        message_content: str = (f"{message_preamble}\n"
+                                "The possible outcomes are displayed below.\n\n"
+                                f"{starting_bonus_table}")
 
         starting_bonus_view = (
             StartingBonusView(invoker=user,
@@ -4307,7 +4317,7 @@ async def slots(interaction: Interaction,
                               save_data=save_data,
                               log=log,
                               interaction=interaction))
-        await interaction.response.send_message(content=message,
+        await interaction.response.send_message(content=message_content,
                                                 view=starting_bonus_view)
         await starting_bonus_view.wait()
         save_data.has_visited_casino = True
@@ -4322,13 +4332,14 @@ async def slots(interaction: Interaction,
     if user_balance < wager_int:
         coin_label_w: str = format_coin_label(wager_int)
         coin_label_b: str = format_coin_label(user_balance)
-        message = (f"You do not have enough {coins} "
-                   f"to stake {wager_int} {coin_label_w}.\n"
-                   f"Your current balance is {user_balance} {coin_label_b}.")
-        await interaction.response.send_message(content=message, ephemeral=True)
+        message_content = (f"You do not have enough {coins} "
+                           f"to stake {wager_int} {coin_label_w}.\n"
+                           f"Your current balance is {user_balance} {coin_label_b}.")
+        await interaction.response.send_message(
+            content=message_content, ephemeral=True)
         del coin_label_w
         del coin_label_b
-        del message
+        del message_content
         if user_id in active_slot_machine_players:
             active_slot_machine_players.remove(user_id)
         return
@@ -4629,27 +4640,27 @@ async def slots(interaction: Interaction,
         all_grifter_suppliers: List[int] = grifter_suppliers.suppliers
         is_grifter_supplier: bool = user_id in all_grifter_suppliers
         if is_grifter_supplier:
-            message = (f"{invoker} You're all out of {coins}!\n"
-                       "To customers who run out of coins, we usually give "
-                       "some for free. However, we request that you please "
-                       "delete your GrifterSwap account first.\n"
-                       "Here's how you can do it:\n"
-                       "See your GrifterSwap balance with `!balance`, "
-                       "withdraw all your coins with\n"
-                       "`!withdraw <currency> <amount>`, "
-                       "and then use `!suppliers` to prove you're no longer "
-                       "a supplier.")
-            await interaction.followup.send(content=message,
+            message_content = (f"{invoker} You're all out of {coins}!\n"
+                               "To customers who run out of coins, we usually give "
+                               "some for free. However, we request that you please "
+                               "delete your GrifterSwap account first.\n"
+                               "Here's how you can do it:\n"
+                               "See your GrifterSwap balance with `!balance`, "
+                               "withdraw all your coins with\n"
+                               "`!withdraw <currency> <amount>`, "
+                               "and then use `!suppliers` to prove you're no longer "
+                               "a supplier.")
+            await interaction.followup.send(content=message_content,
                                             ephemeral=should_use_ephemeral)
-            del message
+            del message_content
         else:
-            message: str = (f"{invoker} You're all out of {coins}!\n"
-                            f"Come back in {next_bonus_time_left} "
-                            "for a new starting bonus.")
+            message_content: str = (f"{invoker} You're all out of {coins}!\n"
+                                    f"Come back in {next_bonus_time_left} "
+                                    "for a new starting bonus.")
             del next_bonus_time_left
-            await interaction.followup.send(content=message,
+            await interaction.followup.send(content=message_content,
                                             ephemeral=should_use_ephemeral)
-            del message
+            del message_content
             next_bonus_point_in_time: float = (
                 time() + slot_machine.next_bonus_wait_seconds)
             save_data.starting_bonus_available = next_bonus_point_in_time
@@ -4700,14 +4711,14 @@ async def mining(interaction: Interaction,
                                            user_name=user_name)
     save_data.mining_messages_enabled = not disable_reaction_messages
     if disable_reaction_messages:
-        message = ("I will no longer message new players "
-                   "when you mine their messages.")
+        message_content = ("I will no longer message new players "
+                           "when you mine their messages.")
     else:
-        message: str = ("I will message new players when you mine their "
-                        "messages. Thank you for "
-                        f"helping the {Coin} network grow!")
-    await interaction.response.send_message(message, ephemeral=True)
-    del message
+        message_content: str = (
+            "I will message new players when you mine "
+            f"their messages. Thank you for helping the {Coin} network grow!")
+    await interaction.response.send_message(message_content, ephemeral=True)
+    del message_content
 # endregion
 
 # region /about_coin
@@ -4735,26 +4746,26 @@ async def about_coin(interaction: Interaction) -> None:
         print("ERROR: Casino channel is None.")
         return
     casino_channel_mention: str = casino_channel.mention
-    message: str = (f"## {Coin}\n"
-                    f"{Coin} is a proof-of-yapping cryptocurrency "
-                    f"that lives on the {blockchain_name}.\n"
-                    f"To mine a {coin} for someone, react {coin_emoji} "
-                    "to their message.\n"
-                    "Check your balance by typing `/balance` in "
-                    "the chat.\n"
-                    "\n"
-                    f"New players will be informed only once about {coin}. "
-                    "But if you prefer that the bot does not reply to "
-                    "new players when you mine their messages, type\n"
-                    "`/mining disable_reaction_messages: True`.\n"
-                    "\n"
-                    f"You should come visit the {casino_channel_mention} "
-                    "some time. You can play on the slot machines "
-                    "there with the `/slots` command.\n"
-                    "If you want to know more about the slot machines, "
-                    "type `/slots show_help: True`.")
-    await interaction.response.send_message(message, ephemeral=True)
-    del message
+    message_content: str = (f"## {Coin}\n"
+                            f"{Coin} is a proof-of-yapping cryptocurrency "
+                            f"that lives on the {blockchain_name}.\n"
+                            f"To mine a {coin} for someone, react {coin_emoji} "
+                            "to their message.\n"
+                            "Check your balance by typing `/balance` in "
+                            "the chat.\n"
+                            "\n"
+                            f"New players will be informed only once about {coin}. "
+                            "But if you prefer that the bot does not reply to "
+                            "new players when you mine their messages, type\n"
+                            "`/mining disable_reaction_messages: True`.\n"
+                            "\n"
+                            f"You should come visit the {casino_channel_mention} "
+                            "some time. You can play on the slot machines "
+                            "there with the `/slots` command.\n"
+                            "If you want to know more about the slot machines, "
+                            "type `/slots show_help: True`.")
+    await interaction.response.send_message(message_content, ephemeral=True)
+    del message_content
 # endregion
 
 # region /aml
