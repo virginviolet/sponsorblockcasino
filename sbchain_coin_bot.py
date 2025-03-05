@@ -3451,7 +3451,7 @@ async def on_ready() -> None:
     all_channel_checkpoints = (
         start_checkpoints(limit=channel_checkpoint_limit))
 
-    # await process_missed_messages()
+    await process_missed_messages()
 
     # global guild_ids
     # guild_ids = load_guild_ids()
