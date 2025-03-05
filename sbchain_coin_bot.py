@@ -13,7 +13,7 @@ Privileged Gateway Intents:
 """
 
 # region Imports
-import sbchain
+import blockchain.sbchain as sbchain
 import threading
 import subprocess
 import signal
@@ -46,7 +46,7 @@ from sympy import (symbols, Expr, Add, Mul, Float, Integer, Eq, Lt, Ge, Gt,
 from _collections_abc import dict_items
 from typing import (Dict, KeysView, List, LiteralString, NoReturn, TextIO, cast,
                     Literal, Any)
-from sbchain_coin_bot_types import (BotConfig, Reels, ReelSymbol,
+from type_aliases import (BotConfig, Reels, ReelSymbol,
                                     ReelResult, ReelResults,
                                     SpinEmojis, SlotMachineConfig,
                                     SaveData, TransactionRequest, T)
