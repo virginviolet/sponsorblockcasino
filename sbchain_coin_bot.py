@@ -3214,13 +3214,14 @@ async def transfer_coins(sender: Member | User,
                     if guild is None:
                         print("ERROR: Guild is None.")
                         return
-                    aml_officer: Role | None = get_aml_officer_role(interaction)
+                    aml_officer: Role | None = get_aml_officer_role(
+                        interaction)
                     if aml_officer is None:
                         raise Exception("aml_officer is None.")
                     aml_officer_mention: str = aml_officer.mention
                     aml_office_message: str = (aml_officer_mention +
-                                            awaiting_approval_message_content)
-                    
+                                               awaiting_approval_message_content)
+
                     await aml_office_thread.send(
                         aml_office_message,
                         allowed_mentions=AllowedMentions.none())
@@ -3574,8 +3575,8 @@ async def on_message(message: Message) -> None:
 
     if user_supplied_grifter_sbcoin or user_supplied_grifter_this_coin:
         # get the cached message in order to get the command invoker
-        referenced_message_full: Message = await message.channel.fetch_message(
-            referenced_message_id)
+        referenced_message_full: Message = (
+            await message.channel.fetch_message(referenced_message_id))
         del referenced_message_id
         referenced_message_full_interaction: MessageInteraction | None = (
             referenced_message_full.interaction)
@@ -4716,8 +4717,13 @@ async def slots(interaction: Interaction,
                   description="Configure mining settings")
 @app_commands.describe(disable_reaction_messages="Stop the bot from messaging "
                        "new players when you mine their messages")
+@app_commands.describe(stats="Show your mining stats")
+@app_commands.describe(incognito="Set whether the output of this command "
+                       "should be visible only to you")
 async def mining(interaction: Interaction,
-                 disable_reaction_messages: bool = False) -> None:
+                 disable_reaction_messages: bool | None = None,
+                 stats: bool | None = None,
+                 incognito: bool | None = None) -> None:
     """
     Command to configure mining settings.
 
@@ -4732,15 +4738,48 @@ async def mining(interaction: Interaction,
     save_data: UserSaveData = UserSaveData(user_id=user_id,
                                            user_name=user_name)
     save_data.mining_messages_enabled = not disable_reaction_messages
-    if disable_reaction_messages:
-        message_content = ("I will no longer message new players "
-                           "when you mine their messages.")
+    should_use_ephemeral: bool
+    if disable_reaction_messages is not None:
+        message_content: str
+        if disable_reaction_messages is True:
+            message_content = ("I will no longer message new players "
+                               "when you mine their messages.")
+        else:
+            message_content: str = ("I will message new players when you mine "
+                                    "their messages. Thank you for "
+                                    f"helping the {Coin} network grow!")
+        if incognito is False:
+            should_use_ephemeral = False
+        else:
+            should_use_ephemeral = True
+        await interaction.response.send_message(
+            message_content, ephemeral=should_use_ephemeral)
+        del message_content
+    elif stats:
+        messages_mined: List[int] = (
+            cast(List[int], save_data.load("messages_mined")))
+        messages_mined_count: int = len(messages_mined)
+        message_content: str
+        if messages_mined_count == 0:
+            coin_emoji = PartialEmoji(name=coin_emoji_name, id=coin_emoji_id)
+            message_content = (f"You have not mined any {coins} yet. "
+                               f"To mine a {coins} for someone, "
+                               f"react {coin_emoji} to their message.")
+        else:
+            message_content = (f"You have mined {messages_mined_count} {coins} "
+                               "for others. Keep up the good work!")
+        if incognito is True:
+            should_use_ephemeral = True
+        else:
+            should_use_ephemeral = False
+        await interaction.response.send_message(
+            message_content, ephemeral=should_use_ephemeral)
     else:
         message_content: str = (
-            "I will message new players when you mine "
-            f"their messages. Thank you for helping the {Coin} network grow!")
-    await interaction.response.send_message(message_content, ephemeral=True)
-    del message_content
+            "You must provide a parameter to this command.")
+        await interaction.response.send_message(message_content, ephemeral=True)
+        del message_content
+
 # endregion
 
 # region /about_coin
