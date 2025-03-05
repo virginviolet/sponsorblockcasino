@@ -2721,8 +2721,8 @@ async def process_missed_messages(limit: int | None = None) -> None:
                         # The first message found will be the last message sent
                         # This will be used as the checkpoint
                         fresh_last_message_id = message_id
-                    print(f"{message.author}: "
-                          f"{message.content} ({message_id}).")
+                    # print(f"{message.author}: "
+                    #       f"{message.content} ({message_id}).")
                     if channel_checkpoints is not None:
                         for checkpoint in channel_checkpoints:
                             if message_id == checkpoint["last_message_id"]:
@@ -2736,10 +2736,10 @@ async def process_missed_messages(limit: int | None = None) -> None:
                         receiver: User | Member
                         for reaction in message.reactions:
                             async for user in reaction.users():
-                                # print("Reaction found: "
-                                #       f"{reaction.emoji}: {user}.")
-                                # print(f"Message ID: {message_id}.")
-                                # print(f"{message.author}: {message.content}")
+                                print("Reaction found: "
+                                      f"{reaction.emoji}: {user}.")
+                                print(f"Message ID: {message_id}.")
+                                print(f"{message.author}: {message.content}")
                                 sender = user
                                 receiver = message.author
                                 emoji: PartialEmoji | Emoji | str = (
