@@ -1669,21 +1669,27 @@ class UserSaveData:
         Load all properties from the disk.
         """
         self._has_visited_casino = self._load_value(
-                key="has_visited_casino",
-                expected_type=bool, default=False)
+            key="has_visited_casino",
+            expected_type=bool, default=False)
         self._starting_bonus_available = self._load_value(
-                key="starting_bonus_available",
-                expected_type=(bool, float), default=True)
+            key="starting_bonus_available",
+            expected_type=(bool, float), default=True)
         self._when_last_bonus_received = self._load_value(
-                key="when_last_bonus_received",
-                expected_type=(float, type(None)), default=None)
+            key="when_last_bonus_received",
+            expected_type=(float, type(None)), default=None)
         self._reaction_message_received = self._load_value(
-                key="reaction_message_received",
-                expected_type=bool, default=False)
+            key="reaction_message_received",
+            expected_type=bool, default=False)
         self._mining_messages_enabled = self._load_value(
-                key="mining_messages_enabled",
-                expected_type=bool, default=True)
-        
+            key="mining_messages_enabled",
+            expected_type=bool, default=True)
+        self._blocked_from_receiving_coins = self._load_value(
+            key="blocked_from_receiving_coins",
+            expected_type=bool, default=False)
+        self._blocked_from_receiving_coins_reason = self._load_value(
+            key="blocked_from_receiving_coins_reason",
+            expected_type=(str, type(None)), default=None)
+
     def _load_value(self,
                     key: str,
                     expected_type: type[T] | tuple[type, ...],
@@ -1693,12 +1699,7 @@ class UserSaveData:
         """
 
         value: str | List[int] | bool | float | None = self.load(key)
-        print(f"-- Value of '{key}': {value}")
-        print(f"Expected type: {expected_type}")
-        print(f"Found type: {type(value)}")
-        print(f"Default value: {default}")
         if isinstance(value, expected_type):
-            print(f"returning value: {value}")
             return cast(T, value)
         else:
             found_type = type(value)
@@ -1713,7 +1714,7 @@ class UserSaveData:
                   f"'{expected_type_name}'. "
                   f"Setting to default value {default}.")
             return default
-        
+
     @property
     def has_visited_casino(self) -> bool:
         """
@@ -1789,6 +1790,36 @@ class UserSaveData:
         self._mining_messages_enabled = value
         self.save("mining_messages_enabled", value)
 
+    @property
+    def blocked_from_receiving_coins(self) -> bool:
+        """
+        Indicates if the user is blocked from receiving coins.
+        """
+        return self._blocked_from_receiving_coins
+
+    @blocked_from_receiving_coins.setter
+    def blocked_from_receiving_coins(self, value: bool) -> None:
+        """
+        Sets the status of the user being blocked from receiving coins.
+        """
+        self._blocked_from_receiving_coins = value
+        self.save("blocked_from_receiving_coins", value)
+
+    @property
+    def blocked_from_receiving_coins_reason(self) -> str | None:
+        """
+        Indicates the reason the user is blocked from receiving coins.
+        """
+        return self._blocked_from_receiving_coins_reason
+
+    @blocked_from_receiving_coins_reason.setter
+    def blocked_from_receiving_coins_reason(self, value: str | None) -> None:
+        """
+        Sets the reason the user is blocked from receiving coins.
+        """
+        self._blocked_from_receiving_coins_reason = value
+        self.save("blocked_from_receiving_coins_reason", value)
+
     def create(self) -> None:
         """
         Creates the necessary directories and files for the user.
@@ -1821,12 +1852,14 @@ class UserSaveData:
                         "when_last_bonus_received": None,
                         "messages_mined": [],
                         "reaction_message_received": False,
-                        "mining_messages_enabled": True
+                        "mining_messages_enabled": True,
+                        "blocked_from_receiving_coins": False,
+                        "blocked_from_receiving_coins_reason": None
                     }
                     file_contents_json: str = json.dumps(file_contents)
                     file.write(file_contents_json)
 
-    def save(self, key: str, value: str | List[int] | float) -> None:
+    def save(self, key: str, value: str | List[int] | float | None) -> None:
         """
         Saves a key-value pair to a JSON file. If the file does not exist,
         it creates a new one.
@@ -3072,11 +3105,32 @@ async def transfer_coins(sender: Member | User,
     del balance
 
     if interaction:
+        receiver_name: str = receiver.name
+        recipient_account_data = UserSaveData(
+            user_id=receiver_id, user_name=receiver_name)
+        recipient_receive_blocked: bool = (
+            recipient_account_data.blocked_from_receiving_coins)
+        if recipient_receive_blocked:
+            receiver_mention: str = receiver.mention
+            aml_role: None | Role = get_aml_officer_role(interaction)
+            if aml_role is None:
+                raise Exception("aml_role is None.")
+            aml_mention: str = aml_role.mention
+            message_content = (f"{receiver_mention} has been blocked from "
+                               f"receiving {coins}.\n"
+                               "-# If you believe this is a "
+                               "mistake, please contact "
+                               "an anti-money-laundering officer by "
+                               f"mentioning {aml_mention}.")
+            await interaction.response.send_message(
+                message_content, allowed_mentions=AllowedMentions.none())
+            del message_content
+            return
         auto_approve_transfer_limit: int = (
             configuration.auto_approve_transfer_limit)
         if ((amount > auto_approve_transfer_limit) and
             (sender_id != grifter_swap_id) and
-            (receiver_id != grifter_swap_id)):
+                (receiver_id != grifter_swap_id)):
             # Unhindered transfers between GrifterSwap (abuse is mitigated by
             # the GrifterSwap supplier check in the /slots command)
             print(f"Transfer amount exceeds auto-approval limit of "
@@ -3084,7 +3138,7 @@ async def transfer_coins(sender: Member | User,
             receiver_mention: str = receiver.mention
             if purpose is None:
                 message_content: str = (
-                    f"Anti-money laundering (AML) policies requires us to "
+                    f"Anti-money laundering policies (AML) requires us to "
                     "manually approve this transaction. "
                     "Please state your purpose of transferring "
                     f"{amount} {coin_label_a} to {receiver_mention}.")
@@ -3141,16 +3195,7 @@ async def transfer_coins(sender: Member | User,
                 if guild is None:
                     print("ERROR: Guild is None.")
                     return
-                aml_officer: Role | None = None
-                role_names: List[str] = [
-                    "Anti-Money Laundering Officer",
-                    "Anti-money laundering officer",
-                    "anti_money_laundering_officer",
-                    "AML Officer", "AML officer" "aml_officer"]
-                for role_name in role_names:
-                    aml_officer = utils.get(guild.roles, name=role_name)
-                    if aml_officer is not None:
-                        break
+                aml_officer: Role | None = get_aml_officer_role(interaction)
                 if aml_officer is None:
                     raise Exception("aml_officer is None.")
                 aml_officer_mention: str = aml_officer.mention
@@ -3199,6 +3244,27 @@ async def transfer_coins(sender: Member | User,
     del receiver_id
     del amount
     del coin_label_a
+# endregion
+
+# region AML Officer
+
+
+def get_aml_officer_role(interaction: Interaction):
+    guild: Guild | None = interaction.guild
+    if guild is None:
+        print("ERROR: Guild is None.")
+        return
+    aml_officer: Role | None = None
+    role_names: List[str] = [
+        "Anti-Money Laundering Officer",
+        "Anti-money laundering officer",
+        "anti_money_laundering_officer",
+        "AML Officer", "AML officer" "aml_officer"]
+    for role_name in role_names:
+        aml_officer = utils.get(guild.roles, name=role_name)
+        if aml_officer is not None:
+            break
+    return aml_officer
 # endregion
 
 # region Terminate bot
@@ -3827,10 +3893,7 @@ async def reels(interaction: Interaction,
     print(message)
     await interaction.followup.send(message, ephemeral=close_off)
     del message
-
-
 # endregion
-
 
 # region /slots
 
@@ -4699,10 +4762,20 @@ async def about_coin(interaction: Interaction) -> None:
 
 @bot.tree.command(name="aml",
                   description="Anti-money laundering workstation")
-async def aml(interaction: Interaction) -> None:
+@app_commands.describe(block_user_from_receivals=(f"Block user from "
+                                                  f"receiving {coins}"))
+@app_commands.describe(unblock_user_from_receivals=(f"Unblock user from "
+                                                    f"receiving {coins}"))
+@app_commands.describe(reason_for_block="Reason for blocking user from "
+                       f"receiving {coins}.")
+async def aml(interaction: Interaction,
+              block_user_from_receivals: User | Member | None = None,
+              unblock_user_from_receivals: User | Member | None = None,
+              reason_for_block: str | None = None) -> None:
     """
     Command to approve large transactions.
     """
+    # TODO Add parameter to check reason for block
     invoker: User | Member = interaction.user
     invoker_name: str = invoker.name
     invoker_id: int = invoker.id
@@ -4722,6 +4795,48 @@ async def aml(interaction: Interaction) -> None:
         await interaction.response.send_message(message_content)
         del message_content
         return
+
+    if block_user_from_receivals and not reason_for_block:
+        message_content: str = ("You must provide a reason for blocking "
+                                "a user from receiving coins.")
+        await interaction.response.send_message(message_content)
+        return
+    elif block_user_from_receivals and unblock_user_from_receivals:
+        message_content: str = ("You cannot block and unblock a user "
+                                "from receiving coins at the same time.")
+        await interaction.response.send_message(message_content)
+        return
+    elif block_user_from_receivals or unblock_user_from_receivals:
+        user_to_affect: User | Member
+        action = "block" if block_user_from_receivals else "unblocked"
+        blocked_value: bool
+        if block_user_from_receivals:
+            user_to_affect = block_user_from_receivals
+            blocked_value = True
+        elif unblock_user_from_receivals:
+            blocked_value = False
+            user_to_affect = unblock_user_from_receivals
+        else:
+            # For the static type checker
+            return
+        user_id: int = user_to_affect.id
+        user_name: str = user_to_affect.name
+        user_save_data = UserSaveData(user_id=user_id, user_name=user_name)
+        user_save_data.blocked_from_receiving_coins = blocked_value
+        if block_user_from_receivals:
+            user_save_data.blocked_from_receiving_coins_reason = (
+                str(reason_for_block))
+        else:
+            user_save_data.blocked_from_receiving_coins_reason = None
+        user_mention: str = user_to_affect.mention
+        message_content = (
+            f"User {user_mention} has been {action} from receiving {coins}.")
+        del action
+        await interaction.response.send_message(
+            message_content, allowed_mentions=AllowedMentions.none())
+        del message_content
+        return
+
     transfers_list: List[TransactionRequest] = transfers_waiting_approval.load()
     has_sent_message = False
     for transfer in transfers_list:
@@ -4809,6 +4924,7 @@ async def aml(interaction: Interaction) -> None:
                             f"of {amount} {coins} "
                             f"to {receiver} ({receiver_id}) "
                             f"dated {request_timestamp_friendly}.")
+        del action
         log.log(log_message, log_timestamp)
         del log_message
         if transaction_approved:

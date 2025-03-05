@@ -73,6 +73,8 @@ class SaveData(TypedDict):
     when_last_bonus_received: float | None
     reaction_message_received: bool
     mining_messages_enabled: bool
+    blocked_from_receiving_coins: bool
+    blocked_from_receiving_coins_reason: str | None
 
 
 class TransactionRequest(TypedDict):
