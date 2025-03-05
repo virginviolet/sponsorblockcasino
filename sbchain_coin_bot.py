@@ -3168,13 +3168,9 @@ async def transfer_coins(sender: Member | User,
             interaction_message: InteractionMessage = (
                 await interaction.original_response())
             interaction_message_id: int = interaction_message.id
-            awaiting_approval_message_content: str = (
-                f"A request for transferring {amount} {coin_label_a} "
-                f"to {receiver_mention} has been "
-                "sent for approval.")
+            del interaction_message
             if channel is None:
-                print("ERROR: Channel is None.")
-                return
+                raise Exception("channel is None.")
             transaction_request: TransactionRequest = {
                 "sender_id": sender_id,
                 "receiver_id": receiver_id,
@@ -3184,35 +3180,61 @@ async def transfer_coins(sender: Member | User,
                 "message_id": interaction_message_id,
                 "purpose": purpose
             }
-            transfers_waiting_approval.add(transaction_request)
-            await interaction.followup.send(
-                awaiting_approval_message_content,
-                allowed_mentions=AllowedMentions.none())
-            aml_office_thread_id: int = configuration.aml_office_thread_id
-            aml_office_thread: (
-                VoiceChannel | StageChannel | ForumChannel | TextChannel |
-                CategoryChannel | PrivateChannel |
-                Thread) = await bot.fetch_channel(aml_office_thread_id)
-            if isinstance(aml_office_thread, Thread):
-                guild: Guild | None = interaction.guild
-                if guild is None:
-                    print("ERROR: Guild is None.")
-                    return
-                aml_officer: Role | None = get_aml_officer_role(interaction)
-                if aml_officer is None:
-                    raise Exception("aml_officer is None.")
-                aml_officer_mention: str = aml_officer.mention
-                aml_office_message: str = (aml_officer_mention +
-                                           awaiting_approval_message_content)
-                await aml_office_thread.send(
-                    aml_office_message,
+            try:
+                transfers_waiting_approval.add(transaction_request)
+                awaiting_approval_message_content: str = (
+                    f"A request for transferring {amount} {coin_label_a} "
+                    f"to {receiver_mention} has been sent for approval.")
+                await interaction.followup.send(
+                    awaiting_approval_message_content,
                     allowed_mentions=AllowedMentions.none())
-            log_message: str = (
-                f"A request for transferring {amount} {coin_label_a} "
-                f"to {receiver_mention} for the purpose of \"{purpose}\" has "
-                "been sent for approval.")
-            log.log(log_message, request_timestamp)
-            del log_message
+                log_message: str = (
+                    f"A request for transferring {amount} {coin_label_a} "
+                    f"to {receiver_mention} for the purpose of \"{purpose}\" has "
+                    "been sent for approval.")
+                log.log(log_message, request_timestamp)
+                del log_message
+            except Exception as e:
+                administrator: str = (
+                    (await bot.fetch_user(administrator_id)).mention)
+                print(f"ERROR: Error adding transaction request to queue: {e}")
+                message_content = ("Error sending transfer request.\n"
+                                   f"{administrator} pls fix.")
+                await interaction.followup.send(message_content)
+                del message_content
+                return
+            try:
+                aml_office_thread_id: int = configuration.aml_office_thread_id
+                aml_office_thread: (
+                    VoiceChannel | StageChannel | ForumChannel | TextChannel |
+                    CategoryChannel | PrivateChannel |
+                    Thread) = await bot.fetch_channel(aml_office_thread_id)
+                if isinstance(aml_office_thread, Thread):
+                    guild: Guild | None = interaction.guild
+                    if guild is None:
+                        print("ERROR: Guild is None.")
+                        return
+                    aml_officer: Role | None = get_aml_officer_role(interaction)
+                    if aml_officer is None:
+                        raise Exception("aml_officer is None.")
+                    aml_officer_mention: str = aml_officer.mention
+                    aml_office_message: str = (aml_officer_mention +
+                                            awaiting_approval_message_content)
+                    
+                    await aml_office_thread.send(
+                        aml_office_message,
+                        allowed_mentions=AllowedMentions.none())
+            except Exception as e:
+                administrator: str = (
+                    (await bot.fetch_user(administrator_id)).mention)
+                print("ERROR: "
+                      f"Error sending transfer request to AML office: {e}")
+                message_content = (
+                    "There was an error notifying the AML office.\n"
+                    f"{administrator} pls fix.")
+                await interaction.followup.send(message_content)
+                del message_content
+                return
             return
 
     await add_block_transaction(
