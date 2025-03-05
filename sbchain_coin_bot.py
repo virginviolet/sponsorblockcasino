@@ -64,6 +64,7 @@ DISCORD_TOKEN: str | None = getenv('DISCORD_TOKEN')
 # Number of messages to keep track of in each channel
 channel_checkpoint_limit: int = 3
 active_slot_machine_players: set[int] = set()
+starting_bonus_timeout = 30
 # endregion
 
 # region Checkpoints
@@ -1959,7 +1960,7 @@ class StartingBonusView(View):
                 been clicked.
             die_button: The button for starting the bonus die.
         """
-        super().__init__(timeout=30)
+        super().__init__(timeout=starting_bonus_timeout)
         self.invoker: User | Member = invoker
         self.invoker_id: int = invoker.id
         self.starting_bonus_awards: Dict[int, int] = starting_bonus_awards
@@ -4028,7 +4029,6 @@ async def slots(interaction: Interaction,
         combo_events: Dict[str, ReelSymbol] = (
             slot_machine.configuration["combo_events"])
         combo_event_count: int = len(combo_events)
-
         for event in combo_events:
             event_name: str = event
             event_name_friendly: str = (
@@ -4183,7 +4183,6 @@ async def slots(interaction: Interaction,
         await interaction.response.send_message(message_content,
                                                 ephemeral=should_use_ephemeral)
         del message_content
-        await asyncio.sleep(4)
         # Re-initialize slot machine (reloads configuration from file)
         reinitialize_slot_machine()
         # Also update the bot configuration
@@ -4191,7 +4190,7 @@ async def slots(interaction: Interaction,
         # Also reload the other files
         reinitialize_grifter_suppliers()
         reinitialize_transfers_waiting_approval()
-        await asyncio.sleep(4)
+        await asyncio.sleep(starting_bonus_timeout)
         # Remove user from active players
         if user_id in active_slot_machine_players:
             active_slot_machine_players.remove(user_id)
@@ -4267,8 +4266,7 @@ async def slots(interaction: Interaction,
                 await interaction.response.send_message(
                     message_content, ephemeral=should_use_ephemeral)
                 del message_content
-                if user_id in active_slot_machine_players:
-                    active_slot_machine_players.remove(user_id)
+                active_slot_machine_players.remove(user_id)
                 return
 
     if (user_balance <= 0) and (starting_bonus_available is False):
@@ -4296,8 +4294,7 @@ async def slots(interaction: Interaction,
                 await interaction.response.send_message(
                     message_content, ephemeral=should_use_ephemeral)
                 del message_content
-                if user_id in active_slot_machine_players:
-                    active_slot_machine_players.remove(user_id)
+                active_slot_machine_players.remove(user_id)
                 return
     elif (user_balance <= 0) and (time() < starting_bonus_available):
         # If starting_bonus_available is a boolean, the above conditional
@@ -4358,8 +4355,7 @@ async def slots(interaction: Interaction,
         save_data.has_visited_casino = True
         current_time: float = time()
         save_data.when_last_bonus_received = current_time
-        if user_id in active_slot_machine_players:
-            active_slot_machine_players.remove(user_id)
+        active_slot_machine_players.remove(user_id)
         return
 
     del has_played_before
@@ -4850,7 +4846,6 @@ async def mining(interaction: Interaction,
         await interaction.response.send_message(message_content, ephemeral=True)
         del message_content
         return
-
 # endregion
 
 # region /about_coin
