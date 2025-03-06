@@ -328,34 +328,6 @@ class Log:
         with open(self.file_name, "w"):
             pass
 
-    def format_timestamp(self, timestamp: float) -> str:
-        """
-        Formats a Unix timestamp to a localized human-readable format.
-
-        Args:
-            timestamp: The Unix timestamp to format.
-        Returns:
-            str: The formatted timestamp.
-        """
-        if self.time_zone is None:
-            # Use local time zone
-            timestamp_friendly: str = (
-                datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S"))
-        else:
-            # Convert Unix timestamp to datetime object
-            timestamp_dt: datetime = (
-                datetime.fromtimestamp(timestamp, pytz.utc))
-
-            # Adjust for time zone
-            timestamp_dt = (
-                timestamp_dt.astimezone(pytz.timezone(self.time_zone)))
-
-            # Format the timestamp
-            timestamp_friendly: str = (
-                timestamp_dt.strftime("%Y-%m-%d %H:%M:%S"))
-
-        return timestamp_friendly
-
     def log(self, line: str, timestamp: float) -> None:
         """
         Logs a line of text with a timestamp to a file.
@@ -367,7 +339,7 @@ class Log:
             None
         """
 
-        timestamp_friendly: str = self.format_timestamp(timestamp)
+        timestamp_friendly: str = format_timestamp(timestamp, self.time_zone)
 
         # Create the log file if it doesn't exist
         if not exists(self.file_name):
@@ -1959,7 +1931,7 @@ class DecryptedTransactionsSpreadsheet:
     Decrypts the transactions spreadsheet.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, time_zone: str | None = None) -> None:
         project_root: Path = get_project_root()
         decrypted_spreadsheet_full_path: Path = (
             project_root / "data" / "transactions_decrypted.tsv")
@@ -1973,6 +1945,7 @@ class DecryptedTransactionsSpreadsheet:
             project_root / "data" / "save_data")
         self.save_data_dir_path: Path = (
             save_data_dir_full_path.relative_to(project_root))
+        self.time_zone: str | None = time_zone
 
     def decrypt(self) -> None:
         """
@@ -2006,6 +1979,10 @@ class DecryptedTransactionsSpreadsheet:
             transactions["Sender"].map(user_names))  # type: ignore
         transactions["Receiver"] = (
             transactions["Receiver"].map(user_names))  # type: ignore
+        # Replace unix timestamps
+        # use format_timestamp()
+        transactions["Time"] = (
+            transactions["Time"].map(format_timestamp))  # type: ignore
         # Save the decrypted transactions to a new file
         transactions.to_csv(
             self.decrypted_spreadsheet_path, sep="\t", index=False)
@@ -3474,8 +3451,38 @@ async def terminate_bot() -> NoReturn:
 #     return guild_ids
 # endregion
 
-# region Coin label
+# region Format timestamp
+def format_timestamp(timestamp: float, time_zone: str | None = None) -> str:
+    """
+    Formats a Unix timestamp to a localized human-readable format.
 
+    Args:
+        timestamp: The Unix timestamp to format.
+    Returns:
+        str: The formatted timestamp.
+    """
+    timestamp_friendly: str
+    if time_zone is None:
+        # Use local time zone
+        timestamp_friendly = (
+            datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S"))
+    else:
+        # Convert Unix timestamp to datetime object
+        timestamp_dt: datetime = (
+            datetime.fromtimestamp(timestamp, pytz.utc))
+
+        # Adjust for time zone
+        timestamp_dt = (
+            timestamp_dt.astimezone(pytz.timezone(time_zone)))
+
+        # Format the timestamp
+        timestamp_friendly = (
+            timestamp_dt.strftime("%Y-%m-%d %H:%M:%S"))
+
+    return timestamp_friendly
+# endregion
+
+# region Coin label
 
 def format_coin_label(number: int) -> str:
     """
@@ -3537,15 +3544,16 @@ if __name__ == "__main__":
 
 # region Init
 print("Starting bot...")
-
+time_zone = "Canada/Central"
 invoke_bot_configuration()
 
 slot_machine = SlotMachine()
 grifter_suppliers = GrifterSuppliers()
 transfers_waiting_approval = TransfersWaitingApproval()
-decrypted_transactions_spreadsheet = DecryptedTransactionsSpreadsheet()
+decrypted_transactions_spreadsheet = (
+    DecryptedTransactionsSpreadsheet(time_zone=time_zone))
 
-log = Log(time_zone="Canada/Central")
+log = Log(time_zone=time_zone)
 
 
 @bot.event
@@ -5196,7 +5204,7 @@ async def aml(interaction: Interaction,
             return
         transaction_approved: bool = aml_view.approved
         request_timestamp_friendly: str = (
-            log.format_timestamp(request_timestamp))
+            format_timestamp(request_timestamp, time_zone))
         log_timestamp = time()
         action: str
         if transaction_approved:
