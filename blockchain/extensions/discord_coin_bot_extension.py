@@ -9,31 +9,14 @@ from flask import Flask, request, jsonify, Response, send_file
 from dotenv import load_dotenv
 from typing import Tuple
 from type_aliases import SlotMachineConfig, BotConfig
+from utils.get_project_root import get_project_root
 # endregion
 
 # region Variables
 # Load .env file for the server token
 load_dotenv()
 SERVER_TOKEN: str | None = os.getenv('SERVER_TOKEN')
-project_root_marker_files: list[str] = [
-    ".gitignore", ".gitattributes", ".git", ".github", ".vscode", "README.md",
-    "LICENSE", "requirements.txt"]
-script_path: Path = Path(__file__).resolve()
-script_dir_path: Path = script_path.parent
-script_dir_parents: list[Path] = list(script_dir_path.parents)
-dir_paths_to_check: list[Path] = [script_dir_path] + script_dir_parents
-project_root_path: Path | None = None
-# iterate parents
-for path in dir_paths_to_check:
-    for marker_file in project_root_marker_files:
-        if (path / marker_file).exists():
-            project_root_path = path
-            break
-    if project_root_path:
-        break
-
-if not project_root_path:
-    raise FileNotFoundError("Project root path not found.")
+project_root_path: Path = get_project_root()
 
 slot_machine_config_full_path: Path = (
     project_root_path / "data" / "slot_machine.json")
