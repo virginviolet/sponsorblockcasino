@@ -13,7 +13,6 @@ Privileged Gateway Intents:
 """
 
 # region Imports
-import blockchain.sbchain as sbchain
 import threading
 import subprocess
 import signal
@@ -22,6 +21,7 @@ import json
 import pytz
 import random
 import math
+import blockchain.sbchain as sbchain
 from time import sleep, time
 from datetime import datetime
 from humanfriendly import format_timespan
@@ -50,6 +50,7 @@ from type_aliases import (BotConfig, Reels, ReelSymbol,
                           ReelResult, ReelResults,
                           SpinEmojis, SlotMachineConfig,
                           SaveData, TransactionRequest, T)
+from utils.get_project_root import get_project_root
 # endregion
 
 # region Bot setup
@@ -1625,7 +1626,7 @@ class UserSaveData:
     """
     Handles the creation, saving, and loading of user-specific data
     in JSON format.
-    
+
     ### About `starting_bonus_available` and `when_last_bonus_received`
 
     The property `starting_bonus_available` can be a unix timestamp that
@@ -2556,7 +2557,7 @@ def start_flask_app_waitress() -> None:
 
     print("Starting Flask app with Waitress...")
     program = "waitress-serve"
-    app_name = "sbchain"
+    app_name = "blockchain.sbchain"
     host = "*"
     # Use the environment variable or default to 8000
     port: str = os_environ.get("PORT", "8080")
@@ -2983,8 +2984,6 @@ def get_last_block_timestamp() -> float | None:
         print(f"ERROR: Error getting last block: {e}")
         return None
     return last_block_timestamp
-
-
 # endregion
 
 # region Add tx block
@@ -3434,6 +3433,7 @@ Blockchain_name: str = ""
 about_command_mention: str | None = ""
 grifter_swap_id: int = 0
 sbcoin_id: int = 0
+decrypted_transactions_spreadsheet = None
 # endregion
 
 # region Flask
@@ -4194,8 +4194,9 @@ async def slots(interaction: Interaction,
                 rtp_display = f"~{rtp_fraction:.4%}"
             else:
                 rtp_display = f"<{lowest_number_float}%"
+        coin_label = format_coin_label(wager_int)
         message_content = slot_machine.make_message(
-            f"-# RTP (stake={wager_int} {coins}): {rtp_display}")
+            f"-# RTP (stake={wager_int} {coin_label}): {rtp_display}")
         if private_room is False:
             should_use_ephemeral = False
         else:
@@ -4314,7 +4315,7 @@ async def slots(interaction: Interaction,
             (starting_bonus_available is False)):
         # The `isinstance()` check is technically unnecessary,
         # but is included for clarity
-        
+
         # See the UserSaveData documentation for information
         # about `starting_bonus_available` and `when_last_bonus_received`.
         when_last_bonus_received: float | None = (
