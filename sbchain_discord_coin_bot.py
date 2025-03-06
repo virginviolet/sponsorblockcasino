@@ -4225,7 +4225,7 @@ async def slots(interaction: Interaction,
         if when_player_added_to_active_players is not None:
             seconds_since_added: float = (
                 current_time - when_player_added_to_active_players)
-            min_wait_time_to_unstuck: int = starting_bonus_timeout * 2 + 1
+            min_wait_time_to_unstuck: int = starting_bonus_timeout * 2 - 3
             if seconds_since_added < min_wait_time_to_unstuck:
                 wait_time: int = (
                     math.ceil(min_wait_time_to_unstuck - seconds_since_added))
@@ -4241,9 +4241,6 @@ async def slots(interaction: Interaction,
             f"-# Welcome to the {Coin} Casino!")
         await interaction.edit_original_response(content=message_content)
         del message_content
-        # Remove user from active players
-        if user_id in active_slot_machine_players:
-            active_slot_machine_players.pop(user_id)
         return
     elif jackpot:
         # Check the jackpot amount
