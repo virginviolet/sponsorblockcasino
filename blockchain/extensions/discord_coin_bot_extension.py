@@ -1,47 +1,87 @@
 # region Imports
-from io import BytesIO
-from flask import Flask, request, jsonify, Response, send_file
 import os
 import json
 import zipfile
 import shutil
+from pathlib import Path
+from io import BytesIO
+from flask import Flask, request, jsonify, Response, send_file
 from dotenv import load_dotenv
 from typing import Tuple
 from type_aliases import SlotMachineConfig, BotConfig
 # endregion
 
-# region Constants
+# region Variables
 # Load .env file for the server token
 load_dotenv()
 SERVER_TOKEN: str | None = os.getenv('SERVER_TOKEN')
-slot_machine_config_path = "data/slot_machine.json"
-bot_config_path = "data/bot_configuration.json"
-checkpoints_dir_path = "data/checkpoints"
-save_data_dir_path = "data/save_data"
+project_root_marker_files: list[str] = [
+    ".gitignore", ".gitattributes", ".git", ".github", ".vscode", "README.md",
+    "LICENSE", "requirements.txt"]
+script_path: Path = Path(__file__).resolve()
+script_dir_path: Path = script_path.parent
+script_dir_parents: list[Path] = list(script_dir_path.parents)
+dir_paths_to_check: list[Path] = [script_dir_path] + script_dir_parents
+project_root_path: Path | None = None
+# iterate parents
+for path in dir_paths_to_check:
+    for marker_file in project_root_marker_files:
+        if (path / marker_file).exists():
+            project_root_path = path
+            break
+    if project_root_path:
+        break
+
+if not project_root_path:
+    raise FileNotFoundError("Project root path not found.")
+
+slot_machine_config_full_path: Path = (
+    project_root_path / "data" / "slot_machine.json")
+
+slot_machine_config_path: Path = (
+    slot_machine_config_full_path.relative_to(project_root_path))
+
+bot_config_full_path: Path = (
+    project_root_path / "data" / "bot_configuration.json")
+
+bot_config_path: Path = (
+    bot_config_full_path.relative_to(project_root_path))
+
+checkpoints_dir_full_path: Path = (
+    project_root_path / "data" / "checkpoints")
+
+checkpoints_dir_path: Path = (
+    checkpoints_dir_full_path.relative_to(project_root_path))
+
+save_data_dir_full_path: Path = (
+    project_root_path / "data" / "save_data")
+
+save_data_dir_path: Path = (
+    save_data_dir_full_path.relative_to(project_root_path))
 # endregion
 
-# region Function
+# region Functions
 
 
 def save_slot_config(config: SlotMachineConfig) -> None:
-    file_name: str = slot_machine_config_path
+    file_name: Path = slot_machine_config_path
     file_exists: bool = os.path.exists(file_name)
     file_empty: bool = file_exists and os.stat(
         file_name).st_size == 0
     if not file_exists or file_empty:
-        directories: str = (file_name[:file_name.rfind("/")])
+        directories: Path = file_name.parent
         os.makedirs(directories, exist_ok=True)
     with open(file_name, "w") as file:
         file.write(json.dumps(config))
 
 
 def save_bot_config(config: BotConfig) -> None:
-    file_name: str = bot_config_path
+    file_name: Path = bot_config_path
     file_exists: bool = os.path.exists(file_name)
     file_empty: bool = file_exists and os.stat(
         file_name).st_size == 0
     if not file_exists or file_empty:
-        directories: str = (file_name[:file_name.rfind("/")])
+        directories: Path = file_name.parent
         os.makedirs(directories, exist_ok=True)
     with open(file_name, "w") as file:
         file.write(json.dumps(config))
@@ -185,7 +225,8 @@ def register_routes(app: Flask) -> None:
                     memory_file, "w", zipfile.ZIP_DEFLATED) as zip_file:
                 for root, _, files in os.walk(checkpoints_dir_path):
                     for file in files:
-                        zip_file.write(os.path.join(root, file))
+                        zip_file_path: str = os.path.join(root, file)
+                        zip_file.write(zip_file_path)
             print("Zip file created in memory.")
         except Exception as e:
             return jsonify(
@@ -220,10 +261,10 @@ def register_routes(app: Flask) -> None:
                 file.write(file_content)
             print("File saved.")
             print("Extracting checkpoints...")
-            checkpoints_parent_path: str = (
-                checkpoints_dir_path[:checkpoints_dir_path.rfind("/")])
+            checkpoints_parent_path: Path = Path(checkpoints_dir_path).parent
+            checkpoints_parent_path_str: str = str(checkpoints_parent_path)
             with zipfile.ZipFile(file_path, "r") as zip_file:
-                zip_file.extractall(checkpoints_parent_path)
+                zip_file.extractall(checkpoints_parent_path_str)
             print("Checkpoints extracted.")
             print("Removing uploaded file...")
             os.remove(file_path)
@@ -285,7 +326,8 @@ def register_routes(app: Flask) -> None:
                     memory_file, "w", zipfile.ZIP_DEFLATED) as zip_file:
                 for root, _, files in os.walk(save_data_dir_path):
                     for file in files:
-                        zip_file.write(os.path.join(root, file))
+                        zip_file_path: str = os.path.join(root, file)
+                        zip_file.write(zip_file_path)
             print("Zip file created in memory.")
             print("Save data will be sent.")
             memory_file.seek(0)
@@ -320,10 +362,10 @@ def register_routes(app: Flask) -> None:
                 file.write(file_content)
             print("File saved.")
             print("Extracting save data...")
-            save_data_parent_path: str = (
-                save_data_dir_path[:save_data_dir_path.rfind("/")])
+            save_data_parent_path: Path = Path(save_data_dir_path).parent
+            save_data_parent_path_str: str = str(save_data_parent_path)
             with zipfile.ZipFile(file_path, "r") as zip_file:
-                zip_file.extractall(save_data_parent_path)
+                zip_file.extractall(save_data_parent_path_str)
             print("Save data extracted.")
             print("Removing uploaded file...")
             os.remove(file_path)
