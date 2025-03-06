@@ -13,6 +13,11 @@ Privileged Gateway Intents:
 """
 
 # region Imports
+from typing import Dict
+from pathlib import Path
+from os.path import exists, basename
+import os
+import pandas as pd
 import threading
 import subprocess
 import signal
@@ -22,6 +27,7 @@ import pytz
 import random
 import math
 import blockchain.sbchain as sbchain
+from builtins import open
 from time import sleep, time
 from datetime import datetime
 from humanfriendly import format_timespan
@@ -29,7 +35,8 @@ from discord import (Guild, Intents, Interaction, Member, Message, Client,
                      Emoji, MessageInteraction, PartialEmoji, Role, User,
                      TextChannel, VoiceChannel, app_commands, utils,
                      CategoryChannel, ForumChannel, StageChannel, DMChannel,
-                     GroupChannel, Thread, AllowedMentions, InteractionMessage)
+                     GroupChannel, Thread, AllowedMentions, InteractionMessage,
+                     File)
 from discord.app_commands import AppCommand
 from discord.abc import PrivateChannel
 from discord.ui import View, Button
@@ -1666,12 +1673,10 @@ class UserSaveData:
             otherwise None.
     """
 
-    def __init__(self, user_id: int, user_name: str) -> None:
+    def __init__(self, user_id: int, user_name: str | None = None) -> None:
         # print("Initializing save data...")
         self.user_id: int = user_id
-        self.user_name: str = user_name
         self.file_name: str = f"data/save_data/{user_id}/save_data.json"
-        # TODO Improve performance by not loading the save file multiple times in init
         self._starting_bonus_available: bool | float
         self._has_visited_casino: bool
         self._reaction_message_received: bool
@@ -1679,7 +1684,13 @@ class UserSaveData:
         self._mining_messages_enabled: bool
         self._blocked_from_receiving_coins: bool
         self._blocked_from_receiving_coins_reason: str | None
-        if not exists(self.file_name):
+        self._user_name: str
+        file_exists: bool = exists(self.file_name)
+        if (not file_exists) and (user_name is None):
+            raise ValueError("user_name must be provided if save data "
+                             "does not exist for the user.")
+        elif (not file_exists) and (user_name is not None):
+            self._user_name: str = user_name
             self._has_visited_casino = False
             self._starting_bonus_available = True
             self._when_last_bonus_received = None
@@ -1688,6 +1699,11 @@ class UserSaveData:
             self._blocked_from_receiving_coins = False
             self._blocked_from_receiving_coins_reason = None
             self.create()
+        elif (file_exists) and (user_name is None):
+            self.user_name: str = self._load_value(
+                key="user_name",
+                expected_type=str, default="")
+            self._load_all_properties()
         else:
             self._load_all_properties()
         # print("Save data initialized.")
@@ -1933,6 +1949,67 @@ class UserSaveData:
             return False
         else:
             return requested_value
+# endregion
+
+# region Decrypted tx
+
+
+class DecryptedTransactionsSpreadsheet:
+    """
+    Decrypts the transactions spreadsheet.
+    """
+
+    def __init__(self) -> None:
+        project_root: Path = get_project_root()
+        decrypted_spreadsheet_full_path: Path = (
+            project_root / "data" / "transactions_decrypted.tsv")
+        self.decrypted_spreadsheet_path: Path = (
+            decrypted_spreadsheet_full_path.relative_to(project_root))
+        encrypted_spreadsheet_full_path: Path = (
+            project_root / "data" / "transactions.tsv")
+        self.encrypted_spreadsheet_path: Path = (
+            encrypted_spreadsheet_full_path.relative_to(project_root))
+        save_data_dir_full_path: Path = (
+            project_root / "data" / "save_data")
+        self.save_data_dir_path: Path = (
+            save_data_dir_full_path.relative_to(project_root))
+
+    def decrypt(self) -> None:
+        """
+        Decrypts the transactions spreadsheet.
+        """
+        if not exists(self.encrypted_spreadsheet_path):
+            print("Encrypted transactions spreadsheet not found.")
+            return None
+        if not exists(self.save_data_dir_path):
+            print("Save data directory not found.")
+            return None
+
+        print("Decrypting transactions spreadsheet...")
+        user_names: Dict[str, str] = {}
+        for subdir, _, _ in os.walk(self.save_data_dir_path):
+            try:
+                user_id: int = int(basename(subdir))
+                save_data = UserSaveData(user_id)
+                user_name: str = save_data.user_name
+                user_id_hashed: str = sha256(str(user_id).encode()).hexdigest()
+                user_names[user_id_hashed] = user_name
+            except Exception as e:
+                print(f"ERROR: Error getting save data: {e}")
+                continue
+
+        # Load the data from the file
+        transactions: pd.DataFrame = pd.read_csv(  # type: ignore
+            self.encrypted_spreadsheet_path, sep="\t")
+        # Replace hashed user IDs with user names
+        transactions["Sender"] = (
+            transactions["Sender"].map(user_names))  # type: ignore
+        transactions["Receiver"] = (
+            transactions["Receiver"].map(user_names))  # type: ignore
+        # Save the decrypted transactions to a new file
+        transactions.to_csv(
+            self.decrypted_spreadsheet_path, sep="\t", index=False)
+        print("Decrypted transactions spreadsheet saved to file.")
 # endregion
 
 # region Bonus die button
@@ -3466,6 +3543,7 @@ invoke_bot_configuration()
 slot_machine = SlotMachine()
 grifter_suppliers = GrifterSuppliers()
 transfers_waiting_approval = TransfersWaitingApproval()
+decrypted_transactions_spreadsheet = DecryptedTransactionsSpreadsheet()
 
 log = Log(time_zone="Canada/Central")
 
@@ -4953,10 +5031,13 @@ async def about_coin(interaction: Interaction) -> None:
                                                     f"receiving {coins}"))
 @app_commands.describe(reason_for_block="Reason for blocking user from "
                        f"receiving {coins}.")
+@app_commands.describe(decrypt_spreadsheet="Decrypt the "
+                       "transaction spreadsheet")
 async def aml(interaction: Interaction,
               block_user_from_receivals: User | Member | None = None,
               unblock_user_from_receivals: User | Member | None = None,
-              reason_for_block: str | None = None) -> None:
+              reason_for_block: str | None = None,
+              decrypt_spreadsheet: bool | None = None) -> None:
     """
     Command to approve large transactions.
     """
@@ -5019,6 +5100,24 @@ async def aml(interaction: Interaction,
         del action
         await interaction.response.send_message(
             message_content, allowed_mentions=AllowedMentions.none())
+        del message_content
+        return
+    elif decrypt_spreadsheet:
+        if decrypted_transactions_spreadsheet is None:
+            message_content: str = (
+                "Could not make a decrypted transactions spreadsheet.")
+            await interaction.response.send_message(
+                message_content, ephemeral=True)
+            del message_content
+            raise ValueError("decrypted_transactions_spreadsheet is None.")
+        decrypted_transactions_spreadsheet.decrypt()
+        spreadsheet_path: Path = (decrypted_transactions_spreadsheet.decrypted_spreadsheet_path)
+        with open(spreadsheet_path, 'rb') as f:
+            decrypted_transactions_spreadsheet_file = File(f)
+            message_content: str = (
+                "The transactions spreadsheet has been decrypted.")
+            await interaction.response.send_message(message_content,
+                file=decrypted_transactions_spreadsheet_file)
         del message_content
         return
 
