@@ -47,9 +47,9 @@ from _collections_abc import dict_items
 from typing import (Dict, KeysView, List, LiteralString, NoReturn, TextIO, cast,
                     Literal, Any)
 from type_aliases import (BotConfig, Reels, ReelSymbol,
-                                    ReelResult, ReelResults,
-                                    SpinEmojis, SlotMachineConfig,
-                                    SaveData, TransactionRequest, T)
+                          ReelResult, ReelResults,
+                          SpinEmojis, SlotMachineConfig,
+                          SaveData, TransactionRequest, T)
 # endregion
 
 # region Bot setup
@@ -63,7 +63,7 @@ load_dotenv()
 DISCORD_TOKEN: str | None = getenv('DISCORD_TOKEN')
 # Number of messages to keep track of in each channel
 channel_checkpoint_limit: int = 3
-active_slot_machine_players: set[int] = set()
+active_slot_machine_players: Dict[int, float] = {}
 starting_bonus_timeout = 30
 # endregion
 
@@ -1625,6 +1625,30 @@ class UserSaveData:
     """
     Handles the creation, saving, and loading of user-specific data
     in JSON format.
+    
+    ### About `starting_bonus_available` and `when_last_bonus_received`
+
+    The property `starting_bonus_available` can be a unix timestamp that
+    signifies when a new bonus will be given out if the command is run, no
+    matter what their balance is at that point. It will only become a timestamp
+    when the users` account is depleted, effectively starting a timer.
+
+    If it was the case that `starting_bonus_available` was set to a new time
+    immediately upon receiving a bonus, then it would become an always recurring
+    event, not triggered by the user running out of coins. Therefore, it gets
+    set to False after the user has received a bonus.
+
+    Because `starting_bonus_available` is not always a timestamp, we need
+    another property - `when_last_bonus_received` - to keep track of when the
+    user last received a bonus. This way, we can make sure that the user does
+    not receive a bonus too often.
+
+    In short:
+    `starting_bonus_available` means: if the user should receive a
+    bonus, *or* a point in time when a bonus will be given to them, no matter
+    what their balance is at that moment. `when_last_bonus_received` means: the
+    point in time when the user last received a bonus.
+
 
     Methods:
         __init__(user_id, user_name):
@@ -3975,6 +3999,9 @@ async def slots(interaction: Interaction,
     transferred to the casino's account.
     See the "show_help" parameter for more information about the game.
 
+    See the UserSaveData documentation for more information
+    about 'starting_bonus_available' and 'when_last_bonus_received'. 
+
     Args:
     interaction  -- The interaction object representing the
                     command invocation.
@@ -3997,7 +4024,6 @@ async def slots(interaction: Interaction,
         # Check if the user has coins in GrifterSwap
         all_grifter_suppliers: List[int] = grifter_suppliers.suppliers
         is_grifter_supplier: bool = user_id in all_grifter_suppliers
-        print(f"Is grifter supplier: {is_grifter_supplier}")
         if is_grifter_supplier:
             return True
         else:
@@ -4183,6 +4209,7 @@ async def slots(interaction: Interaction,
         await interaction.response.send_message(message_content,
                                                 ephemeral=should_use_ephemeral)
         del message_content
+        sleep(4)
         # Re-initialize slot machine (reloads configuration from file)
         reinitialize_slot_machine()
         # Also update the bot configuration
@@ -4190,14 +4217,33 @@ async def slots(interaction: Interaction,
         # Also reload the other files
         reinitialize_grifter_suppliers()
         reinitialize_transfers_waiting_approval()
-        await asyncio.sleep(starting_bonus_timeout)
-        # Remove user from active players
-        if user_id in active_slot_machine_players:
-            active_slot_machine_players.remove(user_id)
+        # Remove invoker from active players in case they are stuck in it
+        # Multiple checks are put in place to prevent cheating
+        current_time: float = time()
+        when_player_added_to_active_players: float | None = (
+            active_slot_machine_players.get(user_id))
+        if when_player_added_to_active_players is not None:
+            seconds_since_added: float = (
+                current_time - when_player_added_to_active_players)
+            min_wait_time_to_unstuck: int = starting_bonus_timeout * 2 + 1
+            if seconds_since_added < min_wait_time_to_unstuck:
+                wait_time: int = (
+                    math.ceil(min_wait_time_to_unstuck - seconds_since_added))
+                await asyncio.sleep(wait_time)
+            user_name: str = user.name
+            if active_slot_machine_players.get(user_id) is not None:
+                # If still in the dictionary, remove the user
+                active_slot_machine_players.pop(user_id)
+                print(f"User {user_name} ({user_id}) removed from "
+                      "active players.")
+            del user_name
         message_content = slot_machine.make_message(
             f"-# Welcome to the {Coin} Casino!")
         await interaction.edit_original_response(content=message_content)
         del message_content
+        # Remove user from active players
+        if user_id in active_slot_machine_players:
+            active_slot_machine_players.pop(user_id)
         return
     elif jackpot:
         # Check the jackpot amount
@@ -4226,7 +4272,9 @@ async def slots(interaction: Interaction,
             ephemeral=True)
         return
     else:
-        active_slot_machine_players.add(user_id)
+        start_play_timestamp: float = time()
+        active_slot_machine_players[user_id] = start_play_timestamp
+        del start_play_timestamp
 
     user_name: str = user.name
     save_data: UserSaveData = (
@@ -4258,20 +4306,20 @@ async def slots(interaction: Interaction,
                 "your coins with \n"
                 "`!withdraw <currency> <amount>`, and then use `!suppliers` to "
                 "prove you're no longer a supplier.")
-            # Check if the user has coins in GrifterSwap
-            all_grifter_suppliers: List[int] = grifter_suppliers.suppliers
-            is_grifter_supplier: bool = user_id in all_grifter_suppliers
-            print(f"Is grifter supplier: {is_grifter_supplier}")
-            if is_grifter_supplier:
-                await interaction.response.send_message(
-                    message_content, ephemeral=should_use_ephemeral)
-                del message_content
-                active_slot_machine_players.remove(user_id)
-                return
+            await interaction.response.send_message(
+                message_content, ephemeral=should_use_ephemeral)
+            del message_content
+            active_slot_machine_players.pop(user_id)
+            return
 
-    if (user_balance <= 0) and (starting_bonus_available is False):
-        # If starting_bonus_available is a float, the above conditional
-        # will be false
+    if ((user_balance <= 0) and
+        (isinstance(starting_bonus_available, bool)) and
+            (starting_bonus_available is False)):
+        # The `isinstance()` check is technically unnecessary,
+        # but is included for clarity
+        
+        # See the UserSaveData documentation for information
+        # about `starting_bonus_available` and `when_last_bonus_received`.
         when_last_bonus_received: float | None = (
             save_data.when_last_bonus_received)
         if when_last_bonus_received is None:
@@ -4289,16 +4337,17 @@ async def slots(interaction: Interaction,
                 save_data.starting_bonus_available = when_eligible_for_bonus
                 min_time_between_bonuses: str = format_timespan(
                     min_seconds_between_bonuses)
-                message_content = (f"Come back in {min_time_between_bonuses} "
-                                   "and we will give you some coins to play with.")
+                message_content = (
+                    f"Come back in {min_time_between_bonuses} and "
+                    "we will give you some coins to play with.")
                 await interaction.response.send_message(
                     message_content, ephemeral=should_use_ephemeral)
                 del message_content
-                active_slot_machine_players.remove(user_id)
+                active_slot_machine_players.pop(user_id)
                 return
-    elif (user_balance <= 0) and (time() < starting_bonus_available):
-        # If starting_bonus_available is a boolean, the above conditional
-        # will be false
+    elif ((user_balance <= 0) and
+          (isinstance(starting_bonus_available, float)) and
+          (time() < starting_bonus_available)):
         seconds_left = int(starting_bonus_available - time())
         time_left: str = format_timespan(seconds_left)
         message_content: str = (f"You are out of {coins}. Come back "
@@ -4311,7 +4360,7 @@ async def slots(interaction: Interaction,
         await interaction.response.send_message(
             message_content, ephemeral=should_use_ephemeral)
         del message_content
-        active_slot_machine_players.remove(user_id)
+        active_slot_machine_players.pop(user_id)
         return
 
     main_bonus_requirements_passed: bool = (
@@ -4351,11 +4400,13 @@ async def slots(interaction: Interaction,
                               interaction=interaction))
         await interaction.response.send_message(content=message_content,
                                                 view=starting_bonus_view)
-        await starting_bonus_view.wait()
-        save_data.has_visited_casino = True
-        current_time: float = time()
-        save_data.when_last_bonus_received = current_time
-        active_slot_machine_players.remove(user_id)
+        wait: bool = await starting_bonus_view.wait()
+        timed_out: bool = wait is True
+        if not timed_out:
+            save_data.has_visited_casino = True
+            current_time: float = time()
+            save_data.when_last_bonus_received = current_time
+        active_slot_machine_players.pop(user_id)
         return
 
     del has_played_before
@@ -4372,7 +4423,7 @@ async def slots(interaction: Interaction,
         del coin_label_b
         del message_content
         if user_id in active_slot_machine_players:
-            active_slot_machine_players.remove(user_id)
+            active_slot_machine_players.pop(user_id)
         return
 
     fees_dict: Dict[str, int | float] = slot_machine.configuration["fees"]
@@ -4698,7 +4749,7 @@ async def slots(interaction: Interaction,
             del next_bonus_point_in_time
 
     if user_id in active_slot_machine_players:
-        active_slot_machine_players.remove(user_id)
+        active_slot_machine_players.pop(user_id)
 
     if last_block_error:
         # send message to admin
