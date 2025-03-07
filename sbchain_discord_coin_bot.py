@@ -1658,10 +1658,17 @@ class UserSaveData:
         self._blocked_from_receiving_coins_reason: str | None
         self._user_name: str
         file_exists: bool = exists(self.file_name)
-        if (not file_exists) and (user_name is None):
+        file_empty: bool | None = None
+        file_size: int
+        if file_exists:
+            file_size = os.stat(self.file_name).st_size
+            file_empty = file_size == 0
+        if file_empty:
+            print(f"ERROR: Save data file for {self.user_id} is empty.")
+        if (not file_exists or file_empty) and (user_name is None):
             raise ValueError("user_name must be provided if save data "
                              "does not exist for the user.")
-        elif (not file_exists) and (user_name is not None):
+        elif (not file_exists or file_empty) and (user_name is not None):
             self._user_name: str = user_name
             self._has_visited_casino = False
             self._starting_bonus_available = True
@@ -1671,7 +1678,7 @@ class UserSaveData:
             self._blocked_from_receiving_coins = False
             self._blocked_from_receiving_coins_reason = None
             self.create()
-        elif (file_exists) and (user_name is None):
+        elif (file_exists) and (not file_empty) and (user_name is None):
             self.user_name: str = self._load_value(
                 key="user_name",
                 expected_type=str, default="")
@@ -1860,7 +1867,7 @@ class UserSaveData:
             if directory.isdigit() and int(directory) == self.user_id:
                 with open(self.file_name, "w") as file:
                     file_contents: SaveData = {
-                        "user_name": self.user_name,
+                        "user_name": self._user_name,
                         "user_id": self.user_id,
                         "has_visited_casino": False,
                         "starting_bonus_available": (
@@ -1907,7 +1914,6 @@ class UserSaveData:
         """
         if not exists(self.file_name):
             return None
-
         all_data: SaveData
         with open(self.file_name, "r") as file:
             all_data = json.load(file)
