@@ -4165,7 +4165,7 @@ async def slots(interaction: Interaction,
         administrator: str = (await bot.fetch_user(administrator_id)).name
         help_message_1: str = (
             f"## {Coin} Slot Machine Help\n"
-            f"Win big by playing the {Coin} slot machine!*\n\n"
+            f"Win big by playing the {Coin} Slot Machine!*\n\n"
             "### Pay table\n"
             f"{pay_table}\n"
             "\n"
@@ -4192,7 +4192,7 @@ async def slots(interaction: Interaction,
             "pay table.\n"
             "\n"
             "### Overview\n"
-            f"The {Coin} slot machine has 3 reels.\n"
+            f"The {Coin} Slot Machine has 3 reels.\n"
             f"Each reel has {combo_event_count} unique symbols.\n"
             "If three symbols match, you get an award based on the symbol, "
             "or, if you're unlucky, you lose your entire stake (see the pay "
@@ -4298,11 +4298,11 @@ async def slots(interaction: Interaction,
         return
     elif reboot:
         message_content = slot_machine.make_message(
-            f"-# The {Coin} slot machine is restarting...")
+            f"-# The {Coin} Slot Machine is restarting...")
         await interaction.response.send_message(message_content,
                                                 ephemeral=should_use_ephemeral)
         del message_content
-        sleep(4)
+        await asyncio.sleep(4)
         # Re-initialize slot machine (reloads configuration from file)
         reinitialize_slot_machine()
         # Also update the bot configuration
@@ -4312,6 +4312,7 @@ async def slots(interaction: Interaction,
         reinitialize_transfers_waiting_approval()
         # Remove invoker from active players in case they are stuck in it
         # Multiple checks are put in place to prevent cheating
+        bootup_message: str = f"-# Welcome to the {Coin} Casino!"
         current_time: float = time()
         when_player_added_to_active_players: float | None = (
             active_slot_machine_players.get(user_id))
@@ -4319,19 +4320,41 @@ async def slots(interaction: Interaction,
             seconds_since_added: float = (
                 current_time - when_player_added_to_active_players)
             min_wait_time_to_unstuck: int = starting_bonus_timeout * 2 - 3
+            print(f"User {user_id} has been in active players for "
+              f"{seconds_since_added} seconds. Minimum wait time to unstuck: "
+              f"{min_wait_time_to_unstuck} seconds.")
             if seconds_since_added < min_wait_time_to_unstuck:
                 wait_time: int = (
                     math.ceil(min_wait_time_to_unstuck - seconds_since_added))
+                print(f"Waiting for {wait_time} seconds to unstuck user {user_id}.")
                 await asyncio.sleep(wait_time)
-            user_name: str = user.name
-            if active_slot_machine_players.get(user_id) is not None:
-                # If still in the dictionary, remove the user
-                active_slot_machine_players.pop(user_id)
-                print(f"User {user_name} ({user_id}) removed from "
-                      "active players.")
-            del user_name
-        message_content = slot_machine.make_message(
-            f"-# Welcome to the {Coin} Casino!")
+            when_player_added_double_check: float | None = (
+                active_slot_machine_players.get(user_id))
+            if when_player_added_double_check is not None:
+                when_added_unchanged: bool = (when_player_added_double_check ==
+                    when_player_added_to_active_players)
+                if when_added_unchanged:
+                    # If the timestamp has changed, that means that the user
+                    # has run /slots while the machine is "rebooting",
+                    # which could indicate that they are trying to cheat.
+                    # If their ID is still in the dictionary and the timestamp
+                    # hasn't changed,
+                    # remove the user from the dictionary
+                    user_name: str = user.name
+                    active_slot_machine_players.pop(user_id)
+                    print(f"User {user_name} ({user_id}) removed from "
+                            "active players.")
+                    del user_name
+                else:
+                    print("Timestamp changed. Will not remove user from active players.")
+                    bootup_message = (f"Cheating is illegal.\n"
+                                      f"-# Do not use the {Coin} Slot Machine "
+                                      "during reboot.")
+            else:
+                print("User not in active players anymore.")
+        else:
+            print("User not in active players.")
+        message_content = slot_machine.make_message(bootup_message)
         await interaction.edit_original_response(content=message_content)
         del message_content
         return
@@ -4672,7 +4695,7 @@ async def slots(interaction: Interaction,
         log_line = (f"{user_name} ({user_id}) won the {event_name} "
                     f"({event_name_friendly}) reward "
                     f"of {win_money} {coin_label_wm} and profited "
-                    f"{net_return} {coin_label_nr} on the {Coin} slot machine.")
+                    f"{net_return} {coin_label_nr} on the {Coin} Slot Machine.")
     elif net_return == 0:
         if event_name == "jackpot_fail":
             # This should not happen with default config
@@ -4686,7 +4709,7 @@ async def slots(interaction: Interaction,
                         f"the {event_name} event ({event_name_friendly}) "
                         "and lost their entire wager of "
                         f"{wager_int} {coin_label_nr} on "
-                        f"the {Coin} slot machine, "
+                        f"the {Coin} Slot Machine, "
                         "yet they neither lost any coins nor profited.")
         elif win_money > 0:
             # With the default config, this will happen if the fees are higher
@@ -4699,17 +4722,17 @@ async def slots(interaction: Interaction,
             # This should not happen without win money with the default config
             # (because of the fees)
             log_line = (f"{user_name} ({user_id}) made no profit on the "
-                        f"{Coin} slot machine.")
+                        f"{Coin} Slot Machine.")
     else:
         # if net return is negative, the user lost money
         if event_name == "lose_wager":
             log_line = (f"{user_name} ({user_id}) got the {event_name} event "
                         f"({event_name_friendly}) and lost their entire wager "
                         f"of {wager_int} {coin_label_nr} on the "
-                        f"{Coin} slot machine.")
+                        f"{Coin} Slot Machine.")
         if event_name == "jackpot_fail":
             log_line = (f"{user_name} ({user_id}) lost {-net_return} "
-                        f"{coin_label_nr} on the {Coin} slot machine by "
+                        f"{coin_label_nr} on the {Coin} Slot Machine by "
                         f"getting the {event_name} ({event_name_friendly}) "
                         "event without paying the jackpot fee.")
         elif win_money > 0:
@@ -4718,11 +4741,11 @@ async def slots(interaction: Interaction,
                         f"{win_money} {coin_label_wm} on "
                         f"the {event_name} ({event_name_friendly}) reward, "
                         f"but lost {-net_return} {coin_label_nr} in net return "
-                        f"on the {Coin} slot machine.")
+                        f"on the {Coin} Slot Machine.")
         else:
             log_line = (f"{user_name} ({user_id}) lost "
                         f"{-net_return} {coin_label_nr} on "
-                        f"the {Coin} slot machine.")
+                        f"the {Coin} Slot Machine.")
     del coin_label_wm
 
     # Generate collect message
