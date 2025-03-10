@@ -4251,19 +4251,6 @@ async def slots(interaction: Interaction,
         else:
             return False
 
-    def format_old_display(text: str, small: bool | None = None) -> str:
-        coin_label_od: str = format_coin_label(10000)
-        screen_length: int = len(f"You collect 10000 {coin_label_od}.")
-        if small:
-            filler_length: int = screen_length - len(text)
-            filler: str = " " * filler_length
-            text = f"-# `{text}{filler}`"
-        else:
-            filler_length: int = screen_length - len(text) - 5
-            filler: str = " " * filler_length
-            text = f"`{text}{filler}`"
-        return text
-
     if private_room:
         should_use_ephemeral = True
     else:
@@ -4901,20 +4888,13 @@ async def slots(interaction: Interaction,
     coin_label_tr: str = format_coin_label(total_return)
     collect_message: str | None = None
     if (total_return > 0):
-        collect_message = f"You collect {total_return} {coin_label_tr}."
+        collect_message = f"-# You collect {total_return} {coin_label_tr}."
     else:
         collect_message = None
     del coin_label_nr
 
     # TODO Move code to SlotMachine.make_message
     if event_message or collect_message:
-        # Add filler space to the messages
-        # to imitate an old display
-        if event_message:
-            event_message = format_old_display(event_message)
-        if collect_message:
-            collect_message = format_old_display(collect_message, small=True)
-
         # Display outcome messages
         outcome_message_line_1: str | None = None
         outcome_message_line_2: str | None = None
