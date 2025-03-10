@@ -3416,6 +3416,7 @@ async def transfer_coins(sender: Member | User,
 
 # region Get role
 
+
 def get_role(interaction: Interaction, role_names: List[str] | str) -> Role | None:
     guild: Guild | None = interaction.guild
     if guild is None:
@@ -3435,6 +3436,8 @@ def get_role(interaction: Interaction, role_names: List[str] | str) -> Role | No
 # endregion
 
 # region Get IT officer
+
+
 def get_cybersecurity_officer_role(interaction: Interaction) -> Role | None:
     role_names: List[str] = [
         f"{Coin} Security Officer", f"{Coin} security officer",
@@ -3452,6 +3455,8 @@ def get_cybersecurity_officer_role(interaction: Interaction) -> Role | None:
 # endregion
 
 # region AML Officer
+
+
 def get_aml_officer_role(interaction: Interaction):
     role_names: List[str] = [
         "Anti-Money Laundering Officer",
@@ -4246,6 +4251,19 @@ async def slots(interaction: Interaction,
         else:
             return False
 
+    def format_old_display(text: str, small: bool | None = None) -> str:
+        coin_label_od: str = format_coin_label(10000)
+        screen_length: int = len(f"You collect 10000 {coin_label_od}.")
+        if small:
+            filler_length: int = screen_length - len(text)
+            filler: str = " " * filler_length
+            text = f"-# `{text}{filler}`"
+        else:
+            filler_length: int = screen_length - len(text) - 5
+            filler: str = " " * filler_length
+            text = f"`{text}{filler}`"
+        return text
+
     if private_room:
         should_use_ephemeral = True
     else:
@@ -4650,7 +4668,7 @@ async def slots(interaction: Interaction,
             save_data.when_last_bonus_received = current_time
         await remove_from_active_players(user_id)
         return
-    
+
     del has_played_before
 
     if user_balance < wager_int:
@@ -4883,13 +4901,20 @@ async def slots(interaction: Interaction,
     coin_label_tr: str = format_coin_label(total_return)
     collect_message: str | None = None
     if (total_return > 0):
-        collect_message = (f"-# You collect {total_return} {coin_label_tr}.")
+        collect_message = f"You collect {total_return} {coin_label_tr}."
     else:
         collect_message = None
     del coin_label_nr
 
     # TODO Move code to SlotMachine.make_message
     if event_message or collect_message:
+        # Add filler space to the messages
+        # to imitate an old display
+        if event_message:
+            event_message = format_old_display(event_message)
+        if collect_message:
+            collect_message = format_old_display(collect_message, small=True)
+
         # Display outcome messages
         outcome_message_line_1: str | None = None
         outcome_message_line_2: str | None = None
