@@ -1,6 +1,4 @@
 try {
-    Write-Warning "This script will replace the bot config on the server."
-    Pause
     Import-Module Set-PsEnv
     
     Set-PsEnv
@@ -10,6 +8,8 @@ try {
     $botConfigPath = "$botDirPath\data\bot_configuration_production.json"
     
     Write-Host "Server URL: $Env:SERVER_URL"
+    Write-Warning "This script will replace the bot config on the server."
+    Pause
     Invoke-RestMethod -Uri "$Env:SERVER_URL/set_bot_config" `
         -Method 'Post' `
         -Headers @{'token' = $Env:SERVER_TOKEN; "Content-Type"="application/json"} `

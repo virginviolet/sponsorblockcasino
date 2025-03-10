@@ -7,7 +7,8 @@ try {
     Set-PsEnv
     
     Write-Host "Server URL: $Env:SERVER_URL"
-    $body = @{"data" = @($data)} | ConvertTo-Json
+    Pause
+    $body = @{"data" = @($data)} | ConvertTo-Json -Depth 3
     Write-Host "Body: $body"
     Invoke-RestMethod -Uri "$Env:SERVER_URL/add_block" `
         -Method 'Post' `
