@@ -3414,24 +3414,52 @@ async def transfer_coins(sender: Member | User,
     del coin_label_a
 # endregion
 
-# region AML Officer
+# region Get role
 
-
-def get_aml_officer_role(interaction: Interaction):
+def get_role(interaction: Interaction, role_names: List[str] | str) -> Role | None:
     guild: Guild | None = interaction.guild
     if guild is None:
         print("ERROR: Guild is None.")
-        return
-    aml_officer: Role | None = None
+        return None
+
+    requested_role: Role | None = None
+    if isinstance(role_names, str):
+        role_names_list: List[str] = [role_names]
+    else:
+        role_names_list = role_names
+    for role_name in role_names_list:
+        requested_role = utils.get(guild.roles, name=role_name)
+        if requested_role is not None:
+            break
+    return requested_role
+# endregion
+
+# region Get IT officer
+def get_cybersecurity_officer_role(interaction: Interaction) -> Role | None:
+    role_names: List[str] = [
+        f"{Coin} Security Officer", f"{Coin} security officer",
+        f"{coin} security officer", f"{coin}_security_officer",
+        f"{Coin} Casino Security Officer", f"{Coin} Casino security officer",
+        f"{coin} Casino security officer", f"{coin}_casino_security_officer",
+        "Information Security Officer", "Information security officer",
+        "information security officer", "information_security_officer"
+        "Computer Security Officer", "Computer security officer",
+        "computer security officer", "computer_security_officer",
+        "Cybersecurity Officer", "Cybersecurity officer",
+        "cybersecurity officer", "cybersecurity_officer"]
+    cybersecurity_officer: Role | None = get_role(interaction, role_names)
+    return cybersecurity_officer
+# endregion
+
+# region AML Officer
+def get_aml_officer_role(interaction: Interaction):
     role_names: List[str] = [
         "Anti-Money Laundering Officer",
         "Anti-money laundering officer",
+        "anti-money laundering officer",
         "anti_money_laundering_officer",
         "AML Officer", "AML officer" "aml_officer"]
-    for role_name in role_names:
-        aml_officer = utils.get(guild.roles, name=role_name)
-        if aml_officer is not None:
-            break
+    aml_officer: Role | None = get_role(interaction, role_names)
     return aml_officer
 
 
@@ -4179,6 +4207,32 @@ async def slots(interaction: Interaction,
     # TODO Add TOS parameter
     # TODO Add service parameter
     # IMPROVE Make incompatible parameters not selectable together
+    async def remove_from_active_players(user_id: int) -> None:
+        print(f"Removing user {user_id} from active players...")
+        try:
+            active_slot_machine_players.pop(user_id)
+        except Exception as e:
+            # Users who tries to cheat might trip this exception
+            # and get reported to the IT Security Officer
+            it_security_officer_role: Role | None = (
+                get_cybersecurity_officer_role(interaction))
+            message_content: str
+            if it_security_officer_role is None:
+                console_role_is_none_message: str = (
+                    f"ERROR: Could not get the {Coin} Security Officer role.")
+                print(console_role_is_none_message)
+                message_content = "Suspicious activity detected."
+            else:
+                it_security_officer_mention: str = (
+                    it_security_officer_role.mention)
+                message_content = (f"{it_security_officer_mention} "
+                                   "Suspicious activity detected.")
+            await interaction.followup.send(message_content)
+            custom_exception_text: str = (
+                f"ERROR: Could not remove user {user_id} from "
+                f"active_slot_machine_players: {e}")
+            raise type(e)(custom_exception_text)
+
     def grifter_supplier_check() -> bool:
         """
         Checks if the invoker is a Grifter Supplier and sends a message if they
@@ -4415,7 +4469,7 @@ async def slots(interaction: Interaction,
                     # hasn't changed,
                     # remove the user from the dictionary
                     user_name: str = user.name
-                    active_slot_machine_players.pop(user_id)
+                    await remove_from_active_players(user_id)
                     print(f"User {user_name} ({user_id}) removed from "
                           "active players.")
                     del user_name
@@ -4497,7 +4551,7 @@ async def slots(interaction: Interaction,
             await interaction.response.send_message(
                 message_content, ephemeral=should_use_ephemeral)
             del message_content
-            active_slot_machine_players.pop(user_id)
+            await remove_from_active_players(user_id)
             return
 
     if ((user_balance <= 0) and
@@ -4531,7 +4585,7 @@ async def slots(interaction: Interaction,
                 await interaction.response.send_message(
                     message_content, ephemeral=should_use_ephemeral)
                 del message_content
-                active_slot_machine_players.pop(user_id)
+                await remove_from_active_players(user_id)
                 return
     elif ((user_balance <= 0) and
           (isinstance(starting_bonus_available, float)) and
@@ -4548,7 +4602,7 @@ async def slots(interaction: Interaction,
         await interaction.response.send_message(
             message_content, ephemeral=should_use_ephemeral)
         del message_content
-        active_slot_machine_players.pop(user_id)
+        await remove_from_active_players(user_id)
         return
 
     main_bonus_requirements_passed: bool = (
@@ -4594,9 +4648,9 @@ async def slots(interaction: Interaction,
             save_data.has_visited_casino = True
             current_time: float = time()
             save_data.when_last_bonus_received = current_time
-        active_slot_machine_players.pop(user_id)
+        await remove_from_active_players(user_id)
         return
-
+    
     del has_played_before
 
     if user_balance < wager_int:
@@ -4611,7 +4665,7 @@ async def slots(interaction: Interaction,
         del coin_label_b
         del message_content
         if user_id in active_slot_machine_players:
-            active_slot_machine_players.pop(user_id)
+            await remove_from_active_players(user_id)
         return
 
     fees_dict: Dict[str, int | float] = slot_machine.configuration["fees"]
@@ -4691,6 +4745,7 @@ async def slots(interaction: Interaction,
             if button_clicked:
                 buttons_clicked_count += 1
         user_irresonsive = buttons_clicked_count == 0
+        # FIXME
         all_buttons_clicked = buttons_clicked_count == 3
         user_stopped_clicking = (
             buttons_clicked_count == previous_buttons_clicked_count)
@@ -4937,7 +4992,7 @@ async def slots(interaction: Interaction,
             del next_bonus_point_in_time
 
     if user_id in active_slot_machine_players:
-        active_slot_machine_players.pop(user_id)
+        await remove_from_active_players(user_id)
 
     if last_block_error:
         # send message to admin
