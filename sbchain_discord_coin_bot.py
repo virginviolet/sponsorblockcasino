@@ -4790,7 +4790,8 @@ async def slots(interaction: Interaction,
         del coin_label_fee
         del coin_label_jackpot
     elif event_name == "standard_lose":
-        event_message = None
+        # event_message = None
+        event_message = "So close!"
     else:
         # The rest of the possible events are win events
         event_message = (f"{event_name_friendly}! "
@@ -4884,8 +4885,7 @@ async def slots(interaction: Interaction,
     if (total_return > 0):
         collect_message = (f"-# You collect {total_return} {coin_label_tr}.")
     else:
-        # collect_message = None
-        collect_message = "So close!"
+        collect_message = None
     del coin_label_nr
 
     # TODO Move code to SlotMachine.make_message
