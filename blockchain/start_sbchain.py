@@ -1,9 +1,16 @@
+# region Imports
+# Standard Library
 import threading
 import subprocess
 from os import environ as os_environ
 from time import sleep
-from typing import (List, TextIO)
+from typing import List, TextIO
+
+# Local
 import blockchain.sbchain as sbchain
+# endregion
+
+# region Waitress
 
 
 def start_flask_app_waitress() -> None:
@@ -59,6 +66,9 @@ def start_flask_app_waitress() -> None:
         args=(waitress_process.stderr, "STDERR"),
         daemon=True
     ).start()
+# endregion
+
+# region Start flask app
 
 
 def start_flask_app() -> None:
@@ -79,6 +89,9 @@ def start_flask_app() -> None:
     except Exception as e:
         error_message: str = f"ERROR: Error running Flask app: {e}"
         raise Exception(error_message)
+# endregion
+
+# region Start flask thread
 
 
 def start_flask_app_thread() -> None:

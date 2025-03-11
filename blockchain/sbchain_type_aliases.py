@@ -1,4 +1,10 @@
+# region Imports
+# Standard Library
 from typing import List, Dict, TypedDict
+# endregion
+
+
+# region Type aliases
 
 
 class TransactionDict(TypedDict):
@@ -15,3 +21,4 @@ class BlockDict(TypedDict):
     previous_block_hash: str
     nonce: int
     block_hash: str
+# endregion

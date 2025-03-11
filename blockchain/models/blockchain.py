@@ -1,11 +1,16 @@
 # region Imports
+# Standard library
 import os
 import json
 import hashlib
 import enum
-import pandas as pd
 from io import TextIOWrapper
 from typing import Generator, Tuple, Dict, List
+
+# Third-party
+import pandas as pd
+
+# Local
 from blockchain.sbchain_type_aliases import BlockDict, TransactionDict
 from blockchain.models.block import Block
 # endregion

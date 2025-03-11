@@ -1,15 +1,23 @@
-# region Init
+# region Imports
+# Standard Library
 import os
 import json
-import blockchain.extensions.discord_coin_bot_extension as discord_coin_bot_extension
-from flask import Flask, request, jsonify, Response, send_file
-from dotenv import load_dotenv
 from sys import exit as sys_exit
 from typing import Tuple, Dict, List, Any
-from blockchain.models.blockchain import Blockchain
-from blockchain.models.block import Block
-from blockchain.sbchain_type_aliases import TransactionDict
 
+# Third party
+from flask import Flask, request, jsonify, Response, send_file
+from dotenv import load_dotenv
+
+# Local
+import blockchain.extensions.discord_coin_bot_extension \
+    as discord_coin_bot_extension
+from blockchain.sbchain_type_aliases import TransactionDict
+from blockchain.models.block import Block
+from blockchain.models.blockchain import Blockchain
+# endregion
+
+# region Init
 app = Flask(__name__)
 # Load .env file for the server token
 load_dotenv()
@@ -20,7 +28,9 @@ discord_coin_bot_extension.register_routes(app)
 
 # region Start chain
 blockchain = Blockchain()
+
 # endregion
+
 
 # region API Routes
 

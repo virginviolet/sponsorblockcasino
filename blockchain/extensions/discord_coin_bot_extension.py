@@ -1,17 +1,22 @@
 # region Imports
+# Standard library
 import os
 import json
 import zipfile
 import shutil
 from io import BytesIO
 from pathlib import Path
+from typing import Tuple
+
+# Third-party
 from flask import Flask, request, jsonify, Response, send_file
 from dotenv import load_dotenv
+
+# Local
+from type_aliases import SlotMachineConfig, BotConfig
 from utils.decrypt_transactions import (
     DecryptedTransactionsSpreadsheet)
-from typing import Tuple
 from utils.get_project_root import get_project_root
-from type_aliases import SlotMachineConfig, BotConfig
 # endregion
 
 # region Constants
