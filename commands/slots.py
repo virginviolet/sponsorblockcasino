@@ -11,10 +11,7 @@ from sympy import Float, Integer, simplify
 from typing import (Dict, List, cast)
 from bot_configuration import invoke_bot_configuration
 from type_aliases import ReelSymbol,  ReelResults, SpinEmojis
-from core.global_state import (bot, slot_machine, coin, Coin, coins, 
-                               casino_house_id, administrator_id, log,
-                               blockchain, active_slot_machine_players,
-                               grifter_suppliers, starting_bonus_timeout)
+from core.global_state import (bot, get_variables)
 from core.terminate_bot import terminate_bot
 from models.slot_machine import SlotMachine
 from models.grifter_suppliers import GrifterSuppliers
@@ -83,6 +80,32 @@ async def slots(interaction: Interaction,
     # TODO Add TOS parameter
     # TODO Add service parameter
     # IMPROVE Make incompatible parameters not selectable together
+    (per_channel_checkpoint_limit,  # type: ignore
+    active_slot_machine_players,
+    starting_bonus_timeout,
+    waitress_process,  # type: ignore
+    log,
+    blockchain,
+    slot_machine,
+    grifter_suppliers,
+    transfers_waiting_approval,  # type: ignore
+    coin,
+    Coin,
+    coins,
+    Coins,  # type: ignore
+    coin_emoji_id,  # type: ignore
+    coin_emoji_name,  # type: ignore
+    casino_house_id,
+    administrator_id,
+    casino_channel_id,  # type: ignore
+    blockchain_name,  # type: ignore
+    Blockchain_name,  # type: ignore
+    about_command_formatted,  # type: ignore
+    grifter_swap_id,  # type: ignore
+    sbcoin_id,  # type: ignore
+    auto_approve_transfer_limit,  # type: ignore
+    aml_office_thread_id  # type: ignore
+    ) = get_variables()
     assert isinstance(slot_machine, SlotMachine), (
         "slot_machine has not been initialized.")
     assert isinstance(grifter_suppliers, GrifterSuppliers), (
@@ -320,6 +343,35 @@ async def slots(interaction: Interaction,
         # Also reload the other files
         global_state.grifter_suppliers = GrifterSuppliers()
         global_state.transfers_waiting_approval = TransfersWaitingApproval()
+        # Reload variables from global_state
+        (per_channel_checkpoint_limit,  # type: ignore
+        active_slot_machine_players,
+        starting_bonus_timeout,
+        waitress_process,  # type: ignore
+        log,
+        blockchain,
+        slot_machine,
+        grifter_suppliers,
+        transfers_waiting_approval,  # type: ignore
+        coin,
+        Coin,
+        coins,
+        Coins,  # type: ignore
+        coin_emoji_id,  # type: ignore
+        coin_emoji_name,  # type: ignore
+        casino_house_id,
+        administrator_id,
+        casino_channel_id,  # type: ignore
+        blockchain_name,  # type: ignore
+        Blockchain_name,  # type: ignore
+        about_command_formatted,  # type: ignore
+        grifter_swap_id,  # type: ignore
+        sbcoin_id,  # type: ignore
+        auto_approve_transfer_limit,  # type: ignore
+        aml_office_thread_id  # type: ignore
+        ) = get_variables()
+        assert isinstance(slot_machine, SlotMachine), (
+            "slot_machine has not been initialized.")
         # Remove invoker from active players in case they are stuck in it
         # Multiple checks are put in place to prevent cheating
         bootup_message: str = f"-# Welcome to the {Coin} Casino!"
