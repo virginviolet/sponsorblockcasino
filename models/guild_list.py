@@ -1,9 +1,11 @@
 # region Imports
+# Standard library
 from os.path import exists
 from os import makedirs
 from os.path import exists
-from typing import List
 from typing import List, Sequence
+
+# Third party
 from discord import Guild
 from discord.ext.commands import Bot  # type: ignore
 # endregion

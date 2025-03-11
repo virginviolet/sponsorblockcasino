@@ -1,7 +1,12 @@
 # region Imports
+# Standard library
+from hashlib import sha256
+
+# Third party
 from discord import (Interaction, Member, app_commands, AllowedMentions)
 from discord.ext.commands import Bot  # type: ignore
-from hashlib import sha256
+
+# Local
 from core.global_state import bot
 from utils.formatting import format_coin_label
 from blockchain.models.blockchain import Blockchain

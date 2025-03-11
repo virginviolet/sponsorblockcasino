@@ -1,8 +1,11 @@
 # region Imports
+# Third party
 from discord import (Interaction, Member, User, TextChannel, VoiceChannel,
                      app_commands, CategoryChannel, ForumChannel, StageChannel,
                      DMChannel, GroupChannel, Thread)
 from discord.ext.commands import Bot  # type: ignore
+
+# Local
 from core.global_state import bot, coins
 from utils.blockchain_utils import transfer_coins
 # endregion

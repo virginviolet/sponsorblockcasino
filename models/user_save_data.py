@@ -1,9 +1,11 @@
 # region Imports
+# Standard library
 import json
 from os import makedirs, stat
 from os.path import exists
-from os.path import exists
 from typing import (List, cast)
+
+# Local
 from type_aliases import (SaveData, T)
 # endregion
 

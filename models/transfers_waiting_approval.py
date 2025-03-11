@@ -1,10 +1,15 @@
 # region Imports
-from os.path import exists
+# Standard library
 import json
-from discord import (Guild, Interaction, Role, utils)
+from os.path import exists
 from os import makedirs
 from os.path import exists
 from typing import (Dict, List)
+
+# Third party
+from discord import (Guild, Interaction, Role, utils)
+
+# Local
 from type_aliases import TransactionRequest
 # endregion
 

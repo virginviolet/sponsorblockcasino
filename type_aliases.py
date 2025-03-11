@@ -1,5 +1,12 @@
-from discord import PartialEmoji
+# region Imports
+# Standard Library
 from typing import Dict, TypedDict, List, TypeVar
+
+# Third party
+from discord import PartialEmoji
+# endregion
+
+# region Type aliases
 
 
 class BotConfig(TypedDict):
@@ -88,3 +95,4 @@ class TransactionRequest(TypedDict):
 
 
 T = TypeVar('T')
+# endregion

@@ -1,7 +1,10 @@
 # region Imports
+# Third party
 from discord import Member
 from discord.raw_models import RawReactionActionEvent
 from discord.ext.commands import Bot  # type: ignore
+
+# Local
 from core.global_state import bot
 from utils.process_reaction import process_reaction
 # endregion

@@ -1,8 +1,13 @@
 # region Imports
+# Standard library
 from typing import List, cast
+
+# Third party
 from discord import (Interaction, Member, PartialEmoji, User, app_commands,
                      AllowedMentions)
 from discord.ext.commands import Bot  # type: ignore
+
+# Local
 from core.global_state import bot, Coin, coins, coin_emoji_id, coin_emoji_name
 from models.user_save_data import UserSaveData
 from utils.formatting import format_coin_label

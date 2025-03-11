@@ -1,9 +1,14 @@
 # region Imports
+# Standard Library
 import random
 from typing import Dict
+
+# Third party
 from discord import Interaction, Member, User
 from discord.ui import Item, View, Button
 from discord.ext.commands import Bot  # type: ignore
+
+# Local
 from core.global_state import (blockchain, log, casino_house_id, coins,
                                starting_bonus_timeout)
 from core.terminate_bot import terminate_bot

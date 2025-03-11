@@ -1,12 +1,17 @@
 # region Imports
+# Standard library
 from _collections_abc import dict_items
 from typing import List, Dict, cast
+
+# Third party
 from discord import Interaction, Member, Role, User, app_commands, utils
 from discord.ext.commands import Bot  # type: ignore
 from sympy import Float, Integer, Eq, Gt, simplify, Piecewise, pretty
+
+# Local
+from type_aliases import Reels
 from core.global_state import bot, slot_machine
 from models.slot_machine import SlotMachine
-from type_aliases import Reels
 # endregion
 
 # region /reels

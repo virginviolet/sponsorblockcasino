@@ -7,7 +7,7 @@ import enum
 from io import TextIOWrapper
 from typing import Generator, Tuple, Dict, List
 
-# Third-party
+# Third party
 import pandas as pd
 
 # Local

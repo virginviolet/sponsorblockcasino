@@ -8,7 +8,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Tuple
 
-# Third-party
+# Third party
 from flask import Flask, request, jsonify, Response, send_file
 from dotenv import load_dotenv
 

@@ -1,17 +1,26 @@
 # region Imports
+# Standard library
 from typing import Dict, TYPE_CHECKING
 from os import getenv
+
+# Third party
 from dotenv import load_dotenv
+
 if TYPE_CHECKING:
+    # Standard library
     from subprocess import Popen
+
+    # Third-party
     from discord.ext.commands import Bot  # type: ignore
-    from blockchain.models.blockchain import Blockchain
+
+    # Local
     from models.checkpoints import ChannelCheckpoints
     from models.grifter_suppliers import GrifterSuppliers
     from models.log import Log
     from models.slot_machine import SlotMachine
     from models.transfers_waiting_approval import TransfersWaitingApproval
     from utils.decrypt_transactions import DecryptedTransactionsSpreadsheet
+    from blockchain.models.blockchain import Blockchain
 # endregion
 
 # region Constants
@@ -60,33 +69,4 @@ all_channel_checkpoints: "Dict[int, ChannelCheckpoints]" = {}
 about_command_formatted: str | None = None
 
 active_slot_machine_players: Dict[int, float] = {}
-# endregion
-
-# region Get variables
-def get_variables():
-    return (per_channel_checkpoint_limit,
-            active_slot_machine_players,
-            starting_bonus_timeout,
-            waitress_process,
-            log,
-            blockchain,
-            slot_machine,
-            grifter_suppliers,
-            transfers_waiting_approval,
-            coin,
-            Coin,
-            coins,
-            Coins,
-            coin_emoji_id,
-            coin_emoji_name,
-            casino_house_id,
-            administrator_id,
-            casino_channel_id,
-            blockchain_name,
-            Blockchain_name,
-            about_command_formatted,
-            grifter_swap_id,
-            sbcoin_id,
-            auto_approve_transfer_limit,
-            aml_office_thread_id)
 # endregion

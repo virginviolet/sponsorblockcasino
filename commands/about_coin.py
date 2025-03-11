@@ -1,8 +1,11 @@
 # region imports
+# Third party
 from discord import (Interaction, PartialEmoji, TextChannel, VoiceChannel,
                      CategoryChannel, ForumChannel, StageChannel, Thread)
 from discord.abc import PrivateChannel
 from discord.ext.commands import Bot  # type: ignore
+
+# Local
 from core.global_state import (bot, Coin, coin, coin_emoji_id, coin_emoji_name,
                                casino_channel_id, blockchain_name)
 # endregion

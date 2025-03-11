@@ -1,17 +1,24 @@
 # region Imports
+# Standard library
 import asyncio
 import math
 import core.global_state as global_state
 from time import time
 from hashlib import sha256
+
+# Standard library
+from sympy import Float, Integer, simplify
+from typing import (Dict, List, cast)
+
+# Third party
 from humanfriendly import format_timespan
 from discord import Interaction, Member, PartialEmoji, User, app_commands, Role
 from discord.ext.commands import Bot  # type: ignore
-from sympy import Float, Integer, simplify
-from typing import (Dict, List, cast)
+
+# Local
 from bot_configuration import invoke_bot_configuration
 from type_aliases import ReelSymbol,  ReelResults, SpinEmojis
-from core.global_state import (bot, get_variables)
+from core.global_state import bot
 from core.terminate_bot import terminate_bot
 from models.slot_machine import SlotMachine
 from models.grifter_suppliers import GrifterSuppliers

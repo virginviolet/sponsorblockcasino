@@ -1,19 +1,24 @@
 # region Imports
+# Standard Library
+from typing import List
+
+# Third party
 from discord import (Member, Message, Emoji, PartialEmoji, User, TextChannel,
                      VoiceChannel, CategoryChannel, ForumChannel, StageChannel,
                      Thread, AllowedMentions)
 from discord.abc import PrivateChannel
 from discord.ext.commands import Bot  # type: ignore
-from typing import List
-from blockchain.models.blockchain import Blockchain
-from core.terminate_bot import terminate_bot
-from models.user_save_data import UserSaveData
-from models.log import Log
-from utils.blockchain_utils import (add_block_transaction,
-                                    get_last_block_timestamp)
+
+# Local
 import core.global_state as global_state
 from core.global_state import (bot, coin, coin_emoji_id, coin_emoji_name,
                                 casino_channel_id, log, blockchain)
+from core.terminate_bot import terminate_bot
+from blockchain.models.blockchain import Blockchain
+from models.log import Log
+from models.user_save_data import UserSaveData
+from utils.blockchain_utils import (add_block_transaction,
+                                    get_last_block_timestamp)
 # endregion
 
 # region Coin reaction

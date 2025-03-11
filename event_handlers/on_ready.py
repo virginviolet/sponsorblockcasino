@@ -1,11 +1,15 @@
-
 # region Imports
-import core.global_state as global_state
+# Standard library
 from typing import List
+
+# Third party
 from discord import app_commands
 from discord.app_commands import AppCommand
 from discord.ext.commands import Bot  # type: ignore
-from core.global_state import (bot, coin, per_channel_checkpoint_limit)
+
+# Local
+import core.global_state as global_state
+from core.global_state import bot, coin, per_channel_checkpoint_limit
 from models.checkpoints import start_checkpoints
 from utils.missed_messages import process_missed_messages
 # endregion

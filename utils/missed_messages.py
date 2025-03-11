@@ -1,10 +1,14 @@
-
 # region Imports
+# Standard Library
 from typing import Dict, List
+
+# Third party 
 from discord import Member, Emoji, PartialEmoji, User
 from discord.ext.commands import Bot  # type: ignore
-from core.global_state import bot
+
+# Local
 import core.global_state as global_state
+from core.global_state import bot
 from utils.process_reaction import process_reaction
 # endregion
 # region Missed msgs

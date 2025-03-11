@@ -1,9 +1,12 @@
 # region Imports
+# Standard library
 import json
 from os.path import exists
 from os import makedirs
 from os.path import exists
 from typing import Dict, List
+
+# Third party
 from discord import Member, User
 from discord.ext.commands import Bot  # type: ignore
 # endregion

@@ -1,10 +1,15 @@
 # region Imports
+# Standard Library
 import asyncio
 from typing import Dict, List, LiteralString, cast, Literal
+
+# Third party
 from discord import Interaction, Member, User, PartialEmoji
 from discord.ui import View, Button
-from models.slot_machine import SlotMachine
+
+# Local
 from type_aliases import ReelSymbol, ReelResult, ReelResults, SpinEmojis
+from models.slot_machine import SlotMachine
 # endregion
 
 # region Slots buttons

@@ -1,6 +1,11 @@
 # region Imports
-from discord import Guild, Interaction, Member, Role, User, utils
+# Standard Library
 from typing import List, cast
+
+# Third party
+from discord import Guild, Interaction, Member, Role, User, utils
+
+# Local
 from core.global_state import coin, Coin
 
 # region Get role

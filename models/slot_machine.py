@@ -1,15 +1,19 @@
 # region Imports
-from os.path import exists
+# Standard library
 import json
 import random
 import math
 from os import makedirs
 from os.path import exists
+from typing import Dict, KeysView, List, LiteralString, cast, Literal, Any
+
+# Third party
 from sympy import (symbols, Expr, Add, Mul, Float, Integer, Eq, Lt, Ge,
                    Rational, Piecewise)
-from typing import Dict, KeysView, List, LiteralString, cast, Literal, Any
-from type_aliases import Reels, ReelSymbol, ReelResults, SlotMachineConfig
+
+# Local
 import core.global_state as global_state
+from type_aliases import Reels, ReelSymbol, ReelResults, SlotMachineConfig
 # endregion
 
 class SlotMachine:

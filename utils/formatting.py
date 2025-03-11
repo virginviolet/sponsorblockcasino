@@ -1,7 +1,10 @@
 # region Imports
+# Standard Library
+from datetime import datetime
+
+# Third party
 import pytz
 from core.global_state import coin, coins
-from datetime import datetime
 # endregion
 
 # region Coin label

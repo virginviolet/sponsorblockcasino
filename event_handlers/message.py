@@ -1,10 +1,14 @@
 # region Imports
-import core.global_state as global_state
+# Standard library
 from typing import List
+
+# Third party
 from discord import (Guild, Member, Message, MessageInteraction, User,
                      TextChannel, VoiceChannel)
 from discord.ext.commands import Bot  # type: ignore
-from core import global_state
+
+# Local
+import core.global_state as global_state
 from core.global_state import (bot, casino_house_id, grifter_swap_id, sbcoin_id,
                                grifter_suppliers)
 from models.checkpoints import ChannelCheckpoints

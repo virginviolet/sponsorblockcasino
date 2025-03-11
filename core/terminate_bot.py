@@ -1,9 +1,14 @@
 # region Imports
+# Standard library
 import signal
 import asyncio
 from sys import exit as sys_exit
 from typing import NoReturn
+
+# Third party
 from discord.ext.commands import Bot # type: ignore
+
+# Local
 from core.global_state import waitress_process, bot
 # endregion
 

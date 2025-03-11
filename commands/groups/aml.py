@@ -1,15 +1,20 @@
 # region Imports
+# Standard library
 from pathlib import Path
 from time import time
+from typing import List, cast, Literal
+
+# Third party
 from humanfriendly import format_timespan
 from discord import (Interaction, Member, Message, User, TextChannel,
                      VoiceChannel, app_commands, CategoryChannel,
                      ForumChannel, StageChannel, Thread, AllowedMentions, File)
 from discord.abc import PrivateChannel
 from discord.ext.commands import Bot  # type: ignore
-from typing import List, cast, Literal
-from models.transfers_waiting_approval import TransfersWaitingApproval
+
+# Local
 from type_aliases import TransactionRequest
+from models.transfers_waiting_approval import TransfersWaitingApproval
 from core.global_state import (time_zone, bot, log, coins,
                                transfers_waiting_approval,
                                decrypted_transactions_spreadsheet)

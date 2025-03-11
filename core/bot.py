@@ -1,17 +1,22 @@
 # region Imports
+# Standard library
 import core.global_state as global_state
+from sys import exit as sys_exit
+
+# Third party
 from discord import (Intents, Client)
 from discord.ext import commands
 from discord.ext.commands import Bot  # type: ignore
-from sys import exit as sys_exit
+
+# Local
+from bot_configuration import invoke_bot_configuration
 from core.global_state import time_zone
-from blockchain.models.blockchain import Blockchain
 from models.grifter_suppliers import GrifterSuppliers
+from models.log import Log
 from models.slot_machine import SlotMachine
 from models.transfers_waiting_approval import TransfersWaitingApproval
-from models.log import Log
-from bot_configuration import invoke_bot_configuration
 from utils.decrypt_transactions import DecryptedTransactionsSpreadsheet
+from blockchain.models.blockchain import Blockchain
 # endregion
 
 # region Bot setup

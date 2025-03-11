@@ -1,10 +1,12 @@
 # region Imports
+# Standard library
 from os.path import exists
-import pytz
 from time import time
 from datetime import datetime
 from os import makedirs
-from os.path import exists
+
+# Third party
+import pytz
 # endregion
 
 # region Log

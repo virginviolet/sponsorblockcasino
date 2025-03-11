@@ -1,6 +1,9 @@
 # region Imports
+# Third party
 from discord import Interaction, Member, User, Message, AllowedMentions
 from discord.ui import View, Button
+
+# Local
 from core.global_state import Coin
 # endregion
 
