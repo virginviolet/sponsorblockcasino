@@ -3,13 +3,14 @@
 from typing import Dict, List
 from discord import Member, Emoji, PartialEmoji, User
 from discord.ext.commands import Bot  # type: ignore
-from core.global_state import all_channel_checkpoints
+from core.global_state import bot
+import core.global_state as global_state
 from utils.process_reaction import process_reaction
 # endregion
 # region Missed msgs
 
 
-async def process_missed_messages(bot: Bot, limit: int | None = None) -> None:
+async def process_missed_messages(limit: int | None = None) -> None:
     """
     This function iterates through all guilds and their text channels to fetch
     messages that were sent while the bot was offline. It processes reactions to
@@ -28,9 +29,10 @@ async def process_missed_messages(bot: Bot, limit: int | None = None) -> None:
 
         each channel.
     """
-    global all_channel_checkpoints
     missed_messages_processed_message: str = "Missed messages processed."
-
+    assert isinstance(bot, Bot), "bot has not been initialized."
+    all_channel_checkpoints: Dict[int, global_state.ChannelCheckpoints] = (
+        global_state.all_channel_checkpoints)
     print("Processing missed messages...")
 
     for guild in bot.guilds:

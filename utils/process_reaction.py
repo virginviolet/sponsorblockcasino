@@ -9,10 +9,11 @@ from blockchain.models.blockchain import Blockchain
 from core.terminate_bot import terminate_bot
 from models.user_save_data import UserSaveData
 from models.log import Log
-from utils.blockchain_utils import add_block_transaction, get_last_block_timestamp
+from utils.blockchain_utils import (add_block_transaction,
+                                    get_last_block_timestamp)
+import core.global_state as global_state
 from core.global_state import (bot, coin, coin_emoji_id, coin_emoji_name,
-                                casino_channel_id, about_command_formatted,
-                                log, blockchain)
+                                casino_channel_id, log, blockchain)
 # endregion
 
 # region Coin reaction
@@ -132,9 +133,12 @@ async def process_reaction(message_id: int,
         save_data: UserSaveData = UserSaveData(
             user_id=sender_id, user_name=sender_name)
         mining_messages_enabled: bool = save_data.mining_messages_enabled
+        about_command_formatted: str | None = (
+            global_state.about_command_formatted)
         if about_command_formatted is None:
-            error_message = ("ERROR: `about_command_mention` is None. This "
-                             "usually means that the commands have not been ")
+            error_message = ("ERROR: `about_command_formatted` is None. This "
+                             "usually means that the commands have not been "
+                             "synced with Discord yet.")
             raise ValueError(error_message)
         if not mining_messages_enabled:
             return

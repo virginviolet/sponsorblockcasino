@@ -205,4 +205,8 @@ def invoke_bot_configuration() -> None:
     core.global_state.Blockchain_name = configuration.Blockchain_name
     core.global_state.grifter_swap_id = configuration.grifter_swap_id
     core.global_state.sbcoin_id = configuration.sbcoin_id
+    core.global_state.auto_approve_transfer_limit = (
+        configuration.auto_approve_transfer_limit)
+    core.global_state.aml_office_thread_id = (
+        configuration.aml_office_thread_id)
     print("Bot configuration loaded.")

@@ -22,7 +22,8 @@ from blockchain.sbchain_type_aliases import TransactionDict
 from blockchain.models.blockchain import Blockchain
 from core.global_state import (
     bot, coins, administrator_id, grifter_swap_id, log, blockchain,
-    transfers_waiting_approval)
+    transfers_waiting_approval, auto_approve_transfer_limit,
+    aml_office_thread_id)
 from models.log import Log
 from models.user_save_data import UserSaveData
 from models.transfers_waiting_approval import TransfersWaitingApproval
@@ -250,8 +251,6 @@ async def transfer_coins(sender: Member | User,
                 message_content, allowed_mentions=AllowedMentions.none())
             del message_content
             return
-        auto_approve_transfer_limit: int = (
-            configuration.auto_approve_transfer_limit)
         if ((amount > auto_approve_transfer_limit) and
             (sender_id != grifter_swap_id) and
                 (receiver_id != grifter_swap_id)):
@@ -326,7 +325,6 @@ async def transfer_coins(sender: Member | User,
                                  f"to queue: {e}")
                 raise Exception(error_message)
             try:
-                aml_office_thread_id: int = configuration.aml_office_thread_id
                 aml_office_thread: (
                     VoiceChannel | StageChannel | ForumChannel | TextChannel |
                     CategoryChannel | PrivateChannel |

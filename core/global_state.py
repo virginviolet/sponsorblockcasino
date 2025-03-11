@@ -1,15 +1,18 @@
-from typing import Dict
+# region Imports
+from typing import Dict, TYPE_CHECKING
 from os import getenv
 from dotenv import load_dotenv
-from subprocess import Popen
-from discord.ext.commands import Bot  # type: ignore
-from blockchain.models.blockchain import Blockchain
-from models.checkpoints import ChannelCheckpoints
-from models.grifter_suppliers import GrifterSuppliers
-from models.log import Log
-from models.slot_machine import SlotMachine
-from models.transfers_waiting_approval import TransfersWaitingApproval
-from utils.decrypt_transactions import DecryptedTransactionsSpreadsheet
+if TYPE_CHECKING:
+    from subprocess import Popen
+    from discord.ext.commands import Bot  # type: ignore
+    from blockchain.models.blockchain import Blockchain
+    from models.checkpoints import ChannelCheckpoints
+    from models.grifter_suppliers import GrifterSuppliers
+    from models.log import Log
+    from models.slot_machine import SlotMachine
+    from models.transfers_waiting_approval import TransfersWaitingApproval
+    from utils.decrypt_transactions import DecryptedTransactionsSpreadsheet
+# endregion
 
 # region Constants
 load_dotenv()
@@ -23,17 +26,17 @@ DISCORD_TOKEN: str | None = getenv('DISCORD_TOKEN')
 per_channel_checkpoint_limit: int = 3
 active_slot_machine_players: Dict[int, float] = {}
 starting_bonus_timeout: int = 30
-time_zone = "Canada/Central"
+time_zone: str = "Canada/Central"
 
-waitress_process: Popen[str] | None = None
-log: Log | None = None
-blockchain: Blockchain | None = None
-slot_machine: SlotMachine | None = None
-grifter_suppliers: GrifterSuppliers | None = None
-transfers_waiting_approval: TransfersWaitingApproval | None = None
+waitress_process: "Popen[str] | None" = None
+log: "Log | None" = None
+blockchain: "Blockchain | None" = None
+slot_machine: "SlotMachine | None" = None
+grifter_suppliers: "GrifterSuppliers | None" = None
+transfers_waiting_approval: "TransfersWaitingApproval | None" = None
 decrypted_transactions_spreadsheet: (
-    DecryptedTransactionsSpreadsheet | None) = None
-bot: Bot | None = None
+    "DecryptedTransactionsSpreadsheet | None") = None
+bot: "Bot | None" = None
 
 # Bot configuration
 coin: str = ""
@@ -49,14 +52,14 @@ blockchain_name: str = ""
 Blockchain_name: str = ""
 grifter_swap_id: int = 0
 sbcoin_id: int = 0
+auto_approve_transfer_limit: int = 0
+aml_office_thread_id: int = 0
 
-
-all_channel_checkpoints: Dict[int, ChannelCheckpoints] = {}
+all_channel_checkpoints: "Dict[int, ChannelCheckpoints]" = {}
 
 about_command_formatted: str | None = None
 
 active_slot_machine_players: Dict[int, float] = {}
-
 # endregion
 
 # region Get variables
@@ -83,5 +86,7 @@ def get_variables():
             Blockchain_name,
             about_command_formatted,
             grifter_swap_id,
-            sbcoin_id)
+            sbcoin_id,
+            auto_approve_transfer_limit,
+            aml_office_thread_id)
 # endregion

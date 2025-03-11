@@ -1,10 +1,12 @@
 # region Imports
+import core.global_state as global_state
 from typing import List
 from discord import (Guild, Member, Message, MessageInteraction, User,
                      TextChannel, VoiceChannel)
 from discord.ext.commands import Bot  # type: ignore
+from core import global_state
 from core.global_state import (bot, casino_house_id, grifter_swap_id, sbcoin_id,
-                               all_channel_checkpoints, grifter_suppliers)
+                               grifter_suppliers)
 from models.checkpoints import ChannelCheckpoints
 from models.grifter_suppliers import GrifterSuppliers
 # endregion
@@ -26,8 +28,9 @@ async def on_message(message: Message) -> None:
     Returns:
         None
     """
+    all_channel_checkpoints: global_state.Dict[int, ChannelCheckpoints] = (
+        global_state.all_channel_checkpoints)
     assert isinstance(grifter_suppliers, GrifterSuppliers)
-    global all_channel_checkpoints
     channel_id: int = message.channel.id
 
     if channel_id in all_channel_checkpoints:
