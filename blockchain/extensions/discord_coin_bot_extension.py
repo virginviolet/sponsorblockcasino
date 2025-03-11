@@ -3,19 +3,22 @@ import os
 import json
 import zipfile
 import shutil
-from pathlib import Path
 from io import BytesIO
+from pathlib import Path
 from flask import Flask, request, jsonify, Response, send_file
 from dotenv import load_dotenv
+from utils.decrypt_transactions import (
+    DecryptedTransactionsSpreadsheet)
 from typing import Tuple
-from type_aliases import SlotMachineConfig, BotConfig
 from utils.get_project_root import get_project_root
+from type_aliases import SlotMachineConfig, BotConfig
 # endregion
 
-# region Variables
+# region Constants
 # Load .env file for the server token
 load_dotenv()
 SERVER_TOKEN: str | None = os.getenv('SERVER_TOKEN')
+# FIXME Set path in global_state?
 project_root_path: Path = get_project_root()
 
 slot_machine_config_full_path: Path = (
@@ -41,6 +44,9 @@ save_data_dir_full_path: Path = (
 
 save_data_dir_path: Path = (
     save_data_dir_full_path.relative_to(project_root_path))
+
+decrypted_transactions_path: Path = project_root_path / "data" / "transactions_decrypted.tsv"
+decrypted_transactions_spreadsheet = DecryptedTransactionsSpreadsheet()
 # endregion
 
 # region Functions
@@ -360,4 +366,36 @@ def register_routes(app: Flask) -> None:
             message = f"Error uploading save data: {str(e)}"
             print(message)
             return jsonify({"message": message}), 500
+
+    @app.route("/download_transactions_decrypted", methods=["GET"])
+    # API Route: Download the decrypted transactions
+    def download_transactions_decrypted() -> Tuple[Response, int]:
+        print("Received request to download decrypted transactions.")
+        message: str
+        token: str | None = request.headers.get("token")
+        if not token:
+            message = "Token is required."
+            print(message)
+            return jsonify({"message": message}), 400
+        if token != SERVER_TOKEN:
+            message = "Invalid token."
+            print(message)
+            return jsonify({"message": message}), 400
+        try:
+            file_exists: bool = os.path.exists(decrypted_transactions_path)
+            if not file_exists:
+                message = "Decrypted transactions not found."
+                print(message)
+                return jsonify({"message": message}), 404
+            decrypted_transactions_spreadsheet.decrypt()
+            print("Decrypted transactions will be sent.")
+            return send_file(
+                decrypted_transactions_path,
+                mimetype="text/tab-separated-values",
+                as_attachment=True), 200
+        except Exception as e:
+            message = f"Error downloading decrypted transactions: {str(e)}"
+            print(message)
+            return jsonify({"message": message}), 500
+
     # endregion
