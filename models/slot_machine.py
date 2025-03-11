@@ -946,7 +946,7 @@ class SlotMachine:
             return ("standard_lose", "No win", 0)
 
         # IMPROVE Code is repeated from slots() function
-        fees_dict: Dict[str, int | float] = slot_machine.configuration["fees"]
+        fees_dict: Dict[str, int | float] = self.configuration["fees"]
         low_wager_main_fee: int = (
             cast(int, fees_dict["low_wager_main"]))
         low_wager_jackpot_fee: int = (
