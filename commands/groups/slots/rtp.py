@@ -19,7 +19,7 @@ from .slots_main import slots_group
 
 @slots_group.command(name="rtp",
                      description="Show the return to player percentage for "
-                     "a given wager.")
+                     "a given stake")
 @app_commands.describe(stake="The stake to calculate the RTP for")
 @app_commands.describe(private_room=(
     "Whether you want to book a private room or not"))
