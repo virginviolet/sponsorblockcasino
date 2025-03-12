@@ -3,7 +3,6 @@
 import threading
 import subprocess
 from os import environ as os_environ
-from time import sleep
 from typing import List, TextIO
 
 # Local
@@ -103,5 +102,4 @@ def start_flask_app_thread() -> None:
         print("Flask app thread started.")
     except Exception as e:
         print(f"ERROR: Error starting Flask app thread: {e}")
-    sleep(1)
 # endregion
