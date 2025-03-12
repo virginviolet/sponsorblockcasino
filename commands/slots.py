@@ -53,7 +53,7 @@ async def slots(interaction: Interaction,
                 jackpot: bool = False,
                 reboot: bool = False,
                 show_help: bool = False,
-                rtp: int | None = False) -> None:
+                rtp: int | None = None) -> None:
     """
     Command to play a slot machine.
 
@@ -288,21 +288,26 @@ async def slots(interaction: Interaction,
         await interaction.followup.send(help_message_3,
                                         ephemeral=should_use_ephemeral)
         return
-    elif rtp:
-        wager_int = rtp
-        wager = Integer(rtp)
-        rtp_fraction: Float = g.slot_machine.calculate_rtp(wager)
-        rtp_simple: Float = cast(Float, simplify(rtp_fraction))
-        lowest_number_float = 0.0001
-        lowest_number: Float = Float(lowest_number_float)
-        rtp_display: str
-        if rtp_fraction == round(rtp_fraction, Integer(4)):
-            rtp_display = f"{rtp_fraction:.4%}"
+    elif rtp is not None:
+        print(f"rtp: {rtp}")
+        if rtp == 0:
+            wager_int = 0
+            rtp_display = f"0%"
         else:
-            if rtp_simple > lowest_number:
-                rtp_display = f"~{rtp_fraction:.4%}"
+            wager_int = rtp
+            wager = Integer(rtp)
+            rtp_fraction: Float = g.slot_machine.calculate_rtp(wager)
+            rtp_simple: Float = cast(Float, simplify(rtp_fraction))
+            lowest_number_float = 0.0001
+            lowest_number: Float = Float(lowest_number_float)
+            rtp_display: str
+            if rtp_fraction == round(rtp_fraction, Integer(4)):
+                rtp_display = f"{rtp_fraction:.4%}"
             else:
-                rtp_display = f"<{lowest_number_float}%"
+                if rtp_simple > lowest_number:
+                    rtp_display = f"~{rtp_fraction:.4%}"
+                else:
+                    rtp_display = f"<{lowest_number_float}%"
         coin_label = format_coin_label(wager_int)
         message_content = g.slot_machine.make_message(
             f"-# RTP (stake={wager_int} {coin_label}): {rtp_display}")
