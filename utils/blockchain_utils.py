@@ -18,11 +18,8 @@ from discord.utils import MISSING
 from discord.ext.commands import Bot  # type: ignore
 
 # Local
+import core.global_state as g
 from type_aliases import TransactionRequest
-from core.global_state import (
-    bot, coins, administrator_id, grifter_swap_id, log, blockchain,
-    transfers_waiting_approval, auto_approve_transfer_limit,
-    aml_office_thread_id)
 from core.terminate_bot import terminate_bot
 from models.log import Log
 from models.transfers_waiting_approval import TransfersWaitingApproval
@@ -48,13 +45,13 @@ def get_last_block_timestamp() -> float | None:
     Raises:
         Exception: If there is an error retrieving the last block.
     """
-    if blockchain is None:
+    if g.blockchain is None:
         raise ValueError("blockchain is None.")
     
     last_block_timestamp: float | None = None
     try:
         # Get the last block's timestamp for logging
-        last_block: None | Block = blockchain.get_last_block()
+        last_block: None | Block = g.blockchain.get_last_block()
         if last_block is not None:
             last_block_timestamp = last_block.timestamp
             del last_block
@@ -146,18 +143,18 @@ async def transfer_coins(sender: Member | User,
     Only pass the interaction parameter if the transfer is immediately initiated
     by the one who wishes to make a transfer.
     """
-    assert isinstance(bot, Bot), "bot is not initialized."
-    assert isinstance(log, Log), "log is not initialized."
-    assert isinstance(transfers_waiting_approval, TransfersWaitingApproval), (
-        "transfers_waiting_approval is not initialized.")
-    if blockchain is None:
+    assert isinstance(g.bot, Bot), "g.bot is not initialized."
+    assert isinstance(g.log, Log), "g.log is not initialized."
+    assert isinstance(g.transfers_waiting_approval, TransfersWaitingApproval), (
+        "g.transfers_waiting_approval is not initialized.")
+    if g.blockchain is None:
         raise ValueError("blockchain is None.")
     if interaction:
         channel = interaction.channel
     else:
         channel: (VoiceChannel | StageChannel | ForumChannel | TextChannel |
                   CategoryChannel | Thread | PrivateChannel | None) = (
-            bot.get_channel(channel_id))
+            g.bot.get_channel(channel_id))
 
     async def send_message(message_text: str,
                            ephemeral: bool = False,
@@ -208,24 +205,24 @@ async def transfer_coins(sender: Member | User,
         return
 
     try:
-        balance = blockchain.get_balance(user_unhashed=sender_id)
+        balance = g.blockchain.get_balance(user_unhashed=sender_id)
     except Exception as e:
-        administrator: str = (await bot.fetch_user(administrator_id)).mention
+        administrator: str = (await g.bot.fetch_user(g.administrator_id)).mention
         await send_message(f"Error getting balance. {administrator} pls fix.")
         error_message: str = ("ERROR: Error getting balance "
                               f"for user {sender} ({sender_id}): {e}")
         raise Exception(error_message)
     if balance is None:
         print(f"Balance is None for user {sender} ({sender_id}).")
-        await send_message(f"You have 0 {coins}.")
+        await send_message(f"You have 0 {g.coins}.")
         return
     if balance < amount:
-        print(f"{sender} ({sender_id}) does not have enough {coins} to "
+        print(f"{sender} ({sender_id}) does not have enough {g.coins} to "
               f"transfer {amount} {coin_label_a} to {sender} ({sender_id}). "
               f"Balance: {balance}.")
         coin_label_b: str = format_coin_label(balance)
         await send_message(
-            f"You do not have enough {coins}. "
+            f"You do not have enough {g.coins}. "
             f"You have {balance} {coin_label_b}.", ephemeral=True)
         del coin_label_b
         return
@@ -244,7 +241,7 @@ async def transfer_coins(sender: Member | User,
                 raise Exception("aml_role is None.")
             aml_mention: str = aml_role.mention
             message_content = (f"{receiver_mention} has been blocked from "
-                               f"receiving {coins}.\n"
+                               f"receiving {g.coins}.\n"
                                "-# If you believe this is a "
                                "mistake, please contact "
                                "an anti-money-laundering officer by "
@@ -253,13 +250,13 @@ async def transfer_coins(sender: Member | User,
                 message_content, allowed_mentions=AllowedMentions.none())
             del message_content
             return
-        if ((amount > auto_approve_transfer_limit) and
-            (sender_id != grifter_swap_id) and
-                (receiver_id != grifter_swap_id)):
+        if ((amount > g.auto_approve_transfer_limit) and
+            (sender_id != g.grifter_swap_id) and
+                (receiver_id != g.grifter_swap_id)):
             # Unhindered transfers between GrifterSwap (abuse is mitigated by
             # the GrifterSwap supplier check in the /slots command)
             print(f"Transfer amount exceeds auto-approval limit of "
-                  f"{auto_approve_transfer_limit}.")
+                  f"{g.auto_approve_transfer_limit}.")
             receiver_mention: str = receiver.mention
             if purpose is None:
                 message_content: str = (
@@ -274,7 +271,7 @@ async def transfer_coins(sender: Member | User,
                     message_author: User | Member = message.author
                     return message_author == sender
                 try:
-                    purpose_message: Message = await bot.wait_for(
+                    purpose_message: Message = await g.bot.wait_for(
                         "message", timeout=60, check=check)
                 except asyncio.TimeoutError:
                     message_content = "Come back when you have a purpose."
@@ -303,7 +300,7 @@ async def transfer_coins(sender: Member | User,
                 "purpose": purpose
             }
             try:
-                transfers_waiting_approval.add(transaction_request)
+                g.transfers_waiting_approval.add(transaction_request)
                 awaiting_approval_message_content: str = (
                     f"A request for transferring {amount} {coin_label_a} "
                     f"to {receiver_mention} has been sent for approval.")
@@ -314,11 +311,11 @@ async def transfer_coins(sender: Member | User,
                     f"A request for transferring {amount} {coin_label_a} "
                     f"to {receiver_mention} for the purpose of \"{purpose}\" has "
                     "been sent for approval.")
-                log.log(log_message, request_timestamp)
+                g.log.log(log_message, request_timestamp)
                 del log_message
             except Exception as e:
                 administrator: str = (
-                    (await bot.fetch_user(administrator_id)).mention)
+                    (await g.bot.fetch_user(g.administrator_id)).mention)
                 message_content = ("Error sending transfer request.\n"
                                    f"{administrator} pls fix.")
                 await interaction.followup.send(message_content)
@@ -330,7 +327,7 @@ async def transfer_coins(sender: Member | User,
                 aml_office_thread: (
                     VoiceChannel | StageChannel | ForumChannel | TextChannel |
                     CategoryChannel | PrivateChannel |
-                    Thread) = await bot.fetch_channel(aml_office_thread_id)
+                    Thread) = await g.bot.fetch_channel(g.aml_office_thread_id)
                 if isinstance(aml_office_thread, Thread):
                     guild: Guild | None = interaction.guild
                     if guild is None:
@@ -349,7 +346,7 @@ async def transfer_coins(sender: Member | User,
                         allowed_mentions=AllowedMentions.none())
             except Exception as e:
                 administrator: str = (
-                    (await bot.fetch_user(administrator_id)).mention)
+                    (await g.bot.fetch_user(g.administrator_id)).mention)
                 message_content = (
                     "There was an error notifying the AML office.\n"
                     f"{administrator} pls fix.")
@@ -360,22 +357,22 @@ async def transfer_coins(sender: Member | User,
                 raise Exception(error_message)
             return
 
-    await add_block_transaction(blockchain=blockchain,
+    await add_block_transaction(blockchain=g.blockchain,
                                 sender=sender,
                                 receiver=receiver,
                                 amount=amount,
                                 method=method
     )
-    assert isinstance(bot, Bot), "bot is not initialized."
-    last_block: Block | None = blockchain.get_last_block()
+    assert isinstance(g.bot, Bot), "g.bot is not initialized."
+    last_block: Block | None = g.blockchain.get_last_block()
     if last_block is None:
         print("ERROR: Last block is None.")
-        administrator: str = (await bot.fetch_user(administrator_id)).mention
-        await send_message(f"Error transferring {coins}. "
+        administrator: str = (await g.bot.fetch_user(g.administrator_id)).mention
+        await send_message(f"Error transferring {g.coins}. "
                            f"{administrator} pls fix.")
         await terminate_bot()
     timestamp: float = last_block.timestamp
-    log.log(line=f"{sender} ({sender_id}) transferred {amount} {coin_label_a} "
+    g.log.log(line=f"{sender} ({sender_id}) transferred {amount} {coin_label_a} "
             f"to {receiver} ({receiver_id}).",
             timestamp=timestamp)
     sender_mention: str = sender.mention

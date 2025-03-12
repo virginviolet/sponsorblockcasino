@@ -9,8 +9,7 @@ from discord.ui import Item, View, Button
 from discord.ext.commands import Bot  # type: ignore
 
 # Local
-from core.global_state import (blockchain, log, casino_house_id, coins,
-                               starting_bonus_timeout)
+import core.global_state as g
 from core.terminate_bot import terminate_bot
 from models.log import Log
 from models.user_save_data import UserSaveData
@@ -68,7 +67,7 @@ class StartingBonusView(View):
                 been clicked.
             die_button: The button for starting the bonus die.
         """
-        super().__init__(timeout=starting_bonus_timeout)
+        super().__init__(timeout=g.starting_bonus_timeout)
         self.invoker: User | Member = invoker
         self.invoker_id: int = invoker.id
         self.starting_bonus_awards: Dict[int, int] = starting_bonus_awards
@@ -96,9 +95,9 @@ class StartingBonusView(View):
         Args:
             interaction (Interaction): The interaction object.
         """
-        assert isinstance(blockchain, Blockchain), (
-            "blockchain is not initialized")
-        assert isinstance(log, Log), "log is not initialized"
+        assert isinstance(g.blockchain, Blockchain), (
+            "g.blockchain is not initialized")
+        assert isinstance(g.log, Log), "g.log is not initialized"
         clicker: User | Member = interaction.user  # The one who clicked
         clicker_id: int = clicker.id
         if clicker_id != self.invoker_id:
@@ -111,13 +110,13 @@ class StartingBonusView(View):
             die_roll: int = random.randint(1, 6)
             starting_bonus: int = self.starting_bonus_awards[die_roll]
             message_content: str = (
-                f"You rolled a {die_roll} and won {starting_bonus} {coins}!\n"
+                f"You rolled a {die_roll} and won {starting_bonus} {g.coins}!\n"
                 "You may now play on the slot machines. Good luck!")
             await interaction.followup.send(message_content)
             del message_content
             await add_block_transaction(
-                blockchain=blockchain,
-                sender=casino_house_id,
+                blockchain=g.blockchain,
+                sender=g.casino_house_id,
                 receiver=self.invoker,
                 amount=starting_bonus,
                 method="starting_bonus"
@@ -127,9 +126,9 @@ class StartingBonusView(View):
             if last_block_timestamp is None:
                 print("ERROR: Could not get last block timestamp.")
                 await terminate_bot()
-            log.log(
+            g.log.log(
                 line=(f"{self.invoker} ({self.invoker_id}) won "
-                      f"{starting_bonus} {coins} from the starting bonus."),
+                      f"{starting_bonus} {g.coins} from the starting bonus."),
                 timestamp=last_block_timestamp)
             del last_block_timestamp
             self.stop()

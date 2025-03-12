@@ -6,11 +6,8 @@ from os import environ as os_environ, makedirs
 from typing import Dict, cast, Any
 
 # Local
+import core.global_state as g
 from type_aliases import BotConfig
-from core.global_state import (
-    coin, Coin, coins, Coins, coin_emoji_id, coin_emoji_name, casino_house_id,
-    administrator_id, casino_channel_id, blockchain_name, Blockchain_name,
-    grifter_swap_id, sbcoin_id)
 # endregion
 
 # region Bot config
@@ -192,27 +189,22 @@ def invoke_bot_configuration() -> None:
     a slash command.
     """
     print("Loading bot configuration...")
-    import core.global_state
-    global configuration, coin, Coin, coins, Coins, coin_emoji_id
-    global coin_emoji_name, blockchain_name, Blockchain_name, casino_house_id
-    global administrator_id, slot_machine, casino_channel_id, grifter_swap_id
-    global sbcoin_id
     configuration = BotConfiguration()
-    core.global_state.coin = configuration.coin
-    core.global_state.Coin = configuration.Coin
-    core.global_state.coins = configuration.coins
-    core.global_state.Coins = configuration.Coins
-    core.global_state.coin_emoji_id = configuration.coin_emoji_id
-    core.global_state.coin_emoji_name = configuration.coin_emoji_name
-    core.global_state.casino_house_id = configuration.casino_house_id
-    core.global_state.administrator_id = configuration.administrator_id
-    core.global_state.casino_channel_id = configuration.casino_channel_id
-    core.global_state.blockchain_name = configuration.blockchain_name
-    core.global_state.Blockchain_name = configuration.Blockchain_name
-    core.global_state.grifter_swap_id = configuration.grifter_swap_id
-    core.global_state.sbcoin_id = configuration.sbcoin_id
-    core.global_state.auto_approve_transfer_limit = (
+    g.coin = configuration.coin
+    g.Coin = configuration.Coin
+    g.coins = configuration.coins
+    g.Coins = configuration.Coins
+    g.coin_emoji_id = configuration.coin_emoji_id
+    g.coin_emoji_name = configuration.coin_emoji_name
+    g.casino_house_id = configuration.casino_house_id
+    g.administrator_id = configuration.administrator_id
+    g.casino_channel_id = configuration.casino_channel_id
+    g.blockchain_name = configuration.blockchain_name
+    g.Blockchain_name = configuration.Blockchain_name
+    g.grifter_swap_id = configuration.grifter_swap_id
+    g.sbcoin_id = configuration.sbcoin_id
+    g.auto_approve_transfer_limit = (
         configuration.auto_approve_transfer_limit)
-    core.global_state.aml_office_thread_id = (
+    g.aml_office_thread_id = (
         configuration.aml_office_thread_id)
     print("Bot configuration loaded.")

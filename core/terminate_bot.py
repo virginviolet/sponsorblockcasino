@@ -3,13 +3,16 @@
 import signal
 import asyncio
 from sys import exit as sys_exit
-from typing import NoReturn
+from typing import NoReturn, TYPE_CHECKING
+if TYPE_CHECKING:
+    # Standard library
+    from subprocess import Popen
 
 # Third party
 from discord.ext.commands import Bot # type: ignore
 
 # Local
-from core.global_state import waitress_process, bot
+import core.global_state as g
 # endregion
 
 # region Terminate bot
@@ -22,16 +25,16 @@ async def terminate_bot() -> NoReturn:
     Returns:
         NoReturn: This function does not return any value.
     """
-    assert isinstance(bot, Bot), "bot is not initialized"
-    global waitress_process
-    if waitress_process is None:
-        raise ValueError("waitress_process is not initialized")
+    assert isinstance(g.bot, Bot), (
+        "bot is not initialized")
+    assert isinstance(g.waitress_process, Popen), (
+        "waitress_process is not initialized")
     print("Closing bot...")
-    await bot.close()
+    await g.bot.close()
     print("Bot closed.")
     print("Shutting down the blockchain app...")
-    waitress_process.send_signal(signal.SIGTERM)
-    waitress_process.wait()
+    g.waitress_process.send_signal(signal.SIGTERM)
+    g.waitress_process.wait()
     # print("Shutting down blockchain flask app...")
     # try:
     #     requests.post("http://127.0.0.1:5000/shutdown")

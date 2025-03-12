@@ -4,7 +4,7 @@ from discord import Interaction, Member, User, Message, AllowedMentions
 from discord.ui import View, Button
 
 # Local
-from core.global_state import Coin
+import core.global_state as g
 # endregion
 
 # region AML view
@@ -71,11 +71,11 @@ class AmlView(View):
             await interaction.response.edit_message(view=self)
             message_content: str = f"{self.initial_message}\n"
             if button == self.approve_button:
-                message_content += (f"-# The {Coin} Bank has approved "
+                message_content += (f"-# The {g.Coin} Bank has approved "
                                     "the transaction.")
                 self.approved = True
             else:
-                message_content += (f"-# The {Coin} Bank has declined "
+                message_content += (f"-# The {g.Coin} Bank has declined "
                                     "the transaction.")
             if self.followup_message is None:
                 await self.interaction.edit_original_response(

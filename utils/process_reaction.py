@@ -10,9 +10,7 @@ from discord.abc import PrivateChannel
 from discord.ext.commands import Bot  # type: ignore
 
 # Local
-import core.global_state as global_state
-from core.global_state import (bot, coin, coin_emoji_id, coin_emoji_name,
-                                casino_channel_id, log, blockchain)
+import core.global_state as g
 from core.terminate_bot import terminate_bot
 from blockchain.models.blockchain import Blockchain
 from models.log import Log
@@ -39,10 +37,10 @@ async def process_reaction(message_id: int,
         receiver: The user who receives the coin. Defaults to None.
         receiver_id: The ID of the user who receives the coin. Defaults to None.
     """
-    assert isinstance(bot, Bot), "bot has not been initialized."
-    assert isinstance(blockchain, Blockchain), (
-        "blockchain has not been initialized.")
-    assert isinstance(log, Log), "log has not been initialized."
+    assert isinstance(g.bot, Bot), "g.bot has not been initialized."
+    assert isinstance(g.blockchain, Blockchain), (
+        "g.blockchain has not been initialized.")
+    assert isinstance(g.log, Log), "g.log has not been initialized."
     emoji_id: int | str | None = 0
     match emoji:
         case Emoji():
@@ -53,11 +51,11 @@ async def process_reaction(message_id: int,
             return
         case str():
             return
-    if emoji_id == coin_emoji_id:
+    if emoji_id == g.coin_emoji_id:
         if receiver is None:
             # Get receiver from id
             if receiver_id is not None:
-                receiver = await bot.fetch_user(receiver_id)
+                receiver = await g.bot.fetch_user(receiver_id)
             else:
                 raise ValueError("Receiver is None.")
         else:
@@ -81,9 +79,9 @@ async def process_reaction(message_id: int,
         message_mined.append(message_id)
         save_data.save(key="messages_mined", value=message_mined)
 
-        print(f"{sender} ({sender_id}) is mining 1 {coin} "
+        print(f"{sender} ({sender_id}) is mining 1 {g.coin} "
               f"for {receiver} ({receiver_id})...")
-        await add_block_transaction(blockchain=blockchain,
+        await add_block_transaction(blockchain=g.blockchain,
                                     sender=sender,
                                     receiver=receiver,
                                     amount=1,
@@ -97,9 +95,9 @@ async def process_reaction(message_id: int,
             await terminate_bot()
 
         try:
-            mined_message: str = (f"{sender} ({sender_id}) mined 1 {coin} "
+            mined_message: str = (f"{sender} ({sender_id}) mined 1 {g.coin} "
                                   f"for {receiver} ({receiver_id}).")
-            log.log(line=mined_message, timestamp=last_block_timestamp)
+            g.log.log(line=mined_message, timestamp=last_block_timestamp)
             # Remove variables with common names to prevent accidental use
             del mined_message
             del last_block_timestamp
@@ -110,7 +108,7 @@ async def process_reaction(message_id: int,
         chain_validity: bool | None = None
         try:
             print("Validating blockchain...")
-            chain_validity = blockchain.is_chain_valid()
+            chain_validity = g.blockchain.is_chain_valid()
         except Exception as e:
             # TODO Revert blockchain to previous state
             print(f"ERROR: Error validating blockchain: {e}")
@@ -124,22 +122,22 @@ async def process_reaction(message_id: int,
         # (like perhaps when scraping old messages)
         if channel_id is None:
             return
-        if ((coin == "coin") or
-            (coin_emoji_id == 0) or
-            (coin_emoji_name == "") or
-                (casino_channel_id == 0)):
+        if ((g.coin == "coin") or
+            (g.coin_emoji_id == 0) or
+            (g.coin_emoji_name == "") or
+                (g.casino_channel_id == 0)):
             print("WARNING: Skipping reaction message because "
                   "bot configuration is incomplete.")
-            print(f"coin_emoji_id: {coin_emoji_id}")
-            print(f"coin_emoji_name: {coin_emoji_name}")
-            print(f"casino_channel_id: {casino_channel_id}")
-            print(f"casino_channel: {casino_channel_id}")
+            print(f"coin_emoji_id: {g.coin_emoji_id}")
+            print(f"coin_emoji_name: {g.coin_emoji_name}")
+            print(f"casino_channel_id: {g.casino_channel_id}")
+            print(f"casino_channel: {g.casino_channel_id}")
             return
         save_data: UserSaveData = UserSaveData(
             user_id=sender_id, user_name=sender_name)
         mining_messages_enabled: bool = save_data.mining_messages_enabled
         about_command_formatted: str | None = (
-            global_state.about_command_formatted)
+            g.about_command_formatted)
         if about_command_formatted is None:
             error_message = ("ERROR: `about_command_formatted` is None. This "
                              "usually means that the commands have not been "
@@ -157,13 +155,13 @@ async def process_reaction(message_id: int,
             return
         channel: (VoiceChannel | StageChannel | ForumChannel | TextChannel |
                   CategoryChannel | Thread | PrivateChannel | None) = (
-            bot.get_channel(channel_id))
+            g.bot.get_channel(channel_id))
         if not isinstance(channel, (VoiceChannel, TextChannel, Thread)):
             return
         casino_channel: (VoiceChannel | StageChannel | ForumChannel |
                          TextChannel | CategoryChannel | Thread |
                          PrivateChannel |
-                         None) = bot.get_channel(casino_channel_id)
+                         None) = g.bot.get_channel(g.casino_channel_id)
         user_message: Message = await channel.fetch_message(message_id)
         if isinstance(casino_channel, PrivateChannel):
             raise ValueError("ERROR: casino_channel is a private channel.")
@@ -171,7 +169,7 @@ async def process_reaction(message_id: int,
             raise ValueError("ERROR: casino_channel is None.")
         sender_mention: str = sender.mention
         message_content: str = (f"-# {sender_mention} has "
-                                f"mined a {coin} for you! "
+                                f"mined a {g.coin} for you! "
                                 f"Enter {about_command_formatted} "
                                 "in the chat box to learn more.")
         await user_message.reply(message_content,

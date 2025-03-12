@@ -13,11 +13,9 @@ from discord.abc import PrivateChannel
 from discord.ext.commands import Bot  # type: ignore
 
 # Local
+import core.global_state as g
 from type_aliases import TransactionRequest
 from models.transfers_waiting_approval import TransfersWaitingApproval
-from core.global_state import (time_zone, bot, log, coins,
-                               transfers_waiting_approval,
-                               decrypted_transactions_spreadsheet)
 from models.user_save_data import UserSaveData
 from models.log import Log
 from views.aml_view import AmlView
@@ -30,11 +28,7 @@ from utils.roles import test_invoker_is_aml_officer
 aml_group = app_commands.Group(name="aml",
                                description="Anti-money laundering workstation")
 
-assert isinstance(bot, Bot), "bot is not initialized."
-
 # region /aml approve
-
-
 @aml_group.command(name="approve",
                    description="Approve transactions that require "
                    "manual approval")
@@ -42,9 +36,10 @@ async def approve(interaction: Interaction) -> None:
     """
     Command to approve or decline large transactions.
     """
-    assert isinstance(transfers_waiting_approval, TransfersWaitingApproval), (
-        "transfers_waiting_approval is not initialized.")
-    assert isinstance(log, Log), "log is not initialized."
+    assert isinstance(g.bot, Bot), "g.bot is not initialized."
+    assert isinstance(g.transfers_waiting_approval, TransfersWaitingApproval), (
+        "g.transfers_waiting_approval is not initialized.")
+    assert isinstance(g.log, Log), "g.log is not initialized."
     invoker_has_aml_role: bool = test_invoker_is_aml_officer(interaction)
     if not invoker_has_aml_role:
         message_content: str = "You are not an AML officer."
@@ -55,18 +50,18 @@ async def approve(interaction: Interaction) -> None:
     invoker: User | Member = interaction.user
     invoker_name: str = invoker.name
     invoker_id: int = invoker.id
-    transfers_list: List[TransactionRequest] = transfers_waiting_approval.load()
+    transfers_list: List[TransactionRequest] = g.transfers_waiting_approval.load()
     has_sent_message = False
     for transfer in transfers_list:
         sender_id: int = transfer["sender_id"]
-        sender: User | None = bot.get_user(sender_id)
+        sender: User | None = g.bot.get_user(sender_id)
         if sender is None:
             print(f"ERROR: Could not get user with ID {transfer['sender_id']}")
             continue
         sender_mention: str = sender.mention
         sender_id: int = transfer["sender_id"]
         receiver_id: int = transfer["receiver_id"]
-        receiver: User | None = bot.get_user(receiver_id)
+        receiver: User | None = g.bot.get_user(receiver_id)
         if receiver is None:
             print("ERROR: Could not get user "
                   f"with ID {transfer['receiver_id']}")
@@ -76,7 +71,7 @@ async def approve(interaction: Interaction) -> None:
         channel_id: int = transfer["channel_id"]
         channel: (VoiceChannel | StageChannel | ForumChannel | TextChannel |
                   CategoryChannel | Thread | PrivateChannel
-                  | None) = bot.get_channel(channel_id)
+                  | None) = g.bot.get_channel(channel_id)
         if channel is None:
             print("ERROR: channel is None.")
             continue
@@ -100,7 +95,7 @@ async def approve(interaction: Interaction) -> None:
         transfer_message_link: str = transfer_message.jump_url
         message_content = (f"Sender: {sender_mention}\n"
                            f"Receiver: {receiver_mention}\n"
-                           f"Amount: {amount} {coins}\n"
+                           f"Amount: {amount} {g.coins}\n"
                            f"When: {time_elapsed_friendly} ago\n"
                            f"Purpose: \"{purpose}\"\n"
                            f"{transfer_message_link}")
@@ -130,7 +125,7 @@ async def approve(interaction: Interaction) -> None:
             return
         transaction_approved: bool = aml_view.approved
         request_timestamp_friendly: str = (
-            format_timestamp(request_timestamp, time_zone))
+            format_timestamp(request_timestamp, g.time_zone))
         log_timestamp = time()
         action: str
         if transaction_approved:
@@ -139,11 +134,11 @@ async def approve(interaction: Interaction) -> None:
             action = "declined"
         log_message: str = (f"AML officer {invoker_name} ({invoker_id}) "
                             f"{action} {sender} ({sender_id})'s transfer "
-                            f"of {amount} {coins} "
+                            f"of {amount} {g.coins} "
                             f"to {receiver} ({receiver_id}) "
                             f"dated {request_timestamp_friendly}.")
         del action
-        log.log(log_message, log_timestamp)
+        g.log.log(log_message, log_timestamp)
         del log_message
         if transaction_approved:
             await transfer_coins(
@@ -158,7 +153,7 @@ async def approve(interaction: Interaction) -> None:
                 f"{transfer_message_link}")
             await channel.send(message_content)
             del message_content
-        transfers_waiting_approval.remove(transfer)
+        g.transfers_waiting_approval.remove(transfer)
     message_content = "All transactions have been processed."
     if not has_sent_message:
         await interaction.response.send_message(message_content)
@@ -171,12 +166,12 @@ async def approve(interaction: Interaction) -> None:
 
 
 @aml_group.command(name="block_receivals",
-                   description=f"Block a user from receiving {coins}")
-@app_commands.describe(user=(f"User to block from receiving {coins}"))
+                   description=f"Block a user from receiving {g.coins}")
+@app_commands.describe(user=(f"User to block from receiving {g.coins}"))
 @app_commands.describe(blocked=(f"Set whether the user should be blocked "
-                                f"from receiving {coins}"))
+                                f"from receiving {g.coins}"))
 @app_commands.describe(reason="Reason for blocking user from "
-                       f"receiving {coins}")
+                       f"receiving {g.coins}")
 async def block_receivals(interaction: Interaction,
                           user: User | Member,
                           blocked: bool | None = None,
@@ -210,7 +205,7 @@ async def block_receivals(interaction: Interaction,
             Literal['blocked'] | Literal['not blocked']) = (
             "blocked" if is_blocked else "not blocked")
         message_content = (f"User {user_mention} is currently "
-                           f"{blocked_or_not_blocked} from receiving {coins}.")
+                           f"{blocked_or_not_blocked} from receiving {g.coins}.")
     else:
         blocked_or_unblocked: Literal['blocked'] | Literal['unblocked'] = (
             "blocked" if blocked else "unblocked")
@@ -220,7 +215,7 @@ async def block_receivals(interaction: Interaction,
         else:
             user_save_data.blocked_from_receiving_coins_reason = None
         message_content = (f"User {user_mention} has been "
-                           f"{blocked_or_unblocked} from receiving {coins}.")
+                           f"{blocked_or_unblocked} from receiving {g.coins}.")
     await interaction.response.send_message(
         message_content, allowed_mentions=AllowedMentions.none())
     del message_content
@@ -231,13 +226,13 @@ async def block_receivals(interaction: Interaction,
 
 
 @aml_group.command(name="decrypt_spreadsheet",
-                   description=f"Block a user from receiving {coins}")
+                   description=f"Block a user from receiving {g.coins}")
 @app_commands.describe(user="Filter transactions by user",
                        user_name="Filter transactions by user name")
 async def decrypt_spreadsheet(interaction: Interaction,
                               user: User | Member | None = None,
                               user_name: str | None = None) -> None:
-    if decrypted_transactions_spreadsheet is None:
+    if g.decrypted_transactions_spreadsheet is None:
         message_content: str = (
             "Could not make a decrypted transactions spreadsheet.")
         await interaction.response.send_message(
@@ -271,9 +266,9 @@ async def decrypt_spreadsheet(interaction: Interaction,
         message_content = (
             "The transactions spreadsheet has been decrypted.")
     try:
-        decrypted_transactions_spreadsheet.decrypt(user_id, user_name)
+        g.decrypted_transactions_spreadsheet.decrypt(user_id, user_name)
         spreadsheet_path: Path = (
-            decrypted_transactions_spreadsheet.decrypted_spreadsheet_path)
+            g.decrypted_transactions_spreadsheet.decrypted_spreadsheet_path)
         with open(spreadsheet_path, 'rb') as f:
             decrypted_transactions_spreadsheet_file = File(f)
             await interaction.response.send_message(message_content,

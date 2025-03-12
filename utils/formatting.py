@@ -4,7 +4,9 @@ from datetime import datetime
 
 # Third party
 import pytz
-from core.global_state import coin, coins
+
+# Local
+import core.global_state as g
 # endregion
 
 # region Coin label
@@ -21,9 +23,9 @@ def format_coin_label(number: int) -> str:
         str: "coin" if the number is 1 or -1, otherwise "coins".
     """
     if number == 1 or number == -1:
-        return coin
+        return g.coin
     else:
-        return coins
+        return g.coins
 # endregion
 
 

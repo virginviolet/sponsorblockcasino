@@ -3,19 +3,19 @@
 from hashlib import sha256
 
 # Third party
-from discord import (Interaction, Member, app_commands, AllowedMentions)
+from discord import Interaction, Member, app_commands, AllowedMentions
 from discord.ext.commands import Bot  # type: ignore
 
 # Local
-from core.global_state import bot
+import core.global_state as g
 from utils.formatting import format_coin_label
 from blockchain.models.blockchain import Blockchain
 
 # region /balance
-assert isinstance(bot, Bot), "bot has not been initialized."
+assert isinstance(g.bot, Bot), "bot has not been initialized."
 
 
-@bot.tree.command(name="balance", description="Check your balance")
+@g.bot.tree.command(name="balance", description="Check your balance")
 @app_commands.describe(user="User to check the balance")
 @app_commands.describe(incognito="Do not display the balance publicly")
 async def balance(interaction: Interaction,

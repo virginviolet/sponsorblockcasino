@@ -8,7 +8,7 @@ from discord import (Interaction, Member, PartialEmoji, User, app_commands,
 from discord.ext.commands import Bot  # type: ignore
 
 # Local
-from core.global_state import bot, Coin, coins, coin_emoji_id, coin_emoji_name
+import core.global_state as g
 from models.user_save_data import UserSaveData
 from utils.formatting import format_coin_label
 # endregion
@@ -16,10 +16,10 @@ from utils.formatting import format_coin_label
 # region /mining
 
 # assert bot is not None, "bot has not been initialized."
-assert isinstance(bot, Bot), "bot has not been initialized."
+assert isinstance(g.bot, Bot), "bot has not been initialized."
 
 
-@bot.tree.command(name="mining",
+@g.bot.tree.command(name="mining",
                   description="Configure mining settings")
 @app_commands.describe(disable_reaction_messages="Stop the bot from messaging "
                        "new players when you mine their messages")
@@ -71,7 +71,7 @@ async def mining(interaction: Interaction,
         else:
             message_content: str = ("I will message new players when you mine "
                                     "their messages. Thank you for "
-                                    f"helping the {Coin} network grow!")
+                                    f"helping the {g.Coin} network grow!")
         if incognito is False:
             should_use_ephemeral = False
         else:
@@ -98,14 +98,14 @@ async def mining(interaction: Interaction,
         messages_mined_count: int = len(messages_mined)
         message_content: str
         coin_emoji = PartialEmoji(
-            name=coin_emoji_name, id=coin_emoji_id)
+            name=g.coin_emoji_name, id=g.coin_emoji_id)
         coin_label: str = format_coin_label(messages_mined_count)
         if messages_mined_count == 0 and user_parameter_used:
             message_content = (
-                f"{user_to_check_mention} has not mined any {coins} yet.")
+                f"{user_to_check_mention} has not mined any {g.coins} yet.")
         elif messages_mined_count == 0:
-            message_content = (f"You have not mined any {coins} yet. "
-                               f"To mine a {coins} for someone, "
+            message_content = (f"You have not mined any {g.coins} yet. "
+                               f"To mine a {g.coins} for someone, "
                                f"react {coin_emoji} to their message.")
         elif user_parameter_used:
             message_content = (

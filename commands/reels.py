@@ -10,17 +10,16 @@ from sympy import Float, Integer, Eq, Gt, simplify, Piecewise, pretty
 
 # Local
 from type_aliases import Reels
-from core.global_state import bot, slot_machine
+import core.global_state as g
 from models.slot_machine import SlotMachine
 # endregion
-
 # region /reels
 
-assert bot is not None, "bot has not been initialized."
-assert isinstance(bot, Bot), "bot has not been initialized."
+assert g.bot is not None, "bot has not been initialized."
+assert isinstance(g.bot, Bot), "bot has not been initialized."
 
 
-@bot.tree.command(name="reels",
+@g.bot.tree.command(name="reels",
                   description="Design the slot machine reels")
 @app_commands.describe(add_symbol="Add a symbol to the reels")
 @app_commands.describe(amount="Amount of symbols to add")
@@ -62,7 +61,7 @@ async def reels(interaction: Interaction,
 
         inspect: Doesn't do anything.
     """
-    assert isinstance(slot_machine, SlotMachine), (
+    assert isinstance(g.slot_machine, SlotMachine), (
         "slot_machine has not been initialized.")
     await interaction.response.defer(ephemeral=close_off)
     # Check if user has the necessary role
@@ -86,8 +85,8 @@ async def reels(interaction: Interaction,
             amount = 1
     # BUG Refreshing the reels config from file is not working (have to restart instead)
     # Refresh reels config from file
-    slot_machine.reels = slot_machine.load_reels()
-    new_reels: Reels = slot_machine.reels
+    g.slot_machine.reels = g.slot_machine.load_reels()
+    new_reels: Reels = g.slot_machine.reels
     if add_symbol and remove_symbol:
         await interaction.followup.send("You can only add or remove a "
                                         "symbol at a time.",
@@ -104,59 +103,59 @@ async def reels(interaction: Interaction,
         print(f"Adding symbol: {add_symbol}")
         print(f"Amount: {amount}")
         print(f"Reel: {reel}")
-        if (reel in slot_machine.reels and
-                add_symbol in slot_machine.reels[reel]):
-            slot_machine.reels[reel][add_symbol] += amount
+        if (reel in g.slot_machine.reels and
+                add_symbol in g.slot_machine.reels[reel]):
+            g.slot_machine.reels[reel][add_symbol] += amount
         else:
             print(f"ERROR: Invalid reel or symbol '{reel}' or '{add_symbol}'")
     if add_symbol:
         print(f"Adding symbol: {add_symbol}")
         print(f"Amount: {amount}")
-        if add_symbol in slot_machine.reels['reel1']:
+        if add_symbol in g.slot_machine.reels['reel1']:
             per_reel_amount: int = int(amount / 3)
             new_reels['reel1'][add_symbol] += per_reel_amount
             new_reels['reel2'][add_symbol] += per_reel_amount
             new_reels['reel3'][add_symbol] += per_reel_amount
 
-            slot_machine.reels = new_reels
+            g.slot_machine.reels = new_reels
             print(f"Added {per_reel_amount} {add_symbol} to each reel.")
         else:
             print(f"ERROR: Invalid symbol '{add_symbol}'")
-        print(slot_machine.reels)
+        print(g.slot_machine.reels)
         # if amount
     elif remove_symbol and reel:
         print(f"Removing symbol: {remove_symbol}")
         print(f"Amount: {amount}")
         print(f"Reel: {reel}")
-        if (reel in slot_machine.reels and
-                remove_symbol in slot_machine.reels[reel]):
-            slot_machine.reels[reel][remove_symbol] -= amount
+        if (reel in g.slot_machine.reels and
+                remove_symbol in g.slot_machine.reels[reel]):
+            g.slot_machine.reels[reel][remove_symbol] -= amount
         else:
             print(f"ERROR: Invalid reel '{reel}' or symbol '{remove_symbol}'")
     elif remove_symbol:
         print(f"Removing symbol: {remove_symbol}")
         print(f"Amount: {amount}")
-        if remove_symbol in slot_machine.reels['reel1']:
+        if remove_symbol in g.slot_machine.reels['reel1']:
             per_reel_amount: int = int(amount / 3)
             new_reels['reel1'][remove_symbol] -= per_reel_amount
             new_reels['reel2'][remove_symbol] -= per_reel_amount
             new_reels['reel3'][remove_symbol] -= per_reel_amount
 
-            slot_machine.reels = new_reels
+            g.slot_machine.reels = new_reels
             print(f"Removed {per_reel_amount} {remove_symbol} from each reel.")
         else:
             print(f"ERROR: Invalid symbol '{remove_symbol}'")
-        print(slot_machine.reels)
+        print(g.slot_machine.reels)
 
     print("Saving reels...")
 
-    slot_machine.reels = new_reels
-    new_reels = slot_machine.reels
+    g.slot_machine.reels = new_reels
+    new_reels = g.slot_machine.reels
     # print(f"Reels: {slot_machine.configuration}")
     print(f"Probabilities saved.")
 
     # TODO Report payouts
-    amount_of_symbols: int = slot_machine.count_symbols()
+    amount_of_symbols: int = g.slot_machine.count_symbols()
     reel_amount_of_symbols: int
     reels_table: str = "### Reels\n"
     for reel_name, symbols in new_reels.items():
@@ -172,7 +171,7 @@ async def reels(interaction: Interaction,
                         f"{symbols_table}"
                         "**Total**\n"
                         f"{reel_amount_of_symbols}\n\n")
-    probabilities: Dict[str, Float] = slot_machine.probabilities
+    probabilities: Dict[str, Float] = g.slot_machine.probabilities
     probabilities_table: str = "**Outcome**: **Probability**\n"
     lowest_number_float = 0.0001
     lowest_number: Float = Float(lowest_number_float)
@@ -186,7 +185,7 @@ async def reels(interaction: Interaction,
             probability_display = f"<{lowest_number_float}%"
         probabilities_table += f"{symbol}: {probability_display}\n"
 
-    ev: tuple[Piecewise, Piecewise] = slot_machine.calculate_expected_value()
+    ev: tuple[Piecewise, Piecewise] = g.slot_machine.calculate_expected_value()
     expected_return_ugly: Piecewise = ev[0]
     expected_return: str = (
         cast(str, pretty(expected_return_ugly))).replace("⋅", "")
@@ -201,7 +200,7 @@ async def reels(interaction: Interaction,
     rtp: Float
     for wager in wagers:
         rtp = (
-            slot_machine.calculate_rtp(Integer(wager)))
+            g.slot_machine.calculate_rtp(Integer(wager)))
         rtp_simple: Float = cast(Float, simplify(rtp))
         if rtp == round(rtp, Integer(4)):
             rtp_display = f"{rtp:.4%}"

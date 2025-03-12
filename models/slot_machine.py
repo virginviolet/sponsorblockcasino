@@ -12,7 +12,7 @@ from sympy import (symbols, Expr, Add, Mul, Float, Integer, Eq, Lt, Ge,
                    Rational, Piecewise)
 
 # Local
-import core.global_state as global_state
+import core.global_state as g
 from type_aliases import Reels, ReelSymbol, ReelResults, SlotMachineConfig
 # endregion
 
@@ -95,7 +95,7 @@ class SlotMachine:
             _jackpot: The current jackpot amount
             _fees: The fees associated with the slot machine
         """
-        Coin: str = global_state.Coin
+        Coin: str = g.Coin
         print("Starting the slot machines...")
         self.file_name: str = file_name
         attributes_set = False

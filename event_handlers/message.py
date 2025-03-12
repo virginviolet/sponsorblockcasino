@@ -8,17 +8,15 @@ from discord import (Guild, Member, Message, MessageInteraction, User,
 from discord.ext.commands import Bot  # type: ignore
 
 # Local
-import core.global_state as global_state
-from core.global_state import (bot, casino_house_id, grifter_swap_id, sbcoin_id,
-                               grifter_suppliers)
+import core.global_state as g
 from models.checkpoints import ChannelCheckpoints
 from models.grifter_suppliers import GrifterSuppliers
 # endregion
 
 # region Message
-assert isinstance(bot, Bot)
+assert isinstance(g.bot, Bot), "bot is not initialized"
 
-@bot.event
+@g.bot.event
 async def on_message(message: Message) -> None:
     """
     Handles incoming messages and saves channel checkpoints.
@@ -32,14 +30,15 @@ async def on_message(message: Message) -> None:
     Returns:
         None
     """
-    all_channel_checkpoints: global_state.Dict[int, ChannelCheckpoints] = (
-        global_state.all_channel_checkpoints)
-    assert isinstance(grifter_suppliers, GrifterSuppliers)
+    assert isinstance(g.bot, Bot), "bot is not initialized"
+    g.all_channel_checkpoints = (
+        g.all_channel_checkpoints)
+    assert isinstance(g.grifter_suppliers, GrifterSuppliers)
     channel_id: int = message.channel.id
 
-    if channel_id in all_channel_checkpoints:
+    if channel_id in g.all_channel_checkpoints:
         message_id: int = message.id
-        all_channel_checkpoints[channel_id].save(message_id)
+        g.all_channel_checkpoints[channel_id].save(message_id)
         del message_id
     else:
         # If a channel is created while the bot is running, we will likely end
@@ -61,7 +60,7 @@ async def on_message(message: Message) -> None:
         if ((isinstance(channel, TextChannel)) or
                 isinstance(channel, VoiceChannel)):
             channel_name: str = channel.name
-            all_channel_checkpoints[channel_id] = ChannelCheckpoints(
+            g.all_channel_checkpoints[channel_id] = ChannelCheckpoints(
                 guild_name=guild_name,
                 guild_id=guild_id,
                 channel_name=channel_name,
@@ -70,7 +69,7 @@ async def on_message(message: Message) -> None:
         else:
             # print("ERROR: Channel is not a text channel or voice channel.")
             # administrator: str = (
-            #     (await bot.fetch_user(ADMINISTRATOR_ID)).mention)
+            #     (await g.bot.fetch_user(ADMINISTRATOR_ID)).mention)
             # await message.channel.send("An error occurred. "
             #                            f"{administrator} pls fix.")
             return
@@ -79,7 +78,7 @@ async def on_message(message: Message) -> None:
     message_author: User | Member = message.author
     message_author_id: int = message_author.id
     del message_author
-    if message_author_id != grifter_swap_id:
+    if message_author_id != g.grifter_swap_id:
         return
     if message.reference is None:
         return
@@ -91,7 +90,7 @@ async def on_message(message: Message) -> None:
     referenced_message_text: str = referenced_message.content
     if referenced_message_text.startswith("!suppliers"):
         users_mentioned: List[int] = message.raw_mentions
-        await grifter_suppliers.replace(bot, users_mentioned)
+        await g.grifter_suppliers.replace(g.bot, users_mentioned)
         del users_mentioned
         return
     referenced_message_author: User | Member = referenced_message.author
@@ -100,12 +99,12 @@ async def on_message(message: Message) -> None:
     user_supplied_grifter_sbcoin: bool = (
         "Added" in message_text and
         "sent" in referenced_message_text and
-        referenced_message_author_id == sbcoin_id)
+        referenced_message_author_id == g.sbcoin_id)
 
     user_supplied_grifter_this_coin: bool = (
         "Added" in message_text and
         "transferred" in referenced_message_text and
-        referenced_message_author_id == casino_house_id)
+        referenced_message_author_id == g.casino_house_id)
 
     if user_supplied_grifter_sbcoin or user_supplied_grifter_this_coin:
         # get the cached message in order to get the command invoker
@@ -118,5 +117,5 @@ async def on_message(message: Message) -> None:
             return
         referenced_message_full_invoker: User | Member = (
             referenced_message_full_interaction.user)
-        await grifter_suppliers.add(referenced_message_full_invoker)
+        await g.grifter_suppliers.add(referenced_message_full_invoker)
 # endregion

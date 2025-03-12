@@ -9,7 +9,7 @@ from typing import Dict, List
 from discord.ext.commands import Bot  # type: ignore
 
 # Local
-from core.global_state import bot
+import core.global_state as g
 # endregion
 
 # region Checkpoints
@@ -213,12 +213,12 @@ async def start_checkpoints(limit: int = 10) -> Dict[int, ChannelCheckpoints]:
         Dict: A dictionary where the keys are channel IDs and the values are
         ChannelCheckpoints objects.
     """
-    assert isinstance(bot, Bot), "bot has not been initialized."
+    assert isinstance(g.bot, Bot), "bot has not been initialized."
     all_checkpoints: dict[int, ChannelCheckpoints] = {}
     print("Starting checkpoints...")
     channel_id: int = 0
     channel_name: str = ""
-    for guild in bot.guilds:
+    for guild in g.bot.guilds:
         guild_id: int = guild.id
         guild_name: str = guild.name
         print(f"Guild: {guild_name} ({guild_id})")

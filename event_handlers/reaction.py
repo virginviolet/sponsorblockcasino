@@ -5,16 +5,16 @@ from discord.raw_models import RawReactionActionEvent
 from discord.ext.commands import Bot  # type: ignore
 
 # Local
-from core.global_state import bot
+import core.global_state as g
 from utils.process_reaction import process_reaction
 # endregion
 
 # region Reaction
 # assert bot is not None, "bot has not been initialized."
-assert isinstance(bot, Bot), "bot has not been initialized."
+assert isinstance(g.bot, Bot), "bot has not been initialized."
 
 
-@bot.event
+@g.bot.event
 async def on_raw_reaction_add(payload: RawReactionActionEvent) -> None:
     """
     Handles the event when a reaction is added to a message.

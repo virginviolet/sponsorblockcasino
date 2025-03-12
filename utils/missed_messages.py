@@ -7,8 +7,7 @@ from discord import Member, Emoji, PartialEmoji, User
 from discord.ext.commands import Bot  # type: ignore
 
 # Local
-import core.global_state as global_state
-from core.global_state import bot
+import core.global_state as g
 from utils.process_reaction import process_reaction
 # endregion
 # region Missed msgs
@@ -34,19 +33,17 @@ async def process_missed_messages(limit: int | None = None) -> None:
         each channel.
     """
     missed_messages_processed_message: str = "Missed messages processed."
-    assert isinstance(bot, Bot), "bot has not been initialized."
-    all_channel_checkpoints: Dict[int, global_state.ChannelCheckpoints] = (
-        global_state.all_channel_checkpoints)
+    assert isinstance(g.bot, Bot), "bot has not been initialized."
     print("Processing missed messages...")
 
-    for guild in bot.guilds:
+    for guild in g.bot.guilds:
         print("Fetching messages from "
               f"guild: {guild.name} ({guild.id})...")
         for channel in guild.text_channels:
             print("Fetching messages from "
                   f"channel: {channel.name} ({channel.id})...")
             channel_checkpoints: List[Dict[str, int]] | None = (
-                all_channel_checkpoints[channel.id].load())
+                g.all_channel_checkpoints[channel.id].load())
             if channel_checkpoints is not None:
                 print(f"Channel checkpoints loaded.")
             else:
@@ -101,7 +98,7 @@ async def process_missed_messages(limit: int | None = None) -> None:
             else:
                 if new_channel_messages_found > 0:
                     print(f"Saving checkpoint: {fresh_last_message_id}")
-                    all_channel_checkpoints[channel.id].save(
+                    g.all_channel_checkpoints[channel.id].save(
                         fresh_last_message_id)
                 else:
                     print("Will not save checkpoint for this channel because "

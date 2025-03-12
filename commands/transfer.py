@@ -6,19 +6,18 @@ from discord import (Interaction, Member, User, TextChannel, VoiceChannel,
 from discord.ext.commands import Bot  # type: ignore
 
 # Local
-from core.global_state import bot, coins
+import core.global_state as g
 from utils.blockchain_utils import transfer_coins
 # endregion
-
 # region /transfer
 # assert bot is not None, "bot has not been initialized."
-assert isinstance(bot, Bot), "bot has not been initialized."
+assert isinstance(g.bot, Bot), "bot has not been initialized."
 
 
-@bot.tree.command(name="transfer",
-                  description=f"Transfer {coins} to another user")
-@app_commands.describe(amount=f"Amount of {coins} to transfer",
-                       user=f"User to transfer the {coins} to",
+@g.bot.tree.command(name="transfer",
+                  description=f"Transfer {g.coins} to another user")
+@app_commands.describe(amount=f"Amount of {g.coins} to transfer",
+                       user=f"User to transfer the {g.coins} to",
                        purpose="Purpose of the transfer")
 async def transfer(interaction: Interaction,
                    amount: int,
