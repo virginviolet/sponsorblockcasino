@@ -25,10 +25,10 @@ from utils.roles import test_invoker_is_aml_officer
 # endregion
 
 
-aml_group = app_commands.Group(name="aml",
-                               description="Anti-money laundering workstation")
+aml_group = app_commands.Group(
+    name="aml", description="Use an Anti-money laundering workstation")
 
-# region /aml approve
+# region approve
 @aml_group.command(name="approve",
                    description="Approve transactions that require "
                    "manual approval")
@@ -162,7 +162,7 @@ async def approve(interaction: Interaction) -> None:
     del message_content
 # endregion
 
-# region /aml block
+# region block_receivals
 
 
 @aml_group.command(name="block_receivals",
@@ -222,7 +222,7 @@ async def block_receivals(interaction: Interaction,
     return
 # endregion
 
-# region /aml decrpyt tx
+# region decrypt tx
 
 
 @aml_group.command(name="decrypt_spreadsheet",

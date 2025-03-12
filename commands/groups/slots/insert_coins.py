@@ -1,59 +1,48 @@
 # region Imports
 # Standard library
 import asyncio
-import math
 from time import time
 from hashlib import sha256
 
 # Standard library
-from sympy import Float, Integer, simplify
-from typing import (Dict, List, cast)
+from typing import Dict, List, cast
 
 # Third party
 from humanfriendly import format_timespan
-from discord import Interaction, Member, PartialEmoji, User, app_commands, Role
+from discord import Interaction, Member, PartialEmoji, User, app_commands
 from discord.ext.commands import Bot  # type: ignore
 
 # Local
 import core.global_state as g
-from bot_configuration import invoke_bot_configuration
 from type_aliases import ReelSymbol,  ReelResults, SpinEmojis
 from core.terminate_bot import terminate_bot
 from models.slot_machine import SlotMachine
 from models.grifter_suppliers import GrifterSuppliers
 from models.log import Log
-from models.transfers_waiting_approval import TransfersWaitingApproval
 from models.user_save_data import UserSaveData
 from utils.blockchain_utils import (add_block_transaction,
                                     get_last_block_timestamp)
 from utils.formatting import format_coin_label
-from utils.roles import get_cybersecurity_officer_role
 from views.starting_bonus_view import StartingBonusView
 from views.slot_machine_buttons import SlotMachineView
 from blockchain.models.blockchain import Blockchain
+from .slots_main import slots_group
+from .utils import remove_from_active_players
 # endregion
 
-# region /slots
+# region insert_coins
 # assert g.bot is not None, "bot has not been initialized."
 assert isinstance(g.bot, Bot), "bot has not been initialized."
 
 
-@g.bot.tree.command(name="slots",
-                    description="Play on a slot machine")
-@app_commands.describe(insert_coins="Insert coins into the slot machine")
-@app_commands.describe(private_room="Play in a private room")
-@app_commands.describe(jackpot="Check the current jackpot amount")
-@app_commands.describe(reboot="Reboot the slot machine")
-@app_commands.describe(show_help="Show help")
-@app_commands.describe(rtp="Show the return to player percentage for "
-                       "a given wager")
-async def slots(interaction: Interaction,
-                insert_coins: int | None = None,
-                private_room: bool | None = None,
-                jackpot: bool = False,
-                reboot: bool = False,
-                show_help: bool = False,
-                rtp: int | None = None) -> None:
+@slots_group.command(name="insert_coins",
+                     description=f"Play on a {g.Coin} Slot Machine")
+@app_commands.describe(amount="The amount of coins to stake")
+@app_commands.describe(private_room=(
+    "Whether you want to book a private room or not"))
+async def insert_coins(interaction: Interaction,
+                       amount: int = 1,
+                       private_room: bool | None = None) -> None:
     """
     Command to play a slot machine.
 
@@ -67,21 +56,17 @@ async def slots(interaction: Interaction,
     If they get a net positive outcome, the amount will be added to their
     balance. If they get a net negative outcome, the loss amount will be
     transferred to the casino's account.
-    See the "show_help" parameter for more information about the game.
 
-    See the UserSaveData documentation for more information
-    about 'starting_bonus_available' and 'when_last_bonus_received'. 
+    GrifterSwap suppliers are denied a new starting.
+
+    See the "show_help" subcommand module for more information about the game.
 
     Args:
     interaction  -- The interaction object representing the
                     command invocation.
-    insert_coins -- Sets the stake/wager (default 1)
+    amount        -- Sets the stake/wager (default 1)
     private_room -- Makes the bot's messages ephemeral
                     (only visible to the invoker) (default False)
-    jackpot      -- Reports the current jackpot pool (default False)
-    reboot       -- Removes the invoker from g.active_slot_machine_players
-                    (default False)
-    show_help   -- Sends information about the command/game (default False)
     """
 
     # TODO Add TOS parameter
@@ -96,32 +81,6 @@ async def slots(interaction: Interaction,
     assert isinstance(g.grifter_suppliers, GrifterSuppliers), (
         "g.grifter_suppliers has not been initialized.")
     assert isinstance(g.log, Log), "g.log has not been initialized."
-
-    async def remove_from_active_players(user_id: int) -> None:
-        print(f"Removing user {user_id} from active players...")
-        try:
-            g.active_slot_machine_players.pop(user_id)
-        except Exception as e:
-            # Users who tries to cheat might trip this exception
-            # and get reported to the IT Security Officer
-            it_security_officer_role: Role | None = (
-                get_cybersecurity_officer_role(interaction))
-            message_content: str
-            if it_security_officer_role is None:
-                console_role_is_none_message: str = (
-                    f"ERROR: Could not get the {g.Coin} Security Officer role.")
-                print(console_role_is_none_message)
-                message_content = "Suspicious activity detected."
-            else:
-                it_security_officer_mention: str = (
-                    it_security_officer_role.mention)
-                message_content = (f"{it_security_officer_mention} "
-                                   "Suspicious activity detected.")
-            await interaction.followup.send(message_content)
-            custom_exception_text: str = (
-                f"ERROR: Could not remove user {user_id} from "
-                f"g.active_slot_machine_players: {e}")
-            raise type(e)(custom_exception_text)
 
     def grifter_supplier_check() -> bool:
         """
@@ -142,15 +101,15 @@ async def slots(interaction: Interaction,
         should_use_ephemeral = True
     else:
         should_use_ephemeral = False
-    wager_int: int | None = insert_coins
-    if wager_int is None:
-        wager_int = 1
-    if wager_int < 0:
+    amount_int: int | None = amount
+    if amount_int is None:
+        amount_int = 1
+    if amount_int < 0:
         message_content = "Thief!"
         await interaction.response.send_message(
             message_content, ephemeral=False)
         return
-    elif wager_int == 0:
+    elif amount_int == 0:
         message_content = "Insert coins to play!"
         await interaction.response.send_message(
             message_content, ephemeral=should_use_ephemeral)
@@ -158,242 +117,6 @@ async def slots(interaction: Interaction,
     # TODO Log/stat outcomes (esp. wager amounts)
     user: User | Member = interaction.user
     user_id: int = user.id
-
-    if show_help:
-        pay_table: str = ""
-        combo_events: Dict[str, ReelSymbol] = (
-            g.slot_machine.configuration["combo_events"])
-        combo_event_count: int = len(combo_events)
-        for event in combo_events:
-            event_name: str = event
-            event_name_friendly: str = (
-                g.slot_machine.make_friendly_event_name(event_name))
-            emoji_name: str = combo_events[event]['emoji_name']
-            emoji_id: int = combo_events[event]['emoji_id']
-            emoji: PartialEmoji = PartialEmoji(name=emoji_name, id=emoji_id)
-            row: str = (
-                f"> {emoji} {emoji} {emoji}    {event_name_friendly}\n> \n")
-            pay_table += row
-        # strip the last ">"
-        pay_table = pay_table[:pay_table.rfind("\n> ")]
-        jackpot_seed: int = (
-            g.slot_machine.configuration["combo_events"]
-            ["jackpot"]["fixed_amount"])
-        administrator: str = (await g.bot.fetch_user(g.administrator_id)).name
-        help_message_1: str = (
-            f"## {g.Coin} Slot Machine Help\n"
-            f"Win big by playing the {g.Coin} Slot Machine!*\n\n"
-            "### Pay table\n"
-            f"{pay_table}\n"
-            "\n"
-            "### Fees\n"
-            "> Coins inserted: Fee\n"
-            f"> 1:             1 {g.Coin}\n"
-            f"> <10:        2 {g.coins}\n"
-            "> <100:     20%\n"
-            "> ≥100:     7%\n"
-            "\n"
-            "Fees are calculated from your total stake (the amount of coins "
-            "you insert), and are deducted from your total return (your "
-            "gross return.). For example, if you insert 100 coins, and win "
-            "a 2X award, you get 200 coins, and then 2 coins are deducted, "
-            "leaving you with 198 coins.\n"
-            "\n"
-            "### Rules\n"
-            "You must be 18 years or older to play.\n\n"
-            "### How to play\n"
-            "To play, insert coins with the `insert_coin` parameter of the \n"
-            "`/slots` command. Then wait for the reels to stop, or stop them "
-            "yourself by hitting the stop buttons. Your goal is to get a "
-            "winning combination of three symbols illustrated on the "
-            "pay table.\n"
-            "\n"
-            "### Overview\n"
-            f"The {g.Coin} Slot Machine has 3 reels.\n"
-            f"Each reel has {combo_event_count} unique symbols.\n"
-            "If three symbols match, you get an award based on the symbol, "
-            "or, if you're unlucky, you lose your entire stake (see the pay "
-            "table).\n"
-            "\n")
-        help_message_2: str = (
-            "### Stake\n"
-            "The amount of coins you insert is your stake. This includes the "
-            "fees. The stake is the amount of coins you are willing to risk. "
-            "It will determine the amount you can win, and how high the fees "
-            "will be.\n"
-            "\n"
-            "Multiplier awards multiply your total stake before fees are "
-            "deducted.\n"
-            "\n"
-            "If you do not specify a stake, it means you insert 1 coin and "
-            "that will be your stake.\n"
-            "\n"
-            f"A perhaps counter-intuitive feature of the {g.Coin} Slot Machine "
-            "is that if you do not strike a combination, you do not lose "
-            "your entire stake, but only the fees. But if you get Lose wager "
-            "combination, you do lose your entire stake.\n"
-            "\n"
-            "Any net positive outcome will be immediately added to your "
-            "balance. Similarly, if you get a net negative outcome, the "
-            f"loss amount will be transferred to the {g.Coin} Casino's "
-            "account.\n"
-            "\n"
-            "### Jackpot\n"
-            "The jackpot is a pool of coins that grows as people play the "
-            "slot machine.\n"
-            "If you get a jackpot-winning combination, you win the "
-            "entire jackpot pool.\n"
-            "\n"
-            "To check the current jackpot amount, "
-            "use the `jackpot` parameter.\n"
-            "\n"
-            f"To be eligible for the jackpot, you must insert "
-            f"at least 2 {g.coins}. Then, a small portion of your stake will "
-            "be added to the jackpot pool as a jackpot fee. For stakes "
-            "between 2 and 10 coins, the jackpot fee is 1 coin. Above that, it "
-            "is 1%. The jackpot fees are included in in the fees you see on "
-            "the fees table.\n\n"
-            f"When someone wins the jackpot, the pool is reset "
-            f"to {jackpot_seed} {g.coins}.\n"
-            "\n")
-        help_message_3: str = (
-            "### Fairness\n"
-            "The outcome of a play is never predetermined. The slot machine "
-            "uses a random number generator to determine the outcome of each "
-            "reel each time you play. Some symbols are however more likely "
-            "to appear than others, because each reel has a set amount of "
-            "each symbol.\n"
-            "\n"
-            "To check the RTP (return to player) for a given stake, use "
-            "the `rtp` parameter.\n"
-            "\n"
-            "### Contact\n"
-            "If you are having issues, you can reboot the slot machine by "
-            "using the reboot parameter. If you have any other issues, "
-            f"please contact the {g.Coin} Casino staff or a Slot Machine "
-            "Technician (ping Slot Machine Technician). If you need to "
-            f"contact the {g.Coin} Casino CEO, ping {administrator}.\n"
-            "\n"
-            "-# *Not guaranteed. Actually, for legal reasons, nothing about "
-            "this game is guaranteed.\n")
-        # Use ephemeral messages unless explicitly set to False
-        if private_room is False:
-            should_use_ephemeral = False
-        else:
-            should_use_ephemeral = True
-        await interaction.response.send_message(help_message_1,
-                                                ephemeral=should_use_ephemeral)
-        await interaction.followup.send(help_message_2,
-                                        ephemeral=should_use_ephemeral)
-        await interaction.followup.send(help_message_3,
-                                        ephemeral=should_use_ephemeral)
-        return
-    elif rtp is not None:
-        print(f"rtp: {rtp}")
-        if rtp == 0:
-            wager_int = 0
-            rtp_display = f"0%"
-        else:
-            wager_int = rtp
-            wager = Integer(rtp)
-            rtp_fraction: Float = g.slot_machine.calculate_rtp(wager)
-            rtp_simple: Float = cast(Float, simplify(rtp_fraction))
-            lowest_number_float = 0.0001
-            lowest_number: Float = Float(lowest_number_float)
-            rtp_display: str
-            if rtp_fraction == round(rtp_fraction, Integer(4)):
-                rtp_display = f"{rtp_fraction:.4%}"
-            else:
-                if rtp_simple > lowest_number:
-                    rtp_display = f"~{rtp_fraction:.4%}"
-                else:
-                    rtp_display = f"<{lowest_number_float}%"
-        coin_label = format_coin_label(wager_int)
-        message_content = g.slot_machine.make_message(
-            f"-# RTP (stake={wager_int} {coin_label}): {rtp_display}")
-        if private_room is False:
-            should_use_ephemeral = False
-        else:
-            should_use_ephemeral = True
-        await interaction.response.send_message(message_content,
-                                                ephemeral=should_use_ephemeral)
-        return
-    elif reboot:
-        message_content = g.slot_machine.make_message(
-            f"-# The {g.Coin} Slot Machine is restarting...")
-        await interaction.response.send_message(message_content,
-                                                ephemeral=should_use_ephemeral)
-        del message_content
-        await asyncio.sleep(4)
-        # Refresh configuration and reinitialize classes
-        invoke_bot_configuration()
-        g.slot_machine = SlotMachine()
-        g.grifter_suppliers = GrifterSuppliers()
-        g.transfers_waiting_approval = TransfersWaitingApproval()
-
-        # Remove invoker from active players in case they are stuck in it
-        # Multiple checks are put in place to prevent cheating
-        bootup_message: str = f"-# Welcome to the {g.Coin} Casino!"
-        current_time: float = time()
-        when_player_added_to_active_players: float | None = (
-            g.active_slot_machine_players.get(user_id))
-        if when_player_added_to_active_players is not None:
-            seconds_since_added: float = (
-                current_time - when_player_added_to_active_players)
-            del current_time
-            min_wait_time_to_unstuck: int = g.starting_bonus_timeout * 2 - 3
-            print(f"User {user_id} has been in active players for "
-                  f"{seconds_since_added} seconds. Minimum wait time to "
-                  f"unstuck: {min_wait_time_to_unstuck} seconds.")
-            if seconds_since_added < min_wait_time_to_unstuck:
-                wait_time: int = (
-                    math.ceil(min_wait_time_to_unstuck - seconds_since_added))
-                print(f"Waiting for {wait_time} seconds "
-                      f"to unstuck user {user_id}.")
-                await asyncio.sleep(wait_time)
-            when_player_added_double_check: float | None = (
-                g.active_slot_machine_players.get(user_id))
-            if when_player_added_double_check is not None:
-                when_added_unchanged: bool = (
-                    when_player_added_double_check ==
-                    when_player_added_to_active_players)
-                if when_added_unchanged:
-                    # If the timestamp has changed, that means that the user
-                    # has run /slots while the machine is "rebooting",
-                    # which could indicate that they are trying to cheat.
-                    # If their ID is still in the dictionary and the timestamp
-                    # hasn't changed,
-                    # remove the user from the dictionary
-                    user_name: str = user.name
-                    await remove_from_active_players(user_id)
-                    print(f"User {user_name} ({user_id}) removed from "
-                          "active players.")
-                    del user_name
-                else:
-                    print("Timestamp changed. "
-                          "Will not remove user from active players.")
-                    bootup_message = (f"Cheating is illegal.\n"
-                                      f"-# Do not use the {g.Coin} Slot Machine "
-                                      "during reboot.")
-            else:
-                print("User not in active players anymore.")
-        else:
-            print("User not in active players.")
-        message_content = g.slot_machine.make_message(bootup_message)
-        await interaction.edit_original_response(content=message_content)
-        del message_content
-        return
-    elif jackpot:
-        # Check the jackpot amount
-        jackpot_pool: int = g.slot_machine.jackpot
-        coin_label: str = format_coin_label(jackpot_pool)
-        message_header: str = g.slot_machine.header
-        message_content = (f"{message_header}\n"
-                           f"-# JACKPOT: {jackpot_pool} {coin_label}.")
-        del coin_label
-        await interaction.response.send_message(message_content,
-                                                ephemeral=should_use_ephemeral)
-        return
 
     # Check if user is already playing on a slot machine
     wait_seconds_left: int = 2
@@ -447,7 +170,7 @@ async def slots(interaction: Interaction,
             await interaction.response.send_message(
                 message_content, ephemeral=should_use_ephemeral)
             del message_content
-            await remove_from_active_players(user_id)
+            await remove_from_active_players(interaction, user_id)
             return
 
     if ((user_balance <= 0) and
@@ -481,7 +204,7 @@ async def slots(interaction: Interaction,
                 await interaction.response.send_message(
                     message_content, ephemeral=should_use_ephemeral)
                 del message_content
-                await remove_from_active_players(user_id)
+                await remove_from_active_players(interaction, user_id)
                 return
     elif ((user_balance <= 0) and
           (isinstance(starting_bonus_available, float)) and
@@ -498,7 +221,7 @@ async def slots(interaction: Interaction,
         await interaction.response.send_message(
             message_content, ephemeral=should_use_ephemeral)
         del message_content
-        await remove_from_active_players(user_id)
+        await remove_from_active_players(interaction, user_id)
         return
 
     main_bonus_requirements_passed: bool = (
@@ -513,8 +236,8 @@ async def slots(interaction: Interaction,
         starting_bonus_awards: Dict[int, int] = {
             1: 50, 2: 100, 3: 200, 4: 300, 5: 400, 6: 500}
         starting_bonus_table: str = "> **Die roll**\t**Amount**\n"
-        for die_roll, amount in starting_bonus_awards.items():
-            starting_bonus_table += f"> {die_roll}\t\t\t\t{amount}\n"
+        for die_roll, resulting_amount in starting_bonus_awards.items():
+            starting_bonus_table += f"> {die_roll}\t\t\t\t{resulting_amount}\n"
         message_preamble: str
         if has_played_before:
             message_preamble = (f"Welcome back! You spent all your {g.coins} "
@@ -543,16 +266,16 @@ async def slots(interaction: Interaction,
             save_data.has_visited_casino = True
             current_time: float = time()
             save_data.when_last_bonus_received = current_time
-        await remove_from_active_players(user_id)
+        await remove_from_active_players(interaction, user_id)
         return
 
     del has_played_before
 
-    if user_balance < wager_int:
-        coin_label_w: str = format_coin_label(wager_int)
+    if user_balance < amount_int:
+        coin_label_w: str = format_coin_label(amount_int)
         coin_label_b: str = format_coin_label(user_balance)
         message_content = (f"You do not have enough {g.coins} "
-                           f"to stake {wager_int} {coin_label_w}.\n"
+                           f"to stake {amount_int} {coin_label_w}.\n"
                            f"Your current balance is {user_balance} {coin_label_b}.")
         await interaction.response.send_message(
             content=message_content, ephemeral=True)
@@ -560,7 +283,7 @@ async def slots(interaction: Interaction,
         del coin_label_b
         del message_content
         if user_id in g.active_slot_machine_players:
-            await remove_from_active_players(user_id)
+            await remove_from_active_players(interaction, user_id)
         return
 
     fees_dict: Dict[str, int | float] = g.slot_machine.configuration["fees"]
@@ -578,7 +301,7 @@ async def slots(interaction: Interaction,
         cast(float, fees_dict["high_wager_jackpot"]))
 
     jackpot_fee_paid: bool = (
-        wager_int >= (low_wager_main_fee + low_wager_jackpot_fee))
+        amount_int >= (low_wager_main_fee + low_wager_jackpot_fee))
     no_jackpot_mode: bool = False if jackpot_fee_paid else True
     jackpot_fee: int
     main_fee: int
@@ -586,18 +309,18 @@ async def slots(interaction: Interaction,
         # IMPROVE Make min_wager config keys
         main_fee = low_wager_main_fee
         jackpot_fee = 0
-    elif wager_int < 10:
+    elif amount_int < 10:
         main_fee = low_wager_main_fee
         jackpot_fee = low_wager_jackpot_fee
-    elif wager_int < 100:
-        main_fee_unrounded: float = wager_int * medium_wager_main_fee
+    elif amount_int < 100:
+        main_fee_unrounded: float = amount_int * medium_wager_main_fee
         main_fee = round(main_fee_unrounded)
-        jackpot_fee_unrounded: float = wager_int * medium_wager_jackpot_fee
+        jackpot_fee_unrounded: float = amount_int * medium_wager_jackpot_fee
         jackpot_fee = round(jackpot_fee_unrounded)
     else:
-        main_fee_unrounded: float = wager_int * high_wager_main_fee
+        main_fee_unrounded: float = amount_int * high_wager_main_fee
         main_fee = round(main_fee_unrounded)
-        jackpot_fee_unrounded: float = wager_int * high_wager_jackpot_fee
+        jackpot_fee_unrounded: float = amount_int * high_wager_jackpot_fee
         jackpot_fee = round(jackpot_fee_unrounded)
     fees: int = jackpot_fee + main_fee
 
@@ -608,7 +331,7 @@ async def slots(interaction: Interaction,
                                 id=spin_emoji_1_id,
                                 animated=True)
     reels_row: str = f"{spin_emoji_1}\t\t{spin_emoji_1}\t\t{spin_emoji_1}"
-    wager_row: str = f"-# Coin: {wager_int}"
+    wager_row: str = f"-# Coin: {amount_int}"
     fees_row: str = f"-# Fee: {fees}"
     slots_message: str = g.slot_machine.make_message(text_row_1=wager_row,
                                                      text_row_2=fees_row,
@@ -663,7 +386,7 @@ async def slots(interaction: Interaction,
     # (not usually the same as net profit or net return)
     win_money: int
     event_name, event_name_friendly, win_money = (
-        g.slot_machine.calculate_award_money(wager=wager_int,
+        g.slot_machine.calculate_award_money(wager=amount_int,
                                              results=results))
 
     # Generate outcome messages
@@ -702,12 +425,12 @@ async def slots(interaction: Interaction,
     log_line: str = ""
     if event_name == "lose_wager":
         event_message = (f"You lost your entire "
-                         f"stake of {wager_int} {coin_label_wm}. "
+                         f"stake of {amount_int} {coin_label_wm}. "
                          "Better luck next time!")
-        net_return = -wager_int
+        net_return = -amount_int
         total_return = 0
     net_return = win_money - main_fee - jackpot_fee
-    total_return = wager_int + win_money - main_fee - jackpot_fee
+    total_return = amount_int + win_money - main_fee - jackpot_fee
     # print(f"wager: {wager_int}")
     # print(f"standard_fee: {main_fee}")
     # print(f"jackpot_fee: {jackpot_fee}")
@@ -734,7 +457,7 @@ async def slots(interaction: Interaction,
             log_line = (f"{user_name} ({user_id}) got "
                         f"the {event_name} event ({event_name_friendly}) "
                         "and lost their entire wager of "
-                        f"{wager_int} {coin_label_nr} on "
+                        f"{amount_int} {coin_label_nr} on "
                         f"the {g.Coin} Slot Machine, "
                         "yet they neither lost any coins nor profited.")
         elif win_money > 0:
@@ -754,7 +477,7 @@ async def slots(interaction: Interaction,
         if event_name == "lose_wager":
             log_line = (f"{user_name} ({user_id}) got the {event_name} event "
                         f"({event_name_friendly}) and lost their entire wager "
-                        f"of {wager_int} {coin_label_nr} on the "
+                        f"of {amount_int} {coin_label_nr} on the "
                         f"{g.Coin} Slot Machine.")
         if event_name == "jackpot_fail":
             log_line = (f"{user_name} ({user_id}) lost {-net_return} "
@@ -887,7 +610,7 @@ async def slots(interaction: Interaction,
             del next_bonus_point_in_time
 
     if user_id in g.active_slot_machine_players:
-        await remove_from_active_players(user_id)
+        await remove_from_active_players(interaction, user_id)
 
     if last_block_error:
         # send message to admin

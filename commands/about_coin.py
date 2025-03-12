@@ -37,21 +37,24 @@ async def about_coin(interaction: Interaction) -> None:
     message_content: str = (f"## {g.Coin}\n"
                             f"{g.Coin} is a proof-of-yapping cryptocurrency "
                             f"that lives on the {g.blockchain_name}.\n"
-                            f"To mine a {g.coin} for someone, react {coin_emoji} "
-                            "to their message.\n"
+                            f"To mine a {g.coin} for someone, "
+                            f"react {coin_emoji} to their message.\n"
                             "Check your balance by typing `/balance` in "
                             "the chat.\n"
                             "\n"
-                            f"New players will be informed only once about {g.coin}. "
+                            f"New players will be informed only once "
+                            f"about {g.coin}. "
                             "But if you prefer that the bot does not reply to "
                             "new players when you mine their messages, type\n"
                             "`/mining disable_reaction_messages: True`.\n"
                             "\n"
-                            f"You should come visit the {casino_channel_mention} "
-                            "some time. You can play on the slot machines "
-                            "there with the `/slots` command.\n"
-                            "If you want to know more about the slot machines, "
-                            "type `/slots show_help: True`.")
+                            "You should come visit "
+                            f"the {casino_channel_mention} some time. You can "
+                            "play on the slot machines there with "
+                            "the `/slots insert_coins` command.\n"
+                            "If you want to know more about how "
+                            "the slot machine game works,\n"
+                            "type `/slots show_help`.")
     await interaction.response.send_message(message_content, ephemeral=True)
     del message_content
 # endregion
