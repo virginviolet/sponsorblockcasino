@@ -320,13 +320,12 @@ async def slots(interaction: Interaction,
                                                 ephemeral=should_use_ephemeral)
         del message_content
         await asyncio.sleep(4)
-        # Re-initialize slot machine (reloads configuration from file)
-        g.slot_machine = SlotMachine()
-        # Also update the bot configuration
+        # Refresh configuration and reinitialize classes
         invoke_bot_configuration()
-        # Also reload the other files
+        g.slot_machine = SlotMachine()
         g.grifter_suppliers = GrifterSuppliers()
         g.transfers_waiting_approval = TransfersWaitingApproval()
+
         # Remove invoker from active players in case they are stuck in it
         # Multiple checks are put in place to prevent cheating
         bootup_message: str = f"-# Welcome to the {g.Coin} Casino!"
