@@ -753,18 +753,17 @@ class SlotMachine:
                 if event == "lose_wager":
                     # If the player gets the lose_wager combo
                     # he ends up with nothing
-                    #
-                    # Wager multiplier should be -1.0
-                    # Fixed amount should be 0
                     # No fees are subtracted
-                    event_total_return = Add(
-                        Mul(W, wager_multiplier),
-                        fixed_amount,
-                        -Mul(W, standard_fee_wager_multiplier))
+                    #
+                    # Event total return calculation
+                    event_total_return = Integer(0)
                     print_if_not_silent(
-                        f"Event total return: {event_total_return} "
-                        "[ (W * k) + x ]")
+                        f"Event total return: {event_total_return} [0]")
                 else:
+                    # Some non-default events, like
+                    # where wager multiplier >= 0.0
+                    # and fixed amount >= 0, are not handled
+                    #
                     # Calculations
                     event_total_return = Add(
                         Mul(W, wager_multiplier),
@@ -776,28 +775,28 @@ class SlotMachine:
                     print_if_not_silent(
                         f"Event total return: {event_total_return} "
                         "[(W * k) + x - (W * f1k) - (W * f2k) - f1x - f2x]")
-                    event_return = Add(event_total_return, -W)
-                    print_if_not_silent(
-                        f"Event return: {event_return} "
-                        "[total return - W]")
-                    piece_expected_total_return_contribution = (
-                        Mul(p_event, event_total_return))
-                    message_content = (
-                        "Expected total return contribution: "
-                        f"{piece_expected_total_return_contribution}")
-                    print_if_not_silent(message_content)
-                    del message_content
-                    piece_expected_return_contribution = (
-                        Mul(p_event, event_return))
-                    print_if_not_silent("Expected return contribution: "
-                                        f"{piece_expected_return_contribution}")
-                    # Add the event's contributions to the final expected returns
-                    piece_expected_total_return = Add(
-                        piece_expected_total_return,
-                        piece_expected_total_return_contribution)
-                    piece_expected_return = Add(
-                        piece_expected_return,
-                        piece_expected_return_contribution)
+                event_return = Add(event_total_return, -W)
+                print_if_not_silent(
+                    f"Event return: {event_return} "
+                    "[total return - W]")
+                piece_expected_total_return_contribution = (
+                    Mul(p_event, event_total_return))
+                message_content = (
+                    "Expected total return contribution: "
+                    f"{piece_expected_total_return_contribution}")
+                print_if_not_silent(message_content)
+                del message_content
+                piece_expected_return_contribution = (
+                    Mul(p_event, event_return))
+                print_if_not_silent("Expected return contribution: "
+                                    f"{piece_expected_return_contribution}")
+                # Add the event's contributions to the final expected returns
+                piece_expected_total_return = Add(
+                    piece_expected_total_return,
+                    piece_expected_total_return_contribution)
+                piece_expected_return = Add(
+                    piece_expected_return,
+                    piece_expected_return_contribution)
             return (
                 cast(Add, piece_expected_total_return),
                 cast(Add, piece_expected_return))
