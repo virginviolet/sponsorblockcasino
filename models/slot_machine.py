@@ -699,13 +699,9 @@ class SlotMachine:
                         -Mul(W, jackpot_fee_wager_multiplier),
                         -standard_fee_fixed_amount,
                         -jackpot_fee_fixed_amount)
-                    print_if_not_silent(f"Event total return: "
-                                        f"{event_total_return} "
-                                        "["
-                                        "(W * k) + j "
-                                        "- (W * f1k) - (W * f2k) "
-                                        "- f1x - f2x"
-                                        "]")
+                    print_if_not_silent(
+                        f"Event total return: {event_total_return} "
+                        "[(W * k) + j - (W * f1k) - (W * f2k) - f1x - f2x]")
                     event_return = Add(
                         event_total_return,
                         -W)
@@ -723,8 +719,7 @@ class SlotMachine:
                     # This event's contribution to the *expected return*
                     piece_expected_return_contribution = (
                         Mul(p_event, event_return))
-                    print_if_not_silent(f"Event return: "
-                                        f"{event_return} "
+                    print_if_not_silent(f"Event return: {event_return} "
                                         "[total return - W]")
                     # Add the contributions to the totals
                     piece_expected_total_return = Add(
@@ -755,42 +750,54 @@ class SlotMachine:
                 fixed_amount = Integer(fixed_amount_int)
                 print_if_not_silent(f"Fixed amount (x): {fixed_amount_int}")
 
-                # Calculations
-                event_total_return = Add(
-                    Mul(W, wager_multiplier),
-                    fixed_amount,
-                    -Mul(W, standard_fee_wager_multiplier),
-                    -Mul(W, jackpot_fee_wager_multiplier),
-                    -standard_fee_fixed_amount,
-                    -jackpot_fee_fixed_amount)
-                print_if_not_silent(f"Event total return: "
-                                    f"{event_total_return} "
-                                    "["
-                                    "(W * k) + x "
-                                    "- (W * f1k) - (W * f2k) "
-                                    "- f1x - f2x"
-                                    "]")
-                event_return = Add(event_total_return, -W)
-                print_if_not_silent(f"Event return: "
-                                    f"{event_return} "
-                                    "[total return - W]")
-                piece_expected_total_return_contribution = (
-                    Mul(p_event, event_total_return))
-                message_content = ("Expected total return contribution: "
-                                   f"{piece_expected_total_return_contribution}")
-                print_if_not_silent(message_content)
-                del message_content
-                piece_expected_return_contribution = (
-                    Mul(p_event, event_return))
-                print_if_not_silent("Expected return contribution: "
-                                    f"{piece_expected_return_contribution}")
-                # Add the event's contributions to the final expected returns
-                piece_expected_total_return = Add(
-                    piece_expected_total_return,
-                    piece_expected_total_return_contribution)
-                piece_expected_return = Add(
-                    piece_expected_return,
-                    piece_expected_return_contribution)
+                if event == "lose_wager":
+                    # If the player gets the lose_wager combo
+                    # he ends up with nothing
+                    #
+                    # Wager multiplier should be -1.0
+                    # Fixed amount should be 0
+                    # No fees are subtracted
+                    event_total_return = Add(
+                        Mul(W, wager_multiplier),
+                        fixed_amount,
+                        -Mul(W, standard_fee_wager_multiplier))
+                    print_if_not_silent(
+                        f"Event total return: {event_total_return} "
+                        "[ (W * k) + x ]")
+                else:
+                    # Calculations
+                    event_total_return = Add(
+                        Mul(W, wager_multiplier),
+                        fixed_amount,
+                        -Mul(W, standard_fee_wager_multiplier),
+                        -Mul(W, jackpot_fee_wager_multiplier),
+                        -standard_fee_fixed_amount,
+                        -jackpot_fee_fixed_amount)
+                    print_if_not_silent(
+                        f"Event total return: {event_total_return} "
+                        "[(W * k) + x - (W * f1k) - (W * f2k) - f1x - f2x]")
+                    event_return = Add(event_total_return, -W)
+                    print_if_not_silent(
+                        f"Event return: {event_return} "
+                        "[total return - W]")
+                    piece_expected_total_return_contribution = (
+                        Mul(p_event, event_total_return))
+                    message_content = (
+                        "Expected total return contribution: "
+                        f"{piece_expected_total_return_contribution}")
+                    print_if_not_silent(message_content)
+                    del message_content
+                    piece_expected_return_contribution = (
+                        Mul(p_event, event_return))
+                    print_if_not_silent("Expected return contribution: "
+                                        f"{piece_expected_return_contribution}")
+                    # Add the event's contributions to the final expected returns
+                    piece_expected_total_return = Add(
+                        piece_expected_total_return,
+                        piece_expected_total_return_contribution)
+                    piece_expected_return = Add(
+                        piece_expected_return,
+                        piece_expected_return_contribution)
             return (
                 cast(Add, piece_expected_total_return),
                 cast(Add, piece_expected_return))
