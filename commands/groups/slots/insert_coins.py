@@ -97,9 +97,8 @@ async def insert_coins(interaction: Interaction,
         should_use_ephemeral = True
     else:
         should_use_ephemeral = False
+        
     amount_int: int | None = amount
-    if amount_int is None:
-        amount_int = 1
     if amount_int < 0:
         message_content = "Thief!"
         await interaction.response.send_message(
