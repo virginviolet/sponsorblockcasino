@@ -429,8 +429,9 @@ async def insert_coins(interaction: Interaction,
                          "Better luck next time!")
         net_return = -amount_int
         total_return = 0
+    else:
+        total_return = amount_int + win_money - main_fee - jackpot_fee
     net_return = win_money - main_fee - jackpot_fee
-    total_return = amount_int + win_money - main_fee - jackpot_fee
     # print(f"wager: {wager_int}")
     # print(f"standard_fee: {main_fee}")
     # print(f"jackpot_fee: {jackpot_fee}")
