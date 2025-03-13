@@ -3,8 +3,6 @@
 import asyncio
 from time import time
 from hashlib import sha256
-
-# Standard library
 from typing import Dict, List, cast
 
 # Third party
