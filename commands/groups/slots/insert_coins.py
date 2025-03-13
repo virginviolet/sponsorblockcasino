@@ -29,8 +29,6 @@ from .utils import remove_from_active_players
 # endregion
 
 # region insert_coins
-# assert g.bot is not None, "bot has not been initialized."
-assert isinstance(g.bot, Bot), "bot has not been initialized."
 
 
 @slots_group.command(name="insert_coins",
