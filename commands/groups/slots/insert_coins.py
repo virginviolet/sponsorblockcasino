@@ -64,7 +64,6 @@ async def insert_coins(interaction: Interaction,
     private_room -- Makes the bot's messages ephemeral
                     (only visible to the invoker) (default False)
     """
-
     # TODO Add TOS parameter
     # TODO Add service parameter
     # IMPROVE Make incompatible parameters not selectable together
@@ -77,6 +76,9 @@ async def insert_coins(interaction: Interaction,
     assert isinstance(g.grifter_suppliers, GrifterSuppliers), (
         "g.grifter_suppliers has not been initialized.")
     assert isinstance(g.log, Log), "g.log has not been initialized."
+
+    user: User | Member = interaction.user
+    user_id: int = user.id
 
     def grifter_supplier_check() -> bool:
         """
@@ -97,7 +99,7 @@ async def insert_coins(interaction: Interaction,
         should_use_ephemeral = True
     else:
         should_use_ephemeral = False
-        
+
     if amount < 0:
         message_content = "Thief!"
         await interaction.response.send_message(
@@ -109,8 +111,6 @@ async def insert_coins(interaction: Interaction,
             message_content, ephemeral=should_use_ephemeral)
         return
     # TODO Log/stat outcomes (esp. wager amounts)
-    user: User | Member = interaction.user
-    user_id: int = user.id
 
     # Check if user is already playing on a slot machine
     wait_seconds_left: int = 2
