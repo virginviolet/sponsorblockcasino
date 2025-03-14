@@ -7,7 +7,8 @@ from typing import Dict, List, cast
 
 # Third party
 from humanfriendly import format_timespan
-from discord import Interaction, Member, PartialEmoji, User, app_commands
+from discord import (Interaction, Member, PartialEmoji, User, app_commands,
+                     Client)
 from discord.ext.commands import Bot  # type: ignore
 
 # Local
@@ -37,7 +38,7 @@ from .utils import remove_from_active_players
 @app_commands.describe(private_room=(
     "Whether you want to book a private room or not"))
 async def insert_coins(interaction: Interaction,
-                       amount: int = 1,
+                       amount: str = "1",
                        private_room: bool | None = None) -> None:
     """
     Command to play a slot machine.
@@ -95,17 +96,31 @@ async def insert_coins(interaction: Interaction,
         else:
             return False
 
+    amount_int: int | None = None
+    if amount.lower() != "all" and amount.lower() != "max":
+        try:
+            amount_int = int(amount)
+        except ValueError:
+            if private_room is False:
+                should_use_ephemeral = False
+            else:
+                should_use_ephemeral = True
+            message_content = ("Input a valid number of coins to stake.")
+            await interaction.response.send_message(
+                message_content, ephemeral=should_use_ephemeral)
+            return
+
     if private_room:
         should_use_ephemeral = True
     else:
         should_use_ephemeral = False
 
-    if amount < 0:
+    if amount_int is not None and amount_int < 0:
         message_content = "Thief!"
         await interaction.response.send_message(
             message_content, ephemeral=False)
         return
-    elif amount == 0:
+    elif amount_int is not None and amount_int == 0:
         message_content = "Insert coins to play!"
         await interaction.response.send_message(
             message_content, ephemeral=should_use_ephemeral)
@@ -141,6 +156,10 @@ async def insert_coins(interaction: Interaction,
     user_balance: int | None = g.blockchain.get_balance(user=user_id_hash)
     if user_balance is None:
         user_balance = 0
+
+    if amount == "all" or amount == "max":
+        amount_int = user_balance
+    amount_int = cast(int, amount_int)
 
     has_played_before: bool = save_data.has_visited_casino
     new_bonus_wait_complete: bool = (
@@ -265,11 +284,11 @@ async def insert_coins(interaction: Interaction,
 
     del has_played_before
 
-    if user_balance < amount:
-        coin_label_w: str = format_coin_label(amount)
+    if user_balance < amount_int:
+        coin_label_w: str = format_coin_label(amount_int)
         coin_label_b: str = format_coin_label(user_balance)
         message_content = (f"You do not have enough {g.coins} "
-                           f"to stake {amount} {coin_label_w}.\n"
+                           f"to stake {amount_int} {coin_label_w}.\n"
                            f"Your current balance is {user_balance} {coin_label_b}.")
         await interaction.response.send_message(
             content=message_content, ephemeral=True)
@@ -295,7 +314,7 @@ async def insert_coins(interaction: Interaction,
         cast(float, fees_dict["high_wager_jackpot"]))
 
     jackpot_fee_paid: bool = (
-        amount >= (low_wager_main_fee + low_wager_jackpot_fee))
+        amount_int >= (low_wager_main_fee + low_wager_jackpot_fee))
     no_jackpot_mode: bool = False if jackpot_fee_paid else True
     jackpot_fee: int
     main_fee: int
@@ -303,18 +322,18 @@ async def insert_coins(interaction: Interaction,
         # IMPROVE Make min_wager config keys
         main_fee = low_wager_main_fee
         jackpot_fee = 0
-    elif amount < 10:
+    elif amount_int < 10:
         main_fee = low_wager_main_fee
         jackpot_fee = low_wager_jackpot_fee
-    elif amount < 100:
-        main_fee_unrounded: float = amount * medium_wager_main_fee
+    elif amount_int < 100:
+        main_fee_unrounded: float = amount_int * medium_wager_main_fee
         main_fee = round(main_fee_unrounded)
-        jackpot_fee_unrounded: float = amount * medium_wager_jackpot_fee
+        jackpot_fee_unrounded: float = amount_int * medium_wager_jackpot_fee
         jackpot_fee = round(jackpot_fee_unrounded)
     else:
-        main_fee_unrounded: float = amount * high_wager_main_fee
+        main_fee_unrounded: float = amount_int * high_wager_main_fee
         main_fee = round(main_fee_unrounded)
-        jackpot_fee_unrounded: float = amount * high_wager_jackpot_fee
+        jackpot_fee_unrounded: float = amount_int * high_wager_jackpot_fee
         jackpot_fee = round(jackpot_fee_unrounded)
     fees: int = jackpot_fee + main_fee
 
@@ -325,7 +344,7 @@ async def insert_coins(interaction: Interaction,
                                 id=spin_emoji_1_id,
                                 animated=True)
     reels_row: str = f"{spin_emoji_1}\t\t{spin_emoji_1}\t\t{spin_emoji_1}"
-    wager_row: str = f"-# Coin: {amount}"
+    wager_row: str = f"-# Coin: {amount_int}"
     fees_row: str = f"-# Fee: {fees}"
     slots_message: str = g.slot_machine.make_message(text_row_1=wager_row,
                                                      text_row_2=fees_row,
@@ -380,7 +399,7 @@ async def insert_coins(interaction: Interaction,
     # (not usually the same as net profit or net return)
     win_money: int
     event_name, event_name_friendly, win_money = (
-        g.slot_machine.calculate_award_money(wager=amount,
+        g.slot_machine.calculate_award_money(wager=amount_int,
                                              results=results))
 
     # Generate outcome messages
@@ -419,12 +438,12 @@ async def insert_coins(interaction: Interaction,
     log_line: str = ""
     if event_name == "lose_wager":
         event_message = (f"You lost your entire "
-                         f"stake of {amount} {coin_label_wm}. "
+                         f"stake of {amount_int} {coin_label_wm}. "
                          "Better luck next time!")
-        net_return = -amount
+        net_return = -amount_int
         total_return = 0
     else:
-        total_return = amount + win_money - main_fee - jackpot_fee
+        total_return = amount_int + win_money - main_fee - jackpot_fee
     net_return = win_money - main_fee - jackpot_fee
     # print(f"wager: {wager_int}")
     # print(f"standard_fee: {main_fee}")
@@ -452,7 +471,7 @@ async def insert_coins(interaction: Interaction,
             log_line = (f"{user_name} ({user_id}) got "
                         f"the {event_name} event ({event_name_friendly}) "
                         "and lost their entire wager of "
-                        f"{amount} {coin_label_nr} on "
+                        f"{amount_int} {coin_label_nr} on "
                         f"the {g.Coin} Slot Machine, "
                         "yet they neither lost any coins nor profited.")
         elif win_money > 0:
@@ -472,7 +491,7 @@ async def insert_coins(interaction: Interaction,
         if event_name == "lose_wager":
             log_line = (f"{user_name} ({user_id}) got the {event_name} event "
                         f"({event_name_friendly}) and lost their entire wager "
-                        f"of {amount} {coin_label_nr} on the "
+                        f"of {amount_int} {coin_label_nr} on the "
                         f"{g.Coin} Slot Machine.")
         if event_name == "jackpot_fail":
             log_line = (f"{user_name} ({user_id}) lost {-net_return} "
@@ -623,4 +642,19 @@ async def insert_coins(interaction: Interaction,
         g.slot_machine.jackpot = jackpot_seed
     else:
         g.slot_machine.jackpot += 1
+
+
+@insert_coins.autocomplete(name="amount")
+async def amount_autocomplete(interaction: Interaction[Client],
+                              current: str) -> List[app_commands.Choice[str]]:
+    choices = []
+    if current.lower().startswith("a"):
+        choices: List[app_commands.Choice[str]] = (
+            [app_commands.Choice(name="All", value="all")])
+        return choices
+    elif current.lower().startswith("m"):
+        choices: List[app_commands.Choice[str]] = (
+            [app_commands.Choice(name="Max", value="max")])
+        return choices
+    return choices
 # endregion
