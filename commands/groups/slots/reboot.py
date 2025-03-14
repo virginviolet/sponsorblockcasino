@@ -15,7 +15,7 @@ from models.slot_machine import SlotMachine
 from models.grifter_suppliers import GrifterSuppliers
 from models.transfers_waiting_approval import TransfersWaitingApproval
 from .slots_main import slots_group
-from .utils import remove_from_active_players
+from .slots_utils import remove_from_active_players
 # endregion
 
 # region reboot

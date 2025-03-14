@@ -4,7 +4,7 @@ from . import show_help
 from . import jackpot
 from . import reboot
 from . import rtp
-from . import utils
+from . import slots_utils
 
 __all__: list[str] = ["slots_group",
                       "insert_coins",
@@ -12,4 +12,4 @@ __all__: list[str] = ["slots_group",
                       "jackpot",
                       "reboot",
                       "rtp",
-                      "utils"]
+                      "slots_utils"]

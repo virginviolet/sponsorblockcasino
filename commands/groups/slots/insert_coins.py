@@ -26,7 +26,7 @@ from views.starting_bonus_view import StartingBonusView
 from views.slot_machine_buttons import SlotMachineView
 from blockchain.models.blockchain import Blockchain
 from .slots_main import slots_group
-from .utils import remove_from_active_players
+from .slots_utils import remove_from_active_players
 # endregion
 
 # region insert_coins
