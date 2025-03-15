@@ -158,7 +158,7 @@ async def insert_coins(interaction: Interaction,
     if user_balance is None:
         user_balance = 0
 
-    if amount == "all" or amount == "max":
+    if amount.lower() == "all" or amount.lower() == "max":
         amount_int = user_balance
     else:
         amount_int = int(amount)
