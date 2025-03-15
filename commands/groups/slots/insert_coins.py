@@ -96,10 +96,11 @@ async def insert_coins(interaction: Interaction,
         else:
             return False
 
-    amount_int: int | None = None
+    amount_int: int
+    amount_is_int: bool = False
     if amount.lower() != "all" and amount.lower() != "max":
         try:
-            amount_int = int(amount)
+            int(amount)
         except ValueError:
             if private_room is False:
                 should_use_ephemeral = False
@@ -115,12 +116,12 @@ async def insert_coins(interaction: Interaction,
     else:
         should_use_ephemeral = False
 
-    if amount_int is not None and amount_int < 0:
+    if amount_is_int and amount_int < 0:
         message_content = "Thief!"
         await interaction.response.send_message(
             message_content, ephemeral=False)
         return
-    elif amount_int is not None and amount_int == 0:
+    elif amount_is_int and amount_int == 0:
         message_content = "Insert coins to play!"
         await interaction.response.send_message(
             message_content, ephemeral=should_use_ephemeral)
@@ -159,7 +160,8 @@ async def insert_coins(interaction: Interaction,
 
     if amount == "all" or amount == "max":
         amount_int = user_balance
-    amount_int = cast(int, amount_int)
+    else:
+        amount_int = int(amount)
 
     has_played_before: bool = save_data.has_visited_casino
     new_bonus_wait_complete: bool = (
