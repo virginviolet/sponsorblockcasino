@@ -9,7 +9,7 @@ from discord.ext.commands import Bot  # type: ignore
 # Local
 import core.global_state as g
 from utils.formatting import format_coin_label
-from blockchain.models.blockchain import Blockchain
+from sponsorblockchain.models.blockchain import Blockchain
 
 # region /balance
 assert isinstance(g.bot, Bot), "bot has not been initialized."

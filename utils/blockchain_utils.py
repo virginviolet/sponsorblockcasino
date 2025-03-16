@@ -26,9 +26,9 @@ from models.transfers_waiting_approval import TransfersWaitingApproval
 from models.user_save_data import UserSaveData
 from utils.roles import get_aml_officer_role
 from utils.formatting import format_coin_label
-from blockchain.sbchain_type_aliases import TransactionDict
-from blockchain.models.blockchain import Blockchain
-from blockchain.models.block import Block
+from sponsorblockchain.sponsorblockchain_type_aliases import TransactionDict
+from sponsorblockchain.models.blockchain import Blockchain
+from sponsorblockchain.models.block import Block
 # endregion
 
 # region Get timestamp

@@ -14,7 +14,7 @@ Privileged Gateway Intents:
 
 # region Imports
 # Local
-from blockchain.start_sbchain import start_flask_app_thread
+from sponsorblockchain.start_sponsorblockchain import start_flask_app_thread
 
 
 # endregion

@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from models.slot_machine import SlotMachine
     from models.transfers_waiting_approval import TransfersWaitingApproval
     from utils.decrypt_transactions import DecryptedTransactionsSpreadsheet
-    from blockchain.models.blockchain import Blockchain
+    from sponsorblockchain.models.blockchain import Blockchain
 # endregion
 
 # region Constants

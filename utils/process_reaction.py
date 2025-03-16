@@ -12,7 +12,7 @@ from discord.ext.commands import Bot  # type: ignore
 # Local
 import core.global_state as g
 from core.terminate_bot import terminate_bot
-from blockchain.models.blockchain import Blockchain
+from sponsorblockchain.models.blockchain import Blockchain
 from models.log import Log
 from models.user_save_data import UserSaveData
 from utils.blockchain_utils import (add_block_transaction,

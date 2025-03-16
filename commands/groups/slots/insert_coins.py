@@ -24,7 +24,7 @@ from utils.blockchain_utils import (add_block_transaction,
 from utils.formatting import format_coin_label
 from views.starting_bonus_view import StartingBonusView
 from views.slot_machine_buttons import SlotMachineView
-from blockchain.models.blockchain import Blockchain
+from sponsorblockchain.models.blockchain import Blockchain
 from .slots_main import slots_group
 from .slots_utils import remove_from_active_players
 # endregion

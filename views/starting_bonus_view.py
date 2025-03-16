@@ -15,7 +15,7 @@ from models.log import Log
 from models.user_save_data import UserSaveData
 from utils.blockchain_utils import (add_block_transaction,
                                     get_last_block_timestamp)
-from blockchain.models.blockchain import Blockchain
+from sponsorblockchain.models.blockchain import Blockchain
 # endregion
 
 # region Bonus die button
