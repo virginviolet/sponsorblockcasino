@@ -1,0 +1,3 @@
+[submodule "sponsorblockchain"]
+	path = sponsorblockchain
+	url = https://github.com/virginviolet/sponsorblockchain
