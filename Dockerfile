@@ -35,6 +35,8 @@ RUN nixpacks build /app \
     --name sponsorblockcasino \
     --start-cmd "python sponsorblockcasino.py"
 
+RUN docker run -it my-app
+
 # Install Nix dependencies
 RUN nix-env -if .nixpacks/*.nix && nix-collect-garbage -d
 
