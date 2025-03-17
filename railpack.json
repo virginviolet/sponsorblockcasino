@@ -1,14 +1,19 @@
 {
-    "$schema": "https://schema.railpack.com",
-    "steps": {
-      "submodules": {
-        "commands": ["git submodule update --init --recursive"]
-      },
-      "install": {
-        "commands": ["python -m venv --copies /opt/venv && . /opt/venv/bin/activate && pip install -r requirements.txt"]
-      }
+  "$schema": "https://schema.railpack.com",
+  "steps": {
+    "submodules": {
+      "commands": [
+        "git submodule update --init --recursive"
+      ]
     },
-    "deploy": {
-      "startCommand": "python sponsorblockcasino.py"
+    "install": {
+      "inputs": [{ "step": "submodules" }],
+      "commands": [
+        "python -m venv --copies /opt/venv && . /opt/venv/bin/activate && pip install -r requirements.txt"
+      ]
     }
+  },
+  "deploy": {
+    "startCommand": "python sponsorblockcasino.py"
   }
+}
