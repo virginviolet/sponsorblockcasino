@@ -4,4 +4,4 @@ sympy
 pandas
 humanfriendly
 
--r submodule/requirements.txt
+-r sponsorblockchain/requirements.txt
