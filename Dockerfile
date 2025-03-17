@@ -30,6 +30,8 @@ RUN git init && \
 # Add venv to PATH
 RUN printf '\nPATH=/opt/venv/bin:$PATH' >>/root/.profile
 
+RUN docker --version
+
 # Generate .nixpacks files locally
 RUN nixpacks build /app \
     --name sponsorblockcasino \
