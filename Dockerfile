@@ -8,10 +8,10 @@ RUN apt-get update && apt-get install -y git python3-venv python3-pip
 # Run in unbuffered mode
 ENV PYTHONUNBUFFERED=1 
 
-# Create and change to the app directory.
+# Create and change to the app directory
 WORKDIR /app
 
-# Copy local code to the container image.
+# Copy local code to the container image
 COPY . ./
 
 # Fetch the .git folder initialize submodules
@@ -36,5 +36,5 @@ RUN --mount=type=cache,id=s/f37f20e4-ec25-4620-9359-ffe68caf8d61-/root/cache/pip
     pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Run the web service on container startup.
+# Run the web service on container startup
 CMD ["python", "sponsorblockcasino.py"]
