@@ -16,7 +16,7 @@ from models.log import Log
 from models.slot_machine import SlotMachine
 from models.transfers_waiting_approval import TransfersWaitingApproval
 from utils.decrypt_transactions import DecryptedTransactionsSpreadsheet
-from sponsorblockchain.models.blockchain import Blockchain
+from sponsorblockchain.sponsorblockchain_main import blockchain
 # endregion
 
 # region Bot setup
@@ -38,7 +38,7 @@ def setup_bot_environment() -> None:
     print("Setting up bot environment...")
     try:
         print(f"Initializing blockchain...")
-        g.blockchain = Blockchain()
+        g.blockchain = blockchain
         print(f"Blockchain initialized.")
     except Exception as e:
         print(f"ERROR: Error initializing blockchain: {e}")
