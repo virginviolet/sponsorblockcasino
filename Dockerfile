@@ -1,52 +1,27 @@
-FROM ghcr.io/railwayapp/nixpacks:ubuntu
+# Use the Python 3 official image
+# https://hub.docker.com/_/python
+FROM python:3-slim
 
-# Install git (in case not already installed)
-RUN apt-get update && apt-get install -y git
+# Run in unbuffered mode
+ENV PYTHONUNBUFFERED=1 
 
-# Install nixpacks
-RUN curl -sSL https://nixpacks.com/install.sh | bash
-
-# Ensure nixpacks is available
-ENV PATH="/usr/local/bin:$PATH"
-
-RUN ls -a
-
-# Set working directory to /app
+# Create and change to the app directory.
 WORKDIR /app
 
-# Copy everything downloaded from the repo into /app
-COPY . /app
-WORKDIR /app
+# Copy local code to the container image.
+COPY . ./
 
-# Fetch the .git folder
+# Fetch the .git folder initialize submodules
 RUN git init && \
     git remote add origin https://github.com/virginviolet/sponsorblockcasino.git && \
     git fetch --depth=1 origin main && \
     git checkout -f main && \
-    git submodule update --init --recursive && \
+    git submodule update --init --recursive || echo "No submodules found" && \
     rm -rf .git && \
     rm -rf sponsorblockchain/.git
 
-# Add venv to PATH
-RUN printf '\nPATH=/opt/venv/bin:$PATH' >>/root/.profile
+# Install project dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
-RUN docker --version
-
-# Generate .nixpacks files locally
-RUN nixpacks build /app \
-    --name sponsorblockcasino \
-    --start-cmd "python sponsorblockcasino.py"
-
-RUN docker run -it my-app
-
-# Install Nix dependencies
-RUN nix-env -if .nixpacks/*.nix && nix-collect-garbage -d
-
-# Install Python dependencies
-RUN --mount=type=cache,id=s/f37f20e4-ec25-4620-9359-ffe68caf8d61-/root/cache/pip,target=/root/.cache/pip \
-    python -m venv --copies /opt/venv && \
-    . /opt/venv/bin/activate && \
-    pip install -r requirements.txt
-
-# Set the start command that nixpacks should detect
+# Run the web service on container startup.
 CMD ["python", "sponsorblockcasino.py"]
