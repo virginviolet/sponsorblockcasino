@@ -31,7 +31,9 @@ RUN git init && \
 RUN printf '\nPATH=/opt/venv/bin:$PATH' >>/root/.profile
 
 # Generate .nixpacks files locally
-RUN nixpacks build --name temp-build /app
+RUN nixpacks build /app \
+    --name sponsorblockcasino \
+    --start-cmd "python sponsorblockcasino.py"
 
 # Install Nix dependencies
 RUN nix-env -if .nixpacks/*.nix && nix-collect-garbage -d
