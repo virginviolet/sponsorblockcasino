@@ -2,11 +2,18 @@
     "$schema": "https://railway.com/railway.schema.json",
     "build": {
         "builder": "NIXPACKS",
-        "buildCommand": "git submodule update --init --recursive",
         "nixpacksPlan": {
             "providers": [
                 "..."
-            ]
+            ],
+            "phases": {
+                "install": {
+                    "cmds": [
+                        "git submodule update --init --recursive",
+                        "python -m venv --copies /opt/venv && . /opt/venv/bin/activate && pip install -r requirements.txt"
+                    ]
+                }
+            }
         }
     },
     "deploy": {
