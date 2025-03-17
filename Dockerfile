@@ -21,7 +21,8 @@ RUN git init && \
     rm -rf sponsorblockchain/.git
 
 # Install project dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Run the web service on container startup.
 CMD ["python", "sponsorblockcasino.py"]
