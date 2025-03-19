@@ -3,6 +3,7 @@
         "checkponts",
         "evalf",
         "funcs",
+        "lazyimports",
         "reacter",
         "sbcoin",
         "unclicked",
