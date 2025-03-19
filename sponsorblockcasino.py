@@ -13,32 +13,31 @@ Privileged Gateway Intents:
 """
 
 # region Imports
+# Third party
+import lazyimports
+
 # Local
-# print directory tree
-import os
-for root, dirs, files in os.walk("."):
-    level = root.replace(".", "").count(os.sep)
-    indent = " " * 4 * (level)
-    print(f"{indent}{os.path.basename(root)}/")
-    sub_indent = " " * 4 * (level + 1)
-    for f in files:
-        print(f"{sub_indent}{f}")
-from sponsorblockchain.start_sponsorblockchain import start_flask_app_thread
-
-
+blockchain_extension_register_routes_import: str = (
+    "sponsorblockchain_extensions.discord_coin_bot_extension:"
+    "register_routes:register_routes")
+with lazyimports.lazy_imports(
+        "sponsorblockchain.start_sponsorblockchain:start_flask_app_thread",
+        "core.bot:setup_bot_environment",
+        "core.bot:run_bot",
+        "core.register_event_handlers:register_event_handlers",
+        "core.register_event_handlers:register_commands"):
+    from sponsorblockchain.start_sponsorblockchain import start_flask_app_thread
+    from core.bot import setup_bot_environment, run_bot
+    from core.register_event_handlers import (register_event_handlers,
+                                              register_commands)
 # endregion
-
 
 # region Main
 if __name__ == "__main__":
     start_flask_app_thread()
-    from core.bot import setup_bot_environment
     setup_bot_environment()
-    from core.register_event_handlers import (register_event_handlers,
-                                              register_commands)
     register_event_handlers()
     register_commands()
-    from core.bot import run_bot
     run_bot()
 # endregion
 

@@ -16,6 +16,7 @@ from models.log import Log
 from models.slot_machine import SlotMachine
 from models.transfers_waiting_approval import TransfersWaitingApproval
 from utils.decrypt_transactions import DecryptedTransactionsSpreadsheet
+# FIXME blockchain gets defined both here and in the waitress thread
 from sponsorblockchain.sponsorblockchain_main import blockchain
 # endregion
 

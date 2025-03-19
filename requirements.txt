@@ -1,5 +1,6 @@
 discord.py
 python-dotenv
+auto-lazy-imports
 sympy
 pandas
 humanfriendly
