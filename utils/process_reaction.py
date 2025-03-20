@@ -5,7 +5,7 @@ from typing import List
 # Third party
 from discord import (Member, Message, Emoji, PartialEmoji, User, TextChannel,
                      VoiceChannel, CategoryChannel, ForumChannel, StageChannel,
-                     Thread, AllowedMentions)
+                     Thread, Guild, AllowedMentions)
 from discord.abc import PrivateChannel
 from discord.ext.commands import Bot  # type: ignore
 
@@ -167,6 +167,38 @@ async def process_reaction(message_id: int,
             raise ValueError("ERROR: casino_channel is a private channel.")
         elif casino_channel is None:
             raise ValueError("ERROR: casino_channel is None.")
+        
+        # Check if the receiver has permission to read messages in the channel
+        # (if not, the bot will not reply to them and the user's save data will
+        # not be changed)
+        # The permissions_for() method only works for Member objects,
+        # not User objects, so we need to get the Member object if the receiver
+        # is a User.
+        receiver_member: Member | None
+        if isinstance(receiver, Member):
+            receiver_member = receiver
+        else:
+            # receiver is a User
+            # Try to get member object from the guild
+            if hasattr(channel, "guild"):
+                guild: Guild = channel.guild
+                receiver_member = guild.get_member(receiver_id)
+                # If not in cache, fetch from API
+                if receiver_member is None:
+                    receiver_member = await guild.fetch_member(receiver_id)
+            else:
+                receiver_member = None
+        if receiver_member is None:
+            print("WARNING: Could not get member object for receiver.")
+            return
+        reciever_has_permissions_to_channel: bool = (
+            channel.permissions_for(receiver_member).view_channel and
+            channel.permissions_for(receiver_member).read_messages)
+        if not reciever_has_permissions_to_channel:
+            print(f"Will not consider replying to {receiver} because "
+                  f"they do not have permission to channel {channel}.")
+            return
+        
         sender_mention: str = sender.mention
         message_content: str = (f"-# {sender_mention} has "
                                 f"mined a {g.coin} for you! "
