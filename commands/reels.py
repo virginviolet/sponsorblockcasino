@@ -5,11 +5,11 @@ from typing import List, Dict, cast
 
 # Third party
 from discord import Interaction, Member, Role, User, app_commands, utils
+from discord.app_commands import Choice
 from discord.ext.commands import Bot  # type: ignore
 from sympy import Float, Integer, Eq, Gt, simplify, Piecewise, pretty
 
 # Local
-from type_aliases import Reels
 import core.global_state as g
 from models.slot_machine import SlotMachine
 # endregion
@@ -18,23 +18,41 @@ from models.slot_machine import SlotMachine
 assert g.bot is not None, "bot has not been initialized."
 assert isinstance(g.bot, Bot), "bot has not been initialized."
 
+add_or_remove_choices: List[Choice[str]] = [
+    Choice(name="Add", value="add"),
+    Choice(name="Remove", value="remove")
+]
+symbols_choices: List[Choice[str]] = [
+    Choice(name="small_win", value="small_win"),
+    Choice(name="medium_win", value="medium_win"),
+    Choice(name="high_win", value="high_win"),
+    Choice(name="jackpot", value="jackpot")
+]
+
+reels_choices: List[Choice[str]] = [
+    Choice(name="reel1", value="reel1"),
+    Choice(name="reel2", value="reel2"),
+    Choice(name="reel3", value="reel3")
+]
+
 
 @g.bot.tree.command(name="reels",
-                  description="Design the slot machine reels")
-@app_commands.describe(add_symbol="Add a symbol to the reels")
+                    description="Design or look at the slot machine reels")
+@app_commands.choices(add_or_remove_symbol=add_or_remove_choices)
+@app_commands.describe(add_or_remove_symbol="Add or remove a symbol")
+@app_commands.describe(symbol="The symbol to add or remove")
+@app_commands.choices(symbol=symbols_choices)
 @app_commands.describe(amount="Amount of symbols to add")
-@app_commands.describe(remove_symbol="Remove a symbol from the reels")
 @app_commands.describe(reel="The reel to modify")
-@app_commands.describe(inspect="Inspect the reels")
+@app_commands.choices(reel=reels_choices)
 @app_commands.describe(close_off="Close off the area so that others cannot "
                        "see the reels")
 async def reels(interaction: Interaction,
-                add_symbol: str | None = None,
-                remove_symbol: str | None = None,
+                add_or_remove_symbol: str | None = None,
+                symbol: str | None = None,
                 amount: int | None = None,
                 reel: str | None = None,
-                close_off: bool = True,
-                inspect: bool | None = None) -> None:
+                close_off: bool = True) -> None:
     """
     Design the slot machine reels by adding and removing symbols.
     After saving the changes, various statistics are calculated and displayed,
@@ -78,87 +96,96 @@ async def reels(interaction: Interaction,
         await interaction.followup.send(message_content, ephemeral=True)
         del message_content
         return
-    if amount is None:
-        if reel is None:
-            amount = 3
-        else:
-            amount = 1
-    # BUG Refreshing the reels config from file is not working (have to restart instead)
+
     # Refresh reels config from file
+    print("Reloading reels...")
     g.slot_machine.reels = g.slot_machine.load_reels()
-    new_reels: Reels = g.slot_machine.reels
-    if add_symbol and remove_symbol:
-        await interaction.followup.send("You can only add or remove a "
-                                        "symbol at a time.",
+    print("Reels reloaded.")
+
+    # IMPROVE Add a set_amount parameter to change the value directly instead of adding or subtracting
+    if (symbol or amount or reel) and not add_or_remove_symbol:
+        print("add_or_remove_symbol is None.")
+        message_content: str = ("You must specify whether you want to add or "
+                                "remove a symbol.")
+        await interaction.followup.send(message_content, ephemeral=True)
+        return
+    if add_or_remove_symbol and not symbol in g.slot_machine.reels['reel1']:
+        print(f"Invalid symbol '{symbol}'")
+        await interaction.followup.send(f"Invalid symbol '{symbol}'",
                                         ephemeral=True)
         return
-    if add_symbol and reel is None:
-        if amount % 3 != 0:
-            await interaction.followup.send("The amount of symbols to "
-                                            "add must be a multiple "
-                                            "of 3.",
+    elif (add_or_remove_symbol and reel and reel not in g.slot_machine.reels):
+        print(f"Invalid reel '{reel}'")
+        message_content: str = f"Invalid reel '{reel}'"
+        await interaction.followup.send(message_content, ephemeral=True)
+        return
+    elif add_or_remove_symbol and reel:
+        if amount is None:
+            amount = 3
+        elif amount % 3 != 0:
+            await interaction.followup.send("The amount of symbols to add or "
+                                            "remove must be a multiple of 3.",
                                             ephemeral=True)
             return
-    elif add_symbol and reel:
-        print(f"Adding symbol: {add_symbol}")
+        adding_or_removing_label: str = (
+            "Adding" if add_or_remove_symbol == "add" else "Removing")
+        print(f"{adding_or_removing_label} symbol: {symbol}")
         print(f"Amount: {amount}")
         print(f"Reel: {reel}")
-        if (reel in g.slot_machine.reels and
-                add_symbol in g.slot_machine.reels[reel]):
-            g.slot_machine.reels[reel][add_symbol] += amount
+        if add_or_remove_symbol == "add":
+            g.slot_machine.reels[reel][symbol] += amount
         else:
-            print(f"ERROR: Invalid reel or symbol '{reel}' or '{add_symbol}'")
-    if add_symbol:
-        print(f"Adding symbol: {add_symbol}")
+            g.slot_machine.reels[reel][symbol] -= amount
+        print("Saving reels...")
+        g.slot_machine.reels = g.slot_machine.reels
+        print("Reels saved.")
+    elif add_or_remove_symbol and not reel:
+        if not symbol:
+            # I wanted to move this to its own elif block to reduce nesting
+            # (`if add_or_remove_symbol and not symbol`)
+            # but the static type checker thought that 'symbol' could be None,
+            # in the `add_or_remove_symbol and reel is None` block.
+            # I still want to be able to run the command without parameters.
+            print("No symbol specified.")
+            await interaction.followup.send("No symbol specified.",
+                                            ephemeral=True)
+            return
+        elif amount is None:
+            amount = 3
+        elif amount % 3 != 0:
+            await interaction.followup.send(
+                "If the `reels` parameter is not specified, the amount of"
+                "symbols to add or remove must be a multiple of 3.",
+                ephemeral=True)
+            return
+        per_reel_amount: int = int(amount / 3)
+        adding_or_removing_label: str = (
+            "Adding" if add_or_remove_symbol == "add" else "Removing")
+
+        print(f"Adding symbol: {symbol}")
         print(f"Amount: {amount}")
-        if add_symbol in g.slot_machine.reels['reel1']:
+        if add_or_remove_symbol == "add":
+            g.slot_machine.reels['reel1'][symbol] += per_reel_amount
+            g.slot_machine.reels['reel2'][symbol] += per_reel_amount
+            g.slot_machine.reels['reel3'][symbol] += per_reel_amount
+            print(f"Added {per_reel_amount} {symbol} to each reel.")
+        elif add_or_remove_symbol == "remove":
             per_reel_amount: int = int(amount / 3)
-            new_reels['reel1'][add_symbol] += per_reel_amount
-            new_reels['reel2'][add_symbol] += per_reel_amount
-            new_reels['reel3'][add_symbol] += per_reel_amount
+            g.slot_machine.reels['reel1'][symbol] -= per_reel_amount
+            g.slot_machine.reels['reel2'][symbol] -= per_reel_amount
+            g.slot_machine.reels['reel3'][symbol] -= per_reel_amount
+            print(f"Removed {per_reel_amount} {symbol} from each reel.")
 
-            g.slot_machine.reels = new_reels
-            print(f"Added {per_reel_amount} {add_symbol} to each reel.")
-        else:
-            print(f"ERROR: Invalid symbol '{add_symbol}'")
+        print("Saving reels...")
+        g.slot_machine.reels = g.slot_machine.reels
         print(g.slot_machine.reels)
-        # if amount
-    elif remove_symbol and reel:
-        print(f"Removing symbol: {remove_symbol}")
-        print(f"Amount: {amount}")
-        print(f"Reel: {reel}")
-        if (reel in g.slot_machine.reels and
-                remove_symbol in g.slot_machine.reels[reel]):
-            g.slot_machine.reels[reel][remove_symbol] -= amount
-        else:
-            print(f"ERROR: Invalid reel '{reel}' or symbol '{remove_symbol}'")
-    elif remove_symbol:
-        print(f"Removing symbol: {remove_symbol}")
-        print(f"Amount: {amount}")
-        if remove_symbol in g.slot_machine.reels['reel1']:
-            per_reel_amount: int = int(amount / 3)
-            new_reels['reel1'][remove_symbol] -= per_reel_amount
-            new_reels['reel2'][remove_symbol] -= per_reel_amount
-            new_reels['reel3'][remove_symbol] -= per_reel_amount
-
-            g.slot_machine.reels = new_reels
-            print(f"Removed {per_reel_amount} {remove_symbol} from each reel.")
-        else:
-            print(f"ERROR: Invalid symbol '{remove_symbol}'")
-        print(g.slot_machine.reels)
-
-    print("Saving reels...")
-
-    g.slot_machine.reels = new_reels
-    new_reels = g.slot_machine.reels
-    # print(f"Reels: {slot_machine.configuration}")
-    print(f"Probabilities saved.")
+        print("Reels saved.")
 
     # TODO Report payouts
     amount_of_symbols: int = g.slot_machine.count_symbols()
     reel_amount_of_symbols: int
     reels_table: str = "### Reels\n"
-    for reel_name, symbols in new_reels.items():
+    for reel_name, symbols in g.slot_machine.reels.items():
         reel_symbols: Dict[str, int] = cast(Dict[str, int], symbols)
         symbols_table: str = ""
         symbols_and_amounts: dict_items[str, int] = reel_symbols.items()
@@ -166,7 +193,7 @@ async def reels(interaction: Interaction,
             symbols_table += f"{symbol}: {amount}\n"
         symbols_dict: Dict[str, int] = cast(Dict[str, int], symbols)
         reel_amount_of_symbols = sum(symbols_dict.values())
-        reels_table += (f"**Reel {reel_name}**\n"
+        reels_table += (f"**Reel \"{reel_name}\"**\n"
                         f"**Symbol**: **Amount**\n"
                         f"{symbols_table}"
                         "**Total**\n"
@@ -185,7 +212,8 @@ async def reels(interaction: Interaction,
             probability_display = f"<{lowest_number_float}%"
         probabilities_table += f"{symbol}: {probability_display}\n"
 
-    ev: tuple[Piecewise, Piecewise] = g.slot_machine.calculate_expected_value()
+    ev: tuple[Piecewise, Piecewise] = (
+        g.slot_machine.calculate_expected_value(silent=True))
     expected_return_ugly: Piecewise = ev[0]
     expected_return: str = (
         cast(str, pretty(expected_return_ugly))).replace("⋅", "")
@@ -200,7 +228,7 @@ async def reels(interaction: Interaction,
     rtp: Float
     for wager in wagers:
         rtp = (
-            g.slot_machine.calculate_rtp(Integer(wager)))
+            g.slot_machine.calculate_rtp(Integer(wager), silent=True))
         rtp_simple: Float = cast(Float, simplify(rtp))
         if rtp == round(rtp, Integer(4)):
             rtp_display = f"{rtp:.4%}"

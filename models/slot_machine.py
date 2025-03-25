@@ -236,6 +236,7 @@ class SlotMachine:
         # Default configuration
         # jackpot_pool will automatically be set to the jackpot event's
         # fixed_amount value if the latter is higher than the former
+        # TODO Change the names: either "small_win" and "large_win" or "low_win" and "high_win"
         configuration: SlotMachineConfig = {
             "combo_events": {
                 "lose_wager": {
@@ -363,7 +364,8 @@ class SlotMachine:
     def calculate_reel_symbol_probability(self,
                                           reel: Literal[
                                               "reel1", "reel2", "reel3"],
-                                          symbol: str) -> float:
+                                          symbol: str,
+                                          silent: bool = False) -> float:
         """
         Calculate the probability of a specific symbol appearing on a
         given reel.
@@ -464,7 +466,7 @@ class SlotMachine:
                     and the values are their respective probabilities.
         """
         # TODO Ensure it's still working correctly now after using TypedDicts
-        self.reels = self.load_reels()
+        # self.reels = self.load_reels()
         probabilities: Dict[str, Float] = {}
         for symbol in self.reels["reel1"]:
             probability: Float = self.calculate_event_probability(symbol)
@@ -881,7 +883,7 @@ class SlotMachine:
     # endregion
 
     # region Slot RTP
-    def calculate_rtp(self, wager: Integer) -> Float:
+    def calculate_rtp(self, wager: Integer, silent: bool = False) -> Float:
         """
         Calculate the Return to Player (RTP) based on the given wager.
 
@@ -897,11 +899,13 @@ class SlotMachine:
         expected_total_return: Piecewise = (
             cast(Piecewise,
                  expected_total_return_expression.subs(symbols('W'), wager)))
-        print(f"Expected total return (W = {wager}): {expected_total_return}")
+        if not silent:
+            print(f"Expected total return (W = {wager}): {expected_total_return}")
         rtp = Rational(expected_total_return, wager)
         rtp_decimal: Float = cast(Float, rtp.evalf())
-        print(f"RTP: {rtp}")
-        print(f"RTP decimal: {rtp_decimal}")
+        if not silent:
+            print(f"RTP: {rtp}")
+            print(f"RTP decimal: {rtp_decimal}")
         return rtp_decimal
     # endregion
 
