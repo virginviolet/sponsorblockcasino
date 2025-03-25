@@ -7,7 +7,7 @@ from typing import List, Dict, cast
 from discord import Interaction, Member, Role, User, app_commands, utils
 from discord.app_commands import Choice
 from discord.ext.commands import Bot  # type: ignore
-from sympy import Float, Integer, Eq, Gt, simplify, Piecewise, pretty
+from sympy import Float, Integer, Le, Eq, Gt, simplify, Piecewise, pretty
 
 # Local
 import core.global_state as g
@@ -205,7 +205,9 @@ async def reels(interaction: Interaction,
     lowest_number: Float = Float(lowest_number_float)
     probability_display: str = ""
     for symbol, probability in probabilities.items():
-        if Eq(probability, round(probability, Integer(4))):
+        if Le(probability, Float(0.0)):
+            probability_display = "0%"
+        elif Eq(probability, round(probability, Integer(4))):
             probability_display = f"{probability:.4%}"
         elif Gt(probability, lowest_number):
             probability_display = f"~{probability:.4%}"
