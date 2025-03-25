@@ -302,12 +302,16 @@ async def insert_coins(interaction: Interaction,
         return
 
     fees_dict: Dict[str, int | float] = g.slot_machine.configuration["fees"]
-    low_wager_main_fee: int = (
-        cast(int, fees_dict["low_wager_main"]))
+    lowest_wager_main_fee: int = (
+        cast(int, fees_dict["lowest_wager_main"]))
+    low_wager_main_fee: float = (
+        cast(float, fees_dict["low_wager_main"]))
     medium_wager_main_fee: float = (
         cast(float, fees_dict["medium_wager_main"]))
     high_wager_main_fee: float = (
         cast(float, fees_dict["high_wager_main"]))
+    lowest_wager_jackpot_fee: int = (
+        cast(int, fees_dict["lowest_wager_jackpot"]))
     low_wager_jackpot_fee: int = (
         cast(int, fees_dict["low_wager_jackpot"]))
     medium_wager_jackpot_fee: float = (
@@ -322,10 +326,11 @@ async def insert_coins(interaction: Interaction,
     main_fee: int
     if no_jackpot_mode:
         # IMPROVE Make min_wager config keys
-        main_fee = low_wager_main_fee
-        jackpot_fee = 0
+        main_fee = lowest_wager_main_fee
+        jackpot_fee = lowest_wager_jackpot_fee # Should be 0
     elif amount_int < 10:
-        main_fee = low_wager_main_fee
+        main_fee_unrounded: float = amount_int * low_wager_main_fee
+        main_fee = round(main_fee_unrounded)
         jackpot_fee = low_wager_jackpot_fee
     elif amount_int < 100:
         main_fee_unrounded: float = amount_int * medium_wager_main_fee
@@ -447,11 +452,11 @@ async def insert_coins(interaction: Interaction,
     else:
         total_return = amount_int + win_money - main_fee - jackpot_fee
     net_return = win_money - main_fee - jackpot_fee
-    # print(f"wager: {wager_int}")
+    # print(f"wager: {amount_int}")
     # print(f"standard_fee: {main_fee}")
     # print(f"jackpot_fee: {jackpot_fee}")
     # print(f"jackpot_fee_paid: {jackpot_fee_paid}")
-    # print(f"jackpot_mode: {jackpot_mode}")
+    # print(f"no_jackpot_mode: {no_jackpot_mode}")
     # print(f"win_money: {win_money}")
     # print(f"net_return: {net_return}")
     # print(f"total_return: {total_return}")

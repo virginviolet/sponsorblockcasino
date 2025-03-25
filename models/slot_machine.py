@@ -16,6 +16,7 @@ import core.global_state as g
 from type_aliases import Reels, ReelSymbol, ReelResults, SlotMachineConfig
 # endregion
 
+
 class SlotMachine:
     """
     Represents a slot machine game with various functionalities, such as
@@ -79,6 +80,7 @@ class SlotMachine:
             Make a friendly event name from the event name.
         """
     # region Slot config
+
     def __init__(self, file_name: str = "data/slot_machine.json") -> None:
         """
         Initializes the SlotMachine class with the given configuration file.
@@ -86,7 +88,7 @@ class SlotMachine:
         Args:
             file_name: The name of the slot machine configuration file. Defaults
                 to "data/slot_machine.json".
-        
+
         Attributes:
             file_name: The name of the slot machine configuration file
             configuration: The loaded configuration for the slot machine
@@ -242,13 +244,11 @@ class SlotMachine:
                 "lose_wager": {
                     "emoji_name": "",
                     "emoji_id": 0,
-                    "emoji_id": 0,
                     "fixed_amount": 0,
                     "wager_multiplier": -1.0
                 },
                 "small_win": {
                     "emoji_name": "",
-                    "emoji_id": 0,
                     "emoji_id": 0,
                     "fixed_amount": 3,
                     "wager_multiplier": 1.0
@@ -268,57 +268,58 @@ class SlotMachine:
                 "jackpot": {
                     "emoji_name": "",
                     "emoji_id": 0,
-                    "emoji_id": 0,
                     "fixed_amount": 100,
                     "wager_multiplier": 1.0
                 }
             },
             "reels": {
                 "reel1": {
+                    "high_win": 6,
+                    "jackpot": 1,
                     "lose_wager": 2,
-                    "small_win": 8,
-                    "medium_win": 6,
-                    "high_win": 3,
-                    "jackpot": 1
+                    "medium_win": 10,
+                    "small_win": 1
                 },
                 "reel2": {
+                    "high_win": 6,
+                    "jackpot": 1,
                     "lose_wager": 2,
-                    "small_win": 8,
-                    "medium_win": 6,
-                    "high_win": 3,
-                    "jackpot": 1
+                    "medium_win": 10,
+                    "small_win": 1
                 },
                 "reel3": {
+                    "high_win": 6,
+                    "jackpot": 1,
                     "lose_wager": 2,
-                    "small_win": 8,
-                    "medium_win": 6,
-                    "high_win": 3,
-                    "jackpot": 1
-                },
-            },
-            "reel_spin_emojis": {
-                "spin1": {
-                    "emoji_name": "slot_spin_1",
-                    "emoji_id": 0
-                },
-                "spin2": {
-                    "emoji_name": "slot_spin_1",
-                    "emoji_id": 0
-                },
-                "spin3": {
-                    "emoji_name": "slot_spin_1",
-                    "emoji_id": 0
+                    "medium_win": 10,
+                    "small_win": 1
                 }
             },
             "fees": {
-                "low_wager_main": 1,
-                "medium_wager_main": 0.19,
-                "high_wager_main": 0.06,
+                "high_wager_jackpot": 0.01,
+                "high_wager_main": 0.19,
                 "low_wager_jackpot": 1,
+                "low_wager_main": 0.4,
+                "lowest_wager_jackpot": 0,
+                "lowest_wager_main": 1,
                 "medium_wager_jackpot": 0.01,
-                "high_wager_jackpot": 0.01
+                "medium_wager_main": 0.29
             },
-            "jackpot_pool": 101,
+            "reel_spin_emojis": {
+                "spin1": {
+                    "emoji_name": "",
+                    "emoji_id": 0
+                },
+                "spin2": {
+                    "emoji_name": "",
+                    "emoji_id": 0
+                },
+                "spin3": {
+                    "emoji_name": "",
+                    "emoji_id": 0
+                }
+            },
+            "jackpot_pool": 0,
             "new_bonus_wait_seconds": 86400
         }
         # Save the configuration to the file
@@ -810,10 +811,14 @@ class SlotMachine:
         self._reels = self.load_reels()
         self._fees = self.configuration["fees"]
         # Main fee
-        low_wager_main_fee: Integer = Integer(self._fees["low_wager_main"])
+        lowest_wager_main_fee: Integer = Integer(
+            self._fees["lowest_wager_main"])
+        low_wager_main_fee: Float = Float(self._fees["low_wager_main"])
         medium_wager_main_fee: Float = Float(self._fees["medium_wager_main"])
         high_wager_main_fee: Float = Float(self._fees["high_wager_main"])
         # Jackpot fee
+        lowest_wager_jackpot_fee: Integer = Integer(
+            self._fees["lowest_wager_jackpot"])
         low_wager_jackpot_fee: Integer = Integer(
             self._fees["low_wager_jackpot"])
         medium_wager_jackpot_fee: Float = Float(
@@ -826,9 +831,10 @@ class SlotMachine:
         # with different fees
         pieces: Dict[str, tuple[Add, Add]] = {
             "no_jackpot": calculate_piece_ev(
-                standard_fee_fixed_amount=low_wager_main_fee),
+                standard_fee_fixed_amount=lowest_wager_main_fee,
+                jackpot_fee_fixed_amount=lowest_wager_jackpot_fee),
             "low_wager": calculate_piece_ev(
-                standard_fee_fixed_amount=low_wager_main_fee,
+                standard_fee_wager_multiplier=low_wager_main_fee,
                 jackpot_fee_fixed_amount=low_wager_jackpot_fee),
             "medium_wager": calculate_piece_ev(
                 standard_fee_wager_multiplier=medium_wager_main_fee,
@@ -901,7 +907,8 @@ class SlotMachine:
             cast(Piecewise,
                  expected_total_return_expression.subs(symbols('W'), wager)))
         if not silent:
-            print(f"Expected total return (W = {wager}): {expected_total_return}")
+            print("Expected total return "
+                  f"(W = {wager}): {expected_total_return}")
         rtp = Rational(expected_total_return, wager)
         rtp_decimal: Float = cast(Float, rtp.evalf())
         if not silent:

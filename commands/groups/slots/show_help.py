@@ -49,6 +49,7 @@ async def show_help(interaction: Interaction,
         g.slot_machine.configuration["combo_events"]
         ["jackpot"]["fixed_amount"])
     administrator: str = (await g.bot.fetch_user(g.administrator_id)).name
+    # TODO Import fees from configuration instead of hardcoding them
     help_message_1: str = (
         f"## {g.Coin} Slot Machine Help\n"
         f"Win big by playing the {g.Coin} Slot Machine!*\n\n"
@@ -58,9 +59,9 @@ async def show_help(interaction: Interaction,
         "### Fees\n"
         "> Coins inserted: Fee\n"
         f"> 1:             1 {g.Coin}\n"
-        f"> <10:        2 {g.coins}\n"
-        "> <100:     20%\n"
-        "> ≥100:     7%\n"
+        f"> <10:        1 {g.coin} + 29%\n"
+        "> <100:     25%\n"
+        "> ≥100:     19%\n"
         "\n"
         "Fees are calculated from your total stake (the amount of coins "
         "you insert), and are deducted from your total return (your "
