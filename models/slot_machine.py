@@ -364,8 +364,7 @@ class SlotMachine:
     def calculate_reel_symbol_probability(self,
                                           reel: Literal[
                                               "reel1", "reel2", "reel3"],
-                                          symbol: str,
-                                          silent: bool = False) -> float:
+                                          symbol: str) -> float:
         """
         Calculate the probability of a specific symbol appearing on a
         given reel.
@@ -808,6 +807,8 @@ class SlotMachine:
         # Fees
         # Refresh config
         self.configuration = self.load_config()
+        self._reels = self.load_reels()
+        self._fees = self.configuration["fees"]
         # Main fee
         low_wager_main_fee: Integer = Integer(self._fees["low_wager_main"])
         medium_wager_main_fee: Float = Float(self._fees["medium_wager_main"])
