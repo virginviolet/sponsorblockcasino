@@ -985,7 +985,7 @@ class SlotMachine:
         win_money: float = 0.0
         win_money_rounded: int = 0
         if event_name == "lose_wager":
-            event_name_friendly = "Lose wager"
+            event_name_friendly = "Lose stake"
             return (event_name, event_name_friendly, 0)
         elif event_name == "jackpot":
             if no_jackpot_mode:
@@ -1038,7 +1038,7 @@ class SlotMachine:
             combo_events[event_name]["fixed_amount"])
         event_name_friendly: str = ""
         if event_name == "lose_wager":
-            event_name_friendly = "Lose wager"
+            event_name_friendly = "Lose stake"
             return event_name_friendly
         elif event_name == "jackpot":
             event_name_friendly = "JACKPOT"

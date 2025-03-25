@@ -100,7 +100,7 @@ async def show_help(interaction: Interaction,
         "\n"
         f"A perhaps counter-intuitive feature of the {g.Coin} Slot Machine "
         "is that if you do not strike a combination, you do not lose "
-        "your entire stake, but only the fees. But if you get Lose wager "
+        "your entire stake, but only the fees. But if you get \"Lose stake\" "
         "combination, you do lose your entire stake.\n"
         "\n"
         "Any net positive outcome will be immediately added to your "

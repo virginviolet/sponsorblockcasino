@@ -26,7 +26,8 @@ symbols_choices: List[Choice[str]] = [
     Choice(name="small_win", value="small_win"),
     Choice(name="medium_win", value="medium_win"),
     Choice(name="high_win", value="high_win"),
-    Choice(name="jackpot", value="jackpot")
+    Choice(name="jackpot", value="jackpot"),
+    Choice(name="lose_wager", value="lose_wager")
 ]
 
 reels_choices: List[Choice[str]] = [
