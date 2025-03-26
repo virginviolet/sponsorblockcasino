@@ -291,7 +291,8 @@ async def insert_coins(interaction: Interaction,
         coin_label_b: str = format_coin_label(user_balance)
         message_content = (f"You do not have enough {g.coins} "
                            f"to stake {amount_int} {coin_label_w}.\n"
-                           f"Your current balance is {user_balance} {coin_label_b}.")
+                           f"Your current balance "
+                           f"is {user_balance} {coin_label_b}.")
         await interaction.response.send_message(
             content=message_content, ephemeral=True)
         del coin_label_w
@@ -327,7 +328,7 @@ async def insert_coins(interaction: Interaction,
     if no_jackpot_mode:
         # IMPROVE Make min_wager config keys
         main_fee = lowest_wager_main_fee
-        jackpot_fee = lowest_wager_jackpot_fee # Should be 0
+        jackpot_fee = lowest_wager_jackpot_fee  # Should be 0
     elif amount_int < 10:
         main_fee_unrounded: float = amount_int * low_wager_main_fee
         main_fee = round(main_fee_unrounded)
@@ -466,7 +467,8 @@ async def insert_coins(interaction: Interaction,
         log_line = (f"{user_name} ({user_id}) won the {event_name} "
                     f"({event_name_friendly}) reward "
                     f"of {win_money} {coin_label_wm} and profited "
-                    f"{net_return} {coin_label_nr} on the {g.Coin} Slot Machine.")
+                    f"{net_return} {coin_label_nr} on "
+                    f"the {g.Coin} Slot Machine.")
     elif net_return == 0:
         if event_name == "jackpot_fail":
             # This should not happen with default config
@@ -605,16 +607,16 @@ async def insert_coins(interaction: Interaction,
         all_grifter_suppliers: List[int] = g.grifter_suppliers.suppliers
         is_grifter_supplier: bool = user_id in all_grifter_suppliers
         if is_grifter_supplier:
-            message_content = (f"{invoker} You're all out of {g.coins}!\n"
-                               "To customers who run out of coins, we usually give "
-                               "some for free. However, we request that you please "
-                               "delete your GrifterSwap account first.\n"
-                               "Here's how you can do it:\n"
-                               "See your GrifterSwap balance with `!balance`, "
-                               "withdraw all your coins with\n"
-                               "`!withdraw <currency> <amount>`, "
-                               "and then use `!suppliers` to prove you're no longer "
-                               "a supplier.")
+            message_content = (
+                f"{invoker} You're all out of {g.coins}!\n"
+                "To customers who run out of coins, we usually give some for "
+                "free. However, we request that you please delete "
+                "your GrifterSwap account first.\n"
+                "Here's how you can do it:\n"
+                "See your GrifterSwap balance with `!balance`, withdraw all "
+                "your coins with\n"
+                "!withdraw <currency> <amount>`, and then "
+                "use `!suppliers` to prove you're no longer a supplier.")
             await interaction.followup.send(content=message_content,
                                             ephemeral=should_use_ephemeral)
             del message_content
