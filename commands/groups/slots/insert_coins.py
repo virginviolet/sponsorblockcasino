@@ -376,14 +376,15 @@ async def insert_coins(interaction: Interaction,
     user_stopped_clicking: bool
     all_buttons_clicked: bool
     while let_the_user_stop:
-        buttons_clicked_count = 0
+        buttons_clicked_count: int = 0
         await asyncio.sleep(3.0)
         for button in slot_machine_view.stop_reel_buttons:
             button_clicked: bool = button.disabled
             if button_clicked:
                 buttons_clicked_count += 1
+        # Cast to int because Pylance thinks that the variable can only be 0
+        buttons_clicked_count = cast(int, buttons_clicked_count)
         user_irresonsive = buttons_clicked_count == 0
-        # FIXME
         all_buttons_clicked = buttons_clicked_count == 3
         user_stopped_clicking = (
             buttons_clicked_count == previous_buttons_clicked_count)
