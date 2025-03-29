@@ -21,6 +21,7 @@ class BotConfig(TypedDict):
     casino_channel_id: int
     blockchain_name: str
     Blockchain_name: str
+    network_mining_enabled: bool
     grifter_swap_id: int
     sbcoin_id: int
     auto_approve_transfer_limit: int

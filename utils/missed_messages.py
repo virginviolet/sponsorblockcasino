@@ -40,8 +40,10 @@ async def process_missed_messages(limit: int | None = None) -> None:
         print("Fetching messages from "
               f"guild: {guild.name} ({guild.id})...")
         for channel in guild.text_channels:
+            channel_id: int = channel.id
+            channel_name: str = channel.name
             print("Fetching messages from "
-                  f"channel: {channel.name} ({channel.id})...")
+                  f"channel: {channel_name} ({channel_id})...")
             channel_checkpoints: List[Dict[str, int]] | None = (
                 g.all_channel_checkpoints[channel.id].load())
             if channel_checkpoints is not None:
@@ -85,7 +87,9 @@ async def process_missed_messages(limit: int | None = None) -> None:
                                 await process_reaction(message_id=message_id,
                                                        emoji=emoji,
                                                        sender=sender,
-                                                       receiver=receiver,)
+                                                       receiver=receiver,
+                                                       channel_id=channel_id,
+                                                       greet_new_players=False)
                     del message_id
             except Exception as e:
                 channel_name: str = channel.name

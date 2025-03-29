@@ -59,6 +59,7 @@ administrator_id: int = 0
 casino_channel_id: int = 0
 blockchain_name: str = ""
 Blockchain_name: str = ""
+network_mining_enabled: bool = False
 grifter_swap_id: int = 0
 sbcoin_id: int = 0
 auto_approve_transfer_limit: int = 0

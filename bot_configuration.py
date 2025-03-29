@@ -65,6 +65,7 @@ class BotConfiguration:
             "casino_channel_id": 0,
             "blockchain_name": "blockchain",
             "Blockchain_name": "Blockchain",
+            "network_mining_enabled": True,
             "grifter_swap_id": 0,
             "sbcoin_id": 0,
             "auto_approve_transfer_limit": 0,
@@ -88,6 +89,8 @@ class BotConfiguration:
                     self.configuration["casino_house_id"])
                 self.casino_channel_id: int = (
                     self.configuration["casino_channel_id"])
+                self.network_mining_enabled: bool = (
+                    self.configuration["network_mining_enabled"])
                 self.blockchain_name: str = (
                     self.configuration["blockchain_name"])
                 self.Blockchain_name: str = (
@@ -201,6 +204,7 @@ def invoke_bot_configuration() -> None:
     g.casino_channel_id = configuration.casino_channel_id
     g.blockchain_name = configuration.blockchain_name
     g.Blockchain_name = configuration.Blockchain_name
+    g.network_mining_enabled = configuration.network_mining_enabled
     g.grifter_swap_id = configuration.grifter_swap_id
     g.sbcoin_id = configuration.sbcoin_id
     g.auto_approve_transfer_limit = (
