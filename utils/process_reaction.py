@@ -92,6 +92,7 @@ async def process_reaction(message_id: int,
               CategoryChannel | Thread | PrivateChannel | None) = None
     last_block_timestamp: float | None = None
     mined_message: str
+    log_messages: dict[float | None, str] = {}
     if g.network_mining_enabled is False:
         print(f"{sender} ({sender_id}) is mining 1 {g.coin} "
               f"for {receiver} ({receiver_id})...")
@@ -101,11 +102,13 @@ async def process_reaction(message_id: int,
                                     amount=1,
                                     method="reaction"
                                     )
-
         # Set variables for logging
         last_block_timestamp = get_last_block_timestamp()
         mined_message = (f"{sender} ({sender_id}) mined 1 {g.coin} "
                          f"for {receiver} ({receiver_id}).")
+        log_messages[last_block_timestamp] = mined_message
+        del last_block_timestamp
+        del mined_message
     else:
         channel = g.bot.get_channel(channel_id)
         if channel is None:
@@ -125,7 +128,6 @@ async def process_reaction(message_id: int,
         except Exception as e:
             raise ValueError("ERROR: "
                              f"Could not fetch message {message_id}: {e}")
-        earnings: dict[Member | User, int] = {}
         reactions: List[Reaction] = message.reactions
         for reaction in reactions:
             reaction_emoji: PartialEmoji | Emoji | str = reaction.emoji
@@ -141,64 +143,68 @@ async def process_reaction(message_id: int,
             if miner_id == receiver_id:
                 coin_reacters.remove(miner)
         reacters_count: int = len(coin_reacters)
+        earnings: dict[Member | User, int] = {}
+        earnings[receiver] = reacters_count
         for i, miner in enumerate(reversed(coin_reacters)):
             miner_id: int = miner.id
             coins_to_give: int = reacters_count - i - 1
             if coins_to_give > 0:
                 earnings[miner] = coins_to_give
-        earnings[receiver] = reacters_count
 
         # Add blocks
-        for earner, coins in earnings.items():
+        for i, (earner, coins) in enumerate(earnings.items()):
             earner_id: int = earner.id
             miner_name: str = earner.name
             coin_label: str = format_coin_label(coins)
-            if earner_id != receiver_id:
-                print(f"Miner {miner_name} ({earner_id}) is "
-                      f"earning {coins} {coin_label} for having mined from "
-                      f"the same message earlier (message {message_id})...")
+            if earner_id == receiver_id:
+                print(f"{sender_name} ({sender_id}) is mining "
+                      f"for {receiver_name}, and "
+                      f"author {receiver_name} ({receiver_id}) is "
+                      f"earning {coins} {coin_label} (message {message_id})...")
             else:
-                print(f"Author {receiver_name} ({receiver_id}) is "
-                      f"earning {coins} {coin_label} on their message "
-                      f"(message {message_id})...")
+                print(f"{sender_name} ({sender_id}) is mining "
+                      f"for {receiver_name}, and "
+                      f"miner #{i} {miner_name} ({earner_id}) "
+                      f"is earning {coins} {coin_label} from having mined for "
+                      f"the same message earlier (message {message_id}).")
             await add_block_transaction(blockchain=g.blockchain,
                                         sender=sender,
                                         receiver=earner,
                                         amount=coins,
                                         method="reaction")
-            # Log the mining
+            # Set variables for logging
             last_block_timestamp = get_last_block_timestamp()
             if last_block_timestamp is None:
                 print("ERROR: Could not get last block timestamp.")
                 await terminate_bot()
             earned_message: str
-            if earner_id != receiver_id:
-                earned_message = (f"Miner {miner_name} ({earner_id}) earned "
-                                  f"{coins} {coin_label} for having mined "
-                                  "from the same message earlier "
-                                  f"(message {message_id}).")
+            if earner_id == receiver_id:
+                earned_message = (
+                    f"{sender_name} ({sender_id}) mined for {receiver_name}, "
+                    f"and author {receiver_name} ({receiver_id}) "
+                    f"earned {coins} {coin_label} (message {message_id}).")
             else:
-                earned_message = (f"Author {receiver_name} ({receiver_id}) "
-                                  f"earned {coins} {coin_label} for their "
-                                  f"message (message {message_id}).")
-            g.log.log(line=earned_message, timestamp=last_block_timestamp)
+                earned_message = (
+                    f"{sender_name} ({sender_id}) mined for {receiver_name}, "
+                    f"and miner #{i} {miner_name} ({earner_id}) "
+                    f"earned {coins} {coin_label} from having mined for the "
+                    f"same message earlier (message {message_id}).")
+            log_messages[last_block_timestamp] = earned_message
+            del last_block_timestamp
             del earned_message
-        mined_message = (f"Miner {sender_name} ({sender_id}) has mined "
-                         f"for {receiver_name} ({receiver_id}) "
-                         f"(message {message_id}).")
-        print("--------------------")
 
     # Log the mining
-    if last_block_timestamp is None:
-        print("ERROR: Could not get last block timestamp.")
-        await terminate_bot()
-    try:
-        g.log.log(line=mined_message, timestamp=last_block_timestamp)
-        # Remove variables with common names to prevent accidental use
-        del last_block_timestamp
-    except Exception as e:
-        print(f"ERROR: Error logging mining: {e}")
-        await terminate_bot()
+    for timestamp, log_message in log_messages.items():
+        if timestamp is None:
+            print("ERROR: Could not get last block timestamp.")
+            await terminate_bot()
+        try:
+            g.log.log(line=log_message, timestamp=timestamp)
+            # Remove variables with common names to prevent accidental use
+            del timestamp
+        except Exception as e:
+            print(f"ERROR: Error logging mining: {e}")
+            await terminate_bot()
 
     chain_validity: bool | None = None
     try:
@@ -211,6 +217,11 @@ async def process_reaction(message_id: int,
 
     if chain_validity is False:
         await terminate_bot()
+
+    if g.network_mining_enabled is True:
+        print(f"Miner {sender_name} ({sender_id}) has mined "
+              f"for {receiver_name} ({receiver_id}) (message {message_id}).")
+        print("--------------------")
 
     # Inform receiver about if it's the first time they receive a coin
     if not greet_new_players:
