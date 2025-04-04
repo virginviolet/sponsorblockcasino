@@ -47,9 +47,9 @@ async def insert_coins(interaction: Interaction,
     starting bonus of an amount that is decided by a die.
 
     Three blank emojis are displayed and then the reels will stop in a few
-    seconds, or the user can stop them manually by hitting the stop buttons that
-    appear. The message containing the blank emojis are updated each time a reel
-    is stopped.
+    seconds, or the user can stop them manually by hitting the stop buttons 
+    that appear. The message containing the blank emojis are updated each time 
+    a reel is stopped.
     If they get a net positive outcome, the amount will be added to their
     balance. If they get a net negative outcome, the loss amount will be
     transferred to the casino's account.
@@ -133,13 +133,14 @@ async def insert_coins(interaction: Interaction,
     while user_id in g.active_slot_machine_players and wait_seconds_left > 0:
         await asyncio.sleep(1)
         wait_seconds_left -= 1
-    # If the user is still in the active players list, send a message and return
+    # If the user is still in the active players list,
+    # send a message and return
     if user_id in g.active_slot_machine_players:
         await interaction.response.send_message(
             "You are only allowed to play "
             "on one slot machine at a time.\n"
-            "-# If you're having issues, please try rebooting the slot machine "
-            f"before contacting the {g.Coin} Casino staff.",
+            "-# If you're having issues, please try rebooting "
+            f"the slot machine before contacting the {g.Coin} Casino staff.",
             ephemeral=True)
         return
     else:
@@ -180,8 +181,8 @@ async def insert_coins(interaction: Interaction,
                 "Here's how you can do it:\n"
                 "See your GrifterSwap balance with `!balance`, withdraw all "
                 "your coins with \n"
-                "`!withdraw <currency> <amount>`, and then use `!suppliers` to "
-                "prove you're no longer a supplier.")
+                "`!withdraw <currency> <amount>`, and then use `!suppliers` "
+                "to prove you're no longer a supplier.")
             await interaction.response.send_message(
                 message_content, ephemeral=should_use_ephemeral)
             del message_content
@@ -265,7 +266,8 @@ async def insert_coins(interaction: Interaction,
                                 "starting bonus.")
         # TODO Move the table to a separate message
         message_content: str = (f"{message_preamble}\n"
-                                "The possible outcomes are displayed below.\n\n"
+                                "The possible outcomes "
+                                "are displayed below.\n\n"
                                 f"{starting_bonus_table}")
 
         starting_bonus_view = (
@@ -513,8 +515,8 @@ async def insert_coins(interaction: Interaction,
             log_line = (f"{user_name} ({user_id}) won "
                         f"{win_money} {coin_label_wm} on "
                         f"the {event_name} ({event_name_friendly}) reward, "
-                        f"but lost {-net_return} {coin_label_nr} in net return "
-                        f"on the {g.Coin} Slot Machine.")
+                        f"but lost {-net_return} {coin_label_nr} "
+                        f"in net return on the {g.Coin} Slot Machine.")
         else:
             log_line = (f"{user_name} ({user_id}) lost "
                         f"{-net_return} {coin_label_nr} on "
@@ -651,7 +653,7 @@ async def insert_coins(interaction: Interaction,
         jackpot_seed: int = combo_events["jackpot"]["fixed_amount"]
         g.slot_machine.jackpot = jackpot_seed
     else:
-        g.slot_machine.jackpot += 1
+        g.slot_machine.jackpot += jackpot_fee
 
 
 @insert_coins.autocomplete(name="amount")
