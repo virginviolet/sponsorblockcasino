@@ -48,7 +48,10 @@ async def show_help(interaction: Interaction,
     jackpot_seed: int = (
         g.slot_machine.configuration["combo_events"]
         ["jackpot"]["fixed_amount"])
-    administrator: str = (await g.bot.fetch_user(g.administrator_id)).name
+    try:
+        administrator: str = (await g.bot.fetch_user(g.administrator_id)).name
+    except Exception:
+        print("ERROR: Could not bot fetch administrator.")
     # TODO Import fees from configuration instead of hardcoding them
     help_message_1: str = (
         f"## {g.Coin} Slot Machine Help\n"
