@@ -50,10 +50,12 @@ async def balance(interaction: Interaction,
         message_content = f"{user_to_check} has 0 " f"{coins}."
     elif user is None:
         coin_label: str = format_coin_label(balance)
-        message_content = f"You have {balance} {coin_label}."
+        message_content = (
+            f"You have {balance:,} {coin_label}.".replace(",", " "))
     else:
         coin_label: str = format_coin_label(balance)
-        message_content = f"{user_to_check} has {balance} {coin_label}."
+        message_content = (
+            f"{user_to_check} has {balance:,} {coin_label}.".replace(",", " "))
     await interaction.response.send_message(
         message_content,
         ephemeral=incognito, allowed_mentions=AllowedMentions.none())
