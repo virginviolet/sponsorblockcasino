@@ -26,7 +26,6 @@ async def on_raw_reaction_add(payload: RawReactionActionEvent) -> None:
             class from the discord.raw_models module that contains the data of
             the reaction event.
     """
-
     if payload.event_type == "REACTION_ADD":
         if payload.message_author_id is None:
             return

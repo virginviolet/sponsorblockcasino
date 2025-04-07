@@ -120,9 +120,9 @@ class Log:
         # Create the log file if it doesn't exist
         if not exists(self.file_name):
             self.create()
-
-        with open(self.file_name, "a") as f:
+        
+        with open(self.file_name, "a") as file:
             timestamped_line: str = f"{timestamp_friendly}: {line}"
             print(timestamped_line)
-            f.write(f"{timestamped_line}\n")
+            file.write(f"{timestamped_line}\n")
 # endregion

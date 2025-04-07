@@ -1,5 +1,5 @@
 """
-Models module for SBCoinNightclub.
+Models module.
 Contains classes and functions for handling user data, blockchain interactions,
 checkpoints, and other core functionality.
 """

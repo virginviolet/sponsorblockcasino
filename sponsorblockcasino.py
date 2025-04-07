@@ -26,10 +26,11 @@ with lazyimports.lazy_imports(
         "core.bot:run_bot",
         "core.register_event_handlers:register_event_handlers",
         "core.register_event_handlers:register_commands"):
-    from sponsorblockchain.start_sponsorblockchain import start_flask_app_thread
+    from sponsorblockchain.start_sponsorblockchain import (
+        start_flask_app_thread)
     from core.bot import setup_bot_environment, run_bot
-    from core.register_event_handlers import (register_event_handlers,
-                                              register_commands)
+    from core.register_event_handlers import (
+        register_event_handlers, register_commands)
 # endregion
 
 # region Main

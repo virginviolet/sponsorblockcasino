@@ -61,7 +61,7 @@ async def process_reaction(message_id: int,
         else:
             receiver_id = receiver.id
         sender_id: int = sender.id
-
+        
         if sender_id == receiver_id:
             return
 

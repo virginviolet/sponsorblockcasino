@@ -38,7 +38,8 @@ async def process_reaction(bot: Bot,
     from core.global_state import (log, coin, coin_emoji_id, coin_emoji_name,
                               casino_channel_id, about_command_formatted,
                               blockchain)
-    assert isinstance(log, Log), "log must be initialized before calling process_reaction"
+    assert isinstance(log, Log), (
+        "log must be initialized before calling process_reaction")
     print("log.file_name:", log.file_name)
     print(f"type(log): {type(log)}")
     
