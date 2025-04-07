@@ -6,7 +6,7 @@ Functions for interacting with the blockchain from the Discord bot.
 import asyncio
 from time import time
 from hashlib import sha256
-from typing import List, Dict, cast
+from typing import TYPE_CHECKING
 
 # Third party
 from discord import (
@@ -18,6 +18,9 @@ from discord.utils import MISSING
 from discord.ext.commands import Bot  # type: ignore
 
 # Local
+if TYPE_CHECKING:
+    from sponsorblockchain.sponsorblockchain_type_aliases import (
+        BlockData)
 import core.global_state as g
 from type_aliases import TransactionRequest
 from core.terminate_bot import terminate_bot
@@ -26,7 +29,7 @@ from models.transfers_waiting_approval import TransfersWaitingApproval
 from models.user_save_data import UserSaveData
 from utils.roles import get_aml_officer_role
 from utils.formatting import format_coin_label
-from sponsorblockchain.sponsorblockchain_type_aliases import TransactionDict
+from sponsorblockchain.sponsorblockchain_type_aliases import Transaction
 from sponsorblockchain.models.blockchain import Blockchain
 from sponsorblockchain.models.block import Block
 # endregion
@@ -47,7 +50,7 @@ def get_last_block_timestamp() -> float | None:
     """
     if g.blockchain is None:
         raise ValueError("blockchain is None.")
-    
+
     last_block_timestamp: float | None = None
     try:
         # Get the last block's timestamp for logging
@@ -112,16 +115,15 @@ async def add_block_transaction(blockchain: Blockchain,
     del receiver_id_unhashed
     print("Adding transaction to blockchain...")
     try:
-        data: List[Dict[str, TransactionDict]] = (
-            [{"transaction": {
-                "sender": sender_id_hash,
-                "receiver": receiver_id_hash,
-                "amount": amount,
-                "method": method
-            }}])
-        data_casted: List[str | Dict[str, TransactionDict]] = (
-            cast(List[str | Dict[str, TransactionDict]], data))
-        blockchain.add_block(data=data_casted, difficulty=0)
+        transaction = Transaction(
+            sender=sender_id_hash,
+            receiver=receiver_id_hash,
+            amount=amount,
+            method=method
+        )
+        data: BlockData = (
+            [{"transaction": transaction}])
+        blockchain.add_block(data=data, difficulty=0)
     except Exception as e:
         print(f"ERROR: Error adding transaction to blockchain: {e}")
         await terminate_bot()
@@ -361,8 +363,7 @@ async def transfer_coins(sender: Member | User,
                                 sender=sender,
                                 receiver=receiver,
                                 amount=amount,
-                                method=method
-    )
+                                method=method)
     assert isinstance(g.bot, Bot), "g.bot is not initialized."
     last_block: Block | None = g.blockchain.get_last_block()
     if last_block is None:
@@ -373,8 +374,8 @@ async def transfer_coins(sender: Member | User,
         await terminate_bot()
     timestamp: float = last_block.timestamp
     g.log.log(line=f"{sender} ({sender_id}) transferred {amount} {coin_label_a} "
-            f"to {receiver} ({receiver_id}).",
-            timestamp=timestamp)
+              f"to {receiver} ({receiver_id}).",
+              timestamp=timestamp)
     sender_mention: str = sender.mention
     receiver_mention: str = receiver.mention
     allowed_pings = AllowedMentions(users=[receiver])
