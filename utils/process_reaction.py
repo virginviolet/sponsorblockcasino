@@ -1,6 +1,6 @@
 # region Imports
 # Standard Library
-from typing import List, TYPE_CHECKING
+from typing import List, Literal, TYPE_CHECKING
 
 # Third party
 from discord import (Member, Message, Emoji, PartialEmoji, User, TextChannel,
@@ -177,6 +177,7 @@ async def process_reaction(message_id: int,
               f"{receiver} ({receiver_id}) "
               f"(message {message_id})...")
 
+        # FIXME Finish network mining implementation
         # Find any existing miners for the message
         coin_reacters: List[Member | User | ReactionUser] = []
         coin_reacters_from_registry: List[ReactionUser] = (
@@ -240,13 +241,16 @@ async def process_reaction(message_id: int,
             participant_id: int = participant.id
             participant_name: str = participant.name
             coin_label: str = format_coin_label(coins)
+            method: Literal["reaction", "reaction_network"]
             if participant_id == receiver_id:
+                method = "reaction"
                 print(f"{sender_name} ({sender_id}) is mining "
                       f"for {receiver_name}, and "
                       f"author {receiver_name} ({receiver_id}) is "
                       f"earning {coins} {coin_label} "
                       f"(message {message_id})...")
             else:
+                method = "reaction_network"
                 print(f"{sender_name} ({sender_id}) is mining "
                       f"for {receiver_name}, and "
                       f"miner #{i} {participant_name} ({participant_id}) "
@@ -256,7 +260,7 @@ async def process_reaction(message_id: int,
                                         sender=sender,
                                         receiver=participant,
                                         amount=coins,
-                                        method="reaction")
+                                        method=method)
 
             # Set variables for logging
             last_block_timestamp = get_last_block_timestamp()
