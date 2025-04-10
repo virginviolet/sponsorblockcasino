@@ -21,6 +21,7 @@ class BotConfig(TypedDict):
     administrator_id: int
     casino_channel_id: int
     mining_updates_channel_id: int
+    mining_highlights_channel_id: int
     blockchain_name: str
     Blockchain_name: str
     network_mining_enabled: bool

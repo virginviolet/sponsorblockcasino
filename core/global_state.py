@@ -60,6 +60,7 @@ casino_house_id: int = 0
 administrator_id: int = 0
 casino_channel_id: int = 0
 mining_updates_channel_id = 0
+mining_highlights_channel_id = 0
 blockchain_name: str = ""
 Blockchain_name: str = ""
 network_mining_enabled: bool = False

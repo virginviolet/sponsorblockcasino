@@ -92,6 +92,8 @@ class BotConfiguration:
                     self.configuration["casino_channel_id"])
                 self.mining_updates_channel_id: int = (
                     self.configuration["mining_updates_channel_id"])
+                self.mining_highlights_channel_id: int = (
+                    self.configuration["mining_highlights_channel_id"])
                 self.network_mining_enabled: bool = (
                     self.configuration["network_mining_enabled"])
                 self.blockchain_name: str = (
@@ -206,6 +208,7 @@ def invoke_bot_configuration() -> None:
     g.administrator_id = configuration.administrator_id
     g.casino_channel_id = configuration.casino_channel_id
     g.mining_updates_channel_id = configuration.mining_updates_channel_id
+    g.mining_highlights_channel_id = configuration.mining_highlights_channel_id
     g.blockchain_name = configuration.blockchain_name
     g.Blockchain_name = configuration.Blockchain_name
     g.network_mining_enabled = configuration.network_mining_enabled

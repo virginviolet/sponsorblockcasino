@@ -177,7 +177,6 @@ async def process_reaction(message_id: int,
               f"{receiver} ({receiver_id}) "
               f"(message {message_id})...")
 
-        # FIXME Finish network mining implementation
         # Find any existing miners for the message
         coin_reacters: List[Member | User | ReactionUser] = []
         coin_reacters_from_registry: List[ReactionUser] = (
@@ -283,6 +282,8 @@ async def process_reaction(message_id: int,
             del last_block_timestamp
             del earned_message
 
+        forwarded_sender_message: Message | None = None
+        mining_update_message: Message | None = None
         if prior_reacters_count > 0:
             # Make an update in the mining updates channel
             mining_channel: (VoiceChannel | StageChannel | ForumChannel |
@@ -333,10 +334,40 @@ async def process_reaction(message_id: int,
                     f"has been mined for {receiver_mention}'s message!\n"
                     f"{participants_table}")
                 del coin_label
-                await sender_message.forward(mining_channel)
-                await mining_channel.send(mining_update_message_content,
-                                          allowed_mentions=(
-                                              AllowedMentions.none()))
+                forwarded_sender_message = (
+                    await sender_message.forward(mining_channel))
+                mining_update_message = (
+                    await mining_channel.send(mining_update_message_content,
+                                              allowed_mentions=(
+                                                  AllowedMentions.none())))
+        if prior_reacters_count >= 5:
+            highlights_channel: (VoiceChannel | StageChannel |
+                             ForumChannel | TextChannel |
+                             CategoryChannel | Thread |
+                             PrivateChannel |
+                             None) = g.bot.get_channel(
+                g.mining_highlights_channel_id)
+            if highlights_channel is None:
+                print("WARNING: Will not forward mining update "
+                      "to highlights_channel because highlights_channel is "
+                      "None.")
+            elif not isinstance(
+                    highlights_channel, (VoiceChannel, TextChannel, Thread)):
+                print("WARNING: Will not forward mining update "
+                      f"to highlights_channel because highlights_channel is "
+                      f"{type(highlights_channel)}.")
+            elif forwarded_sender_message is None:
+                print("WARNING: Will not forward mining update "
+                      "to highlights_channel because "
+                      "forwarded_sender_message is None.")
+            elif mining_update_message is None:
+                print("WARNING: Will not forward mining update "
+                      "to highlights_channel because "
+                      "mining_update_message is None.")
+            else:
+                await forwarded_sender_message.forward(highlights_channel)
+                await mining_update_message.forward(highlights_channel)
+
 
     # region Finalize mining
     # Log the mining
