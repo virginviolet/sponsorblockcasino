@@ -89,6 +89,8 @@ async def process_missed_messages(limit: int | None = None) -> None:
                                                        sender=sender,
                                                        receiver=receiver,
                                                        channel_id=channel_id,
+                                                       channel=channel,
+                                                       sender_message=message,
                                                        greet_new_players=False)
                     del message_id
             except Exception as e:

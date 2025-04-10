@@ -20,6 +20,9 @@ from .guild_list import load_guild_ids
 # Import from log.py
 from .log import Log
 
+# Import from message_mining_registry.py
+from .message_mining_registry import MessageMiningRegistryManager
+
 # Import from slot_machine.py
 from .slot_machine import SlotMachine, reinitialize_slot_machine
 
@@ -46,6 +49,9 @@ __all__: list[str] = [
     
     # Log
     'Log',
+
+    # Message mining registry
+    'MessageMiningRegistryManager',
 
     # Slot machine
     'SlotMachine',

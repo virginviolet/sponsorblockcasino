@@ -13,6 +13,7 @@ import core.global_state as g
 from bot_configuration import invoke_bot_configuration
 from models.grifter_suppliers import GrifterSuppliers
 from models.log import Log
+from models.message_mining_registry import MessageMiningRegistryManager
 from models.slot_machine import SlotMachine
 from models.transfers_waiting_approval import TransfersWaitingApproval
 from utils.decrypt_transactions import DecryptedTransactionsSpreadsheet
@@ -33,9 +34,6 @@ client = Client(intents=intents)
 
 
 def setup_bot_environment() -> None:
-    global coin
-    global slot_machine, grifter_suppliers, transfers_waiting_approval, log
-    global blockchain
     print("Setting up bot environment...")
     try:
         print(f"Initializing blockchain...")
@@ -50,6 +48,7 @@ def setup_bot_environment() -> None:
 
     print("Starting class instances...")
     g.log = Log(time_zone=g.time_zone)
+    g.message_mining_registry = MessageMiningRegistryManager()
     g.slot_machine = SlotMachine()
     g.transfers_waiting_approval = TransfersWaitingApproval()
     g.grifter_suppliers = GrifterSuppliers()
@@ -57,8 +56,6 @@ def setup_bot_environment() -> None:
         DecryptedTransactionsSpreadsheet(time_zone=g.time_zone))
     print("Class instances started.")
     print("Bot environment set up.")
-
-
 # endregion
 
 # region Run bot

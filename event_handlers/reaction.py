@@ -1,4 +1,7 @@
 # region Imports
+# Standard Library
+from time import time
+
 # Third party
 from discord import Member
 from discord.raw_models import RawReactionActionEvent
@@ -26,6 +29,8 @@ async def on_raw_reaction_add(payload: RawReactionActionEvent) -> None:
             class from the discord.raw_models module that contains the data of
             the reaction event.
     """
+    timestamp: float = time()
+
     if payload.event_type == "REACTION_ADD":
         if payload.message_author_id is None:
             return
@@ -37,11 +42,11 @@ async def on_raw_reaction_add(payload: RawReactionActionEvent) -> None:
         receiver_user_id: int = payload.message_author_id
         message_id: int = payload.message_id
         channel_id: int = payload.channel_id
-
         await process_reaction(message_id=message_id,
                                emoji=payload.emoji,
                                sender=sender,
                                receiver_id=receiver_user_id,
+                               timestamp=timestamp,
                                channel_id=channel_id)
         del receiver_user_id
         del sender

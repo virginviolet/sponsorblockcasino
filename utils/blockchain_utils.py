@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from sponsorblockchain.sponsorblockchain_type_aliases import (
         BlockData)
 import core.global_state as g
-from type_aliases import TransactionRequest
+from type_aliases import ReactionUser, TransactionRequest
 from core.terminate_bot import terminate_bot
 from models.log import Log
 from models.transfers_waiting_approval import TransfersWaitingApproval
@@ -73,8 +73,8 @@ def get_last_block_timestamp() -> float | None:
 
 
 async def add_block_transaction(blockchain: Blockchain,
-                                sender: Member | User | int,
-                                receiver: Member | User | int,
+                                sender: Member | User | ReactionUser | int,
+                                receiver: Member | User | ReactionUser | int,
                                 amount: int,
                                 method: str) -> None:
     """
@@ -95,14 +95,16 @@ async def add_block_transaction(blockchain: Blockchain,
         Exception: If there is an error adding the transaction to
             the blockchain.
     """
+    sender_id: int
+    receiver_id: int
     if isinstance(sender, int):
         sender_id = sender
     else:
-        sender_id: int = sender.id
+        sender_id = sender.id
     if isinstance(receiver, int):
         receiver_id = receiver
     else:
-        receiver_id: int = receiver.id
+        receiver_id = receiver.id
     sender_id_unhashed: int = sender_id
     receiver_id_unhashed: int = receiver_id
     sender_id_hash: str = (

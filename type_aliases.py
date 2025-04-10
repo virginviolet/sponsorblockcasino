@@ -1,6 +1,7 @@
 # region Imports
 # Standard Library
 from typing import Dict, TypedDict, List, TypeVar
+from dataclasses import dataclass
 
 # Third party
 from discord import PartialEmoji
@@ -19,6 +20,7 @@ class BotConfig(TypedDict):
     casino_house_id: int
     administrator_id: int
     casino_channel_id: int
+    mining_updates_channel_id: int
     blockchain_name: str
     Blockchain_name: str
     network_mining_enabled: bool
@@ -26,6 +28,34 @@ class BotConfig(TypedDict):
     sbcoin_id: int
     auto_approve_transfer_limit: int
     aml_office_thread_id: int
+
+
+@dataclass(frozen=True)
+class ReactionUser:
+    global_name: str | None
+    id: int
+    name: str
+    mention: str
+
+
+class ReactionUserDict(TypedDict):
+    global_name: str | None
+    id: int
+    name: str
+    mention: str
+
+
+class CoinReaction(TypedDict):
+    created_at: float
+    user: ReactionUser | ReactionUserDict
+
+
+class MessageMiningTimeline(TypedDict):
+    author_id: int
+    author_name: str
+    channel_id: int
+    created_at: float
+    reactions: List[CoinReaction]
 
 
 class Reels(TypedDict):

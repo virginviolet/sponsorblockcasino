@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from models.log import Log
     from models.slot_machine import SlotMachine
     from models.transfers_waiting_approval import TransfersWaitingApproval
+    from models.message_mining_registry import MessageMiningRegistryManager
     from utils.decrypt_transactions import DecryptedTransactionsSpreadsheet
     from sponsorblockchain.models.blockchain import Blockchain
 # endregion
@@ -45,6 +46,7 @@ grifter_suppliers: "GrifterSuppliers | None" = None
 transfers_waiting_approval: "TransfersWaitingApproval | None" = None
 decrypted_transactions_spreadsheet: (
     "DecryptedTransactionsSpreadsheet | None") = None
+message_mining_registry: "MessageMiningRegistryManager | None" = None
 bot: "Bot | None" = None
 
 # Bot configuration
@@ -57,6 +59,7 @@ coin_emoji_name: str = ""
 casino_house_id: int = 0
 administrator_id: int = 0
 casino_channel_id: int = 0
+mining_updates_channel_id = 0
 blockchain_name: str = ""
 Blockchain_name: str = ""
 network_mining_enabled: bool = False
