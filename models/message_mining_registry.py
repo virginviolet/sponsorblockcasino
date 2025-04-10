@@ -181,31 +181,44 @@ class MessageMiningRegistryManager:
                         message_registry, indent=4, cls=DataclassJsonEncoder))
                 file.close()
 
-    def get_reactions(self, message_id: int) -> list[CoinReaction]:
+    def get_reactions(self,
+                      message_id: int,
+                      sort: bool = False) -> list[CoinReaction]:
         """
         Get the reactions for a message.
 
         :param message_id: The ID of the message.
+        :param sort: Whether to sort the reactions by created_at.
         :return: The reactions for the message.
         """
         # Json keys cannot be integers, so convert to string
         message_id_str: str = str(message_id)
         if message_id_str in self.messages.keys():
-            return self.messages[message_id_str]["reactions"]
+            reactions: List[CoinReaction] 
+            if sort:
+                reactions = sorted(
+                    self.messages[message_id_str]["reactions"],
+                    key=lambda x: x["created_at"])
+                return reactions
+            else:
+                reactions = self.messages[message_id_str]["reactions"]
+                return reactions
         return []
 
-    def get_reacters(self, message_id: int) -> list[ReactionUser]:
+    def get_reacters(self,
+                     message_id: int,
+                     sort: bool = False) -> list[ReactionUser]:
         """
         Get the reacters for a message.
 
         :param message_id: The ID of the message.
+        :param sort: Whether to sort the reactions by created_at.
         :return: The reacters for the message.
         """
-        message_id_str: str = str(message_id)
-        if message_id_str in self.messages.keys():
-            reacters: list[ReactionUser] = [
-                cast(ReactionUser, reaction["user"]) for reaction
-                in self.messages[message_id_str]["reactions"]]
-            return reacters
-        return []
+        reactions: List[CoinReaction] = self.get_reactions(message_id, sort)
+        if not reactions:
+            return []
+        reacters: list[ReactionUser] = [
+            cast(ReactionUser, reaction["user"]) for reaction in reactions]
+        return reacters
 # endregion

@@ -1,7 +1,7 @@
 # region Imports
 # Standard Library
 from random import shuffle
-from typing import List, Literal, TYPE_CHECKING
+from typing import List, Literal
 
 # Third party
 from discord import (Member, Message, Emoji, PartialEmoji, User, TextChannel,
@@ -12,8 +12,7 @@ from discord.ext.commands import Bot  # type: ignore
 from discord.reaction import Reaction
 
 # Local
-if TYPE_CHECKING:
-    from type_aliases import ReactionUser
+from type_aliases import ReactionUser
 import core.global_state as g
 from core.terminate_bot import terminate_bot
 from sponsorblockchain.models.blockchain import Blockchain
@@ -136,20 +135,6 @@ async def process_reaction(message_id: int,
     # as an anti-cheating precaution
     message_mined.append(message_id)
     sender_save_data.save(key="messages_mined", value=message_mined)
-
-    # Add the reaction to the message mining registry
-    message_timestamp: float = sender_message.created_at.timestamp()
-    g.message_mining_registry.add_reaction(
-        message_id=message_id,
-        message_timestamp=message_timestamp,
-        message_author_id=receiver_id,
-        message_author_name=receiver_name,
-        channel_id=channel_id,
-        user_id=sender_id,
-        user_name=sender_name,
-        user_global_name=sender_global_name,
-        user_mention=sender_mention,
-        created_at=timestamp)
     # endregion
 
     if g.network_mining_enabled is False:
@@ -181,12 +166,12 @@ async def process_reaction(message_id: int,
         # Find any existing miners for the message
         coin_reacters: List[Member | User | ReactionUser] = []
         coin_reacters_from_registry: List[ReactionUser] = (
-            g.message_mining_registry.get_reacters(message_id))
+            g.message_mining_registry.get_reacters(message_id, sort=True))
         # Add reactions missing from the registry
         # They are sorted by user ID in descending order and cannot be
         # sorted chronologically (at least with Discord.py 2.5.2)
         # As missing reactions likely are from before the network mining
-        # update, we place them before the other miners
+        # update, we place them before the new miner
         reactions: List[Reaction] = sender_message.reactions
         coin_reacters_from_discord: List[Member | User | ReactionUser] = []
         for reaction in reactions:
@@ -199,8 +184,9 @@ async def process_reaction(message_id: int,
                     r.id for r in coin_reacters_from_registry]
                 async for user in reaction.users():
                     user_id: int = user.id
-                    print(f"{user_id}: {user.name}")
-                    if user_id not in coin_reacters_ids:
+                    if ((user_id not in coin_reacters_ids) and
+                        (user_id != receiver_id) and
+                        (user_id != sender_id)):
                         coin_reacters_from_discord.append(user)
                 break
         # Randomize the order of the old reacters
@@ -208,11 +194,67 @@ async def process_reaction(message_id: int,
         # which would be unfair if it doesn't correlate with the order they
         # reacted in)
         shuffle(coin_reacters_from_discord)
-        coin_reacters.extend(coin_reacters_from_discord)
+        # Add them to the mining registry so that the order can be preserved
+        # (otherwise the reacters are shuffled anew each time a new reaction
+        # is added, which would actually be fair, but it would also be
+        # confusing for the users)
+        message_timestamp: float = sender_message.created_at.timestamp()
+        if timestamp is None:
+            raise ValueError("ERROR: Timestamp is None.")
+        coin_reacters_from_discord_count: int = len(coin_reacters_from_discord)
+        for i, reacter in enumerate(coin_reacters_from_discord):
+            reacter_id: int = reacter.id
+            reacter_name: str = reacter.name
+            reacter_global_name: str | None = reacter.global_name
+            reacter_mention: str = reacter.mention
+            # Subtract 1 second from the message timestamp for each reacter
+            # so that the order is preserved
+            seconds_to_subtract: float = coin_reacters_from_discord_count - i
+            reaction_timestamp: float = timestamp - seconds_to_subtract
+            g.message_mining_registry.add_reaction(
+                message_id=message_id,
+                message_timestamp=message_timestamp,
+                message_author_id=receiver_id,
+                message_author_name=receiver_name,
+                channel_id=channel_id,
+                user_id=reacter_id,
+                user_name=reacter_name,
+                user_global_name=reacter_global_name,
+                user_mention=reacter_mention,
+                created_at=reaction_timestamp)
+        # Add the current reaction to the message mining registry
+        g.message_mining_registry.add_reaction(
+            message_id=message_id,
+            message_timestamp=message_timestamp,
+            message_author_id=receiver_id,
+            message_author_name=receiver_name,
+            channel_id=channel_id,
+            user_id=sender_id,
+            user_name=sender_name,
+            user_global_name=sender_global_name,
+            user_mention=sender_mention,
+            created_at=timestamp)
+        sender_reaction_user: ReactionUser = ReactionUser(
+            global_name=sender_global_name,
+            id=sender_id,
+            name=sender_name,
+            mention=sender_mention)
+        # Only in the edge case that there are existing reacters
+        # for the message in the registry _and_ we discover new ones with
+        # discord.py does it matter which which list we append first.
+        # Because time does not go backwards, the existing
+        # reacters in the registry are likely to have an older timestamp than
+        # the ones we just discovered with discord.py and added to the registry
+        # with a very new timestamp. Therefore, we append the ones that were
+        # already in the registry first.
+        # Otherwise, the order will not be the same next time someone reacts
+        # and the get_reacters method sorts them for us.
         coin_reacters.extend(coin_reacters_from_registry)
+        coin_reacters.extend(coin_reacters_from_discord)
+        coin_reacters.append(sender_reaction_user)
+        coin_reacters_from_registry.append(sender_reaction_user)
 
         reacters_count: int = len(coin_reacters)
-        prior_reacters_count: int = reacters_count
 
         # Create dictionary for immediate handout of coins
         earnings: dict[Member | User | ReactionUser, int] = {}
@@ -220,14 +262,6 @@ async def process_reaction(message_id: int,
         # (they should get the most coins)
         earnings[receiver] = 0
         for miner in coin_reacters:
-            miner_id: int = miner.id
-            if miner_id == receiver_id:
-                # Skip the message author from the list of miners
-                # in case they reacted to their own message
-                reacters_count -= 1
-                continue
-            elif miner_id == sender_id:
-                prior_reacters_count -= 1
             earnings[miner] = 0
         # Add values to the keys in the earnings dictionary
         for i, participant in enumerate(earnings.keys()):
@@ -289,7 +323,7 @@ async def process_reaction(message_id: int,
 
         forwarded_sender_message: Message | None = None
         mining_update_message: Message | None = None
-        if prior_reacters_count > 0:
+        if reacters_count > 1:
             # Make an update in the mining updates channel
             mining_channel: (VoiceChannel | StageChannel | ForumChannel |
                              TextChannel | CategoryChannel | Thread |
@@ -345,7 +379,7 @@ async def process_reaction(message_id: int,
                     await mining_channel.send(mining_update_message_content,
                                               allowed_mentions=(
                                                   AllowedMentions.none())))
-        if prior_reacters_count >= 5:
+        if reacters_count >= 5:
             highlights_channel: (VoiceChannel | StageChannel |
                              ForumChannel | TextChannel |
                              CategoryChannel | Thread |
