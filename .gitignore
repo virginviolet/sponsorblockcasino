@@ -1,10 +1,11 @@
 __pycache__/
 .env
-data/transactions.tsv
 data/blockchain.json
-data/transactions.log
 data/slot_machine.json
+data/transactions.tsv
+data/transactions.log
 data/transfers_waiting_approval.json
+data/message_mining_registry.json
 
 data/checkpoints/
 data/save_data/
