@@ -1,5 +1,6 @@
 # region Imports
 # Standard Library
+from random import shuffle
 from typing import List, Literal, TYPE_CHECKING
 
 # Third party
@@ -187,6 +188,7 @@ async def process_reaction(message_id: int,
         # As missing reactions likely are from before the network mining
         # update, we place them before the other miners
         reactions: List[Reaction] = sender_message.reactions
+        coin_reacters_from_discord: List[Member | User | ReactionUser] = []
         for reaction in reactions:
             reaction_emoji: PartialEmoji | Emoji | str = reaction.emoji
             if not isinstance(reaction_emoji, (Emoji, PartialEmoji)):
@@ -199,11 +201,14 @@ async def process_reaction(message_id: int,
                     user_id: int = user.id
                     print(f"{user_id}: {user.name}")
                     if user_id not in coin_reacters_ids:
-                        # Insert user at the beginning of the list,
-                        # which will make accounts with lower user IDs and thus
-                        # older accounts come first
-                        coin_reacters.insert(0, user)
+                        coin_reacters_from_discord.append(user)
                 break
+        # Randomize the order of the old reacters
+        # (otherwise the ones with lowest user ids would get most coins,
+        # which would be unfair if it doesn't correlate with the order they
+        # reacted in)
+        shuffle(coin_reacters_from_discord)
+        coin_reacters.extend(coin_reacters_from_discord)
         coin_reacters.extend(coin_reacters_from_registry)
 
         reacters_count: int = len(coin_reacters)
