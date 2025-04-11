@@ -5,7 +5,7 @@ This package contains all the slash commands available in the bot.
 
 from .about_coin import about_coin
 from .balance import balance
-from .groups.mining import mining
+from .groups.mining import mining_main
 from .reels import reels
 from .transfer import transfer
 from .groups.aml import aml_group
@@ -20,7 +20,7 @@ from .groups.slots import slots_utils
 __all__: list[str] = [
     "transfer",
     "reels", 
-    "mining",
+    "mining_main",
     "balance",
     "about_coin",
     "aml_group",
