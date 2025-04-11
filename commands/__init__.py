@@ -5,7 +5,7 @@ This package contains all the slash commands available in the bot.
 
 from .about_coin import about_coin
 from .balance import balance
-from .mining import mining
+from .groups.mining import mining
 from .reels import reels
 from .transfer import transfer
 from .groups.aml import aml_group
