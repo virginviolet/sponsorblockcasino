@@ -6,7 +6,7 @@ from os.path import exists
 from typing import (List, cast)
 
 # Local
-from type_aliases import (SaveData, T)
+from sponsorblockcasino_types import (SaveData, T)
 # endregion
 
 # region UserSaveData

@@ -13,7 +13,7 @@ from sympy import (symbols, Expr, Add, Mul, Float, Integer, Eq, Lt, Ge,
 
 # Local
 import core.global_state as g
-from type_aliases import Reels, ReelSymbol, ReelResults, SlotMachineConfig
+from sponsorblockcasino_types import Reels, ReelSymbol, ReelResults, SlotMachineConfig
 # endregion
 
 

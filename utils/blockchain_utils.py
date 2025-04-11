@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from sponsorblockchain.sponsorblockchain_types import (
         BlockData)
 import core.global_state as g
-from type_aliases import ReactionUser, TransactionRequest
+from sponsorblockcasino_types import ReactionUser, TransactionRequest
 from core.terminate_bot import terminate_bot
 from models.log import Log
 from models.transfers_waiting_approval import TransfersWaitingApproval

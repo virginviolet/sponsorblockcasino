@@ -12,7 +12,7 @@ from discord.ext.commands import Bot  # type: ignore
 from discord.reaction import Reaction
 
 # Local
-from type_aliases import ReactionUser
+from sponsorblockcasino_types import ReactionUser
 import core.global_state as g
 from core.terminate_bot import terminate_bot
 from sponsorblockchain.models.blockchain import Blockchain

@@ -11,7 +11,7 @@ from discord.ext.commands import Bot  # type: ignore
 
 # Local
 import core.global_state as g
-from type_aliases import ReelSymbol
+from sponsorblockcasino_types import ReelSymbol
 from models.slot_machine import SlotMachine
 from .slots_main import slots_group
 # endregion

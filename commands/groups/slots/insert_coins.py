@@ -13,7 +13,7 @@ from discord.ext.commands import Bot  # type: ignore
 
 # Local
 import core.global_state as g
-from type_aliases import ReelSymbol,  ReelResults, SpinEmojis
+from sponsorblockcasino_types import ReelSymbol,  ReelResults, SpinEmojis
 from core.terminate_bot import terminate_bot
 from models.slot_machine import SlotMachine
 from models.grifter_suppliers import GrifterSuppliers

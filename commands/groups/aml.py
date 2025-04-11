@@ -14,7 +14,7 @@ from discord.ext.commands import Bot  # type: ignore
 
 # Local
 import core.global_state as g
-from type_aliases import TransactionRequest
+from sponsorblockcasino_types import TransactionRequest
 from models.transfers_waiting_approval import TransfersWaitingApproval
 from models.user_save_data import UserSaveData
 from models.log import Log
