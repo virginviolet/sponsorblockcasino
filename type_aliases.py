@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from discord import PartialEmoji
 # endregion
 
-# region Type aliases
+# region Types
 
 
 class BotConfig(TypedDict):
