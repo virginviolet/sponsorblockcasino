@@ -19,7 +19,7 @@ from discord.ext.commands import Bot  # type: ignore
 
 # Local
 if TYPE_CHECKING:
-    from sponsorblockchain.sponsorblockchain_type_aliases import (
+    from sponsorblockchain.sponsorblockchain_types import (
         BlockData)
 import core.global_state as g
 from type_aliases import ReactionUser, TransactionRequest
@@ -29,7 +29,7 @@ from models.transfers_waiting_approval import TransfersWaitingApproval
 from models.user_save_data import UserSaveData
 from utils.roles import get_aml_officer_role
 from utils.formatting import format_coin_label
-from sponsorblockchain.sponsorblockchain_type_aliases import Transaction
+from sponsorblockchain.sponsorblockchain_types import Transaction
 from sponsorblockchain.models.blockchain import Blockchain
 from sponsorblockchain.models.block import Block
 # endregion
