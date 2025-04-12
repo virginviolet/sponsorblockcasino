@@ -6,6 +6,7 @@ from discord.ext.commands import Bot  # type: ignore
 import core.global_state as g
 from commands.groups.aml import aml_group
 from commands.groups.slots.slots_main import slots_group
+from commands.groups.mining.mining_main import mining_group
 from event_handlers.on_ready import on_ready
 from event_handlers.message import on_message
 from event_handlers.reaction import on_raw_reaction_add
@@ -35,5 +36,6 @@ def register_commands() -> None:
     # Command groups
     g.bot.tree.add_command(aml_group)
     g.bot.tree.add_command(slots_group)
+    g.bot.tree.add_command(mining_group)
     print("Commands registered.")
 # endregion

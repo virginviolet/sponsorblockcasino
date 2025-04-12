@@ -9,6 +9,7 @@ from .groups.mining import mining_main
 from .reels import reels
 from .transfer import transfer
 from .groups.aml import aml_group
+from .groups.mining.mining_main import mining_group
 from .groups.slots.slots_main import slots_group
 from .groups.slots import insert_coins
 from .groups.slots import show_help
@@ -24,6 +25,7 @@ __all__: list[str] = [
     "balance",
     "about_coin",
     "aml_group",
+    "mining_group",
     "slots_group",
     "insert_coins",
     "show_help",
