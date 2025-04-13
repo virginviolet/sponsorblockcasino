@@ -5,6 +5,8 @@ from os import getenv
 
 # Third party
 from dotenv import load_dotenv
+if TYPE_CHECKING:
+    from discord import Client
 
 if TYPE_CHECKING:
     # Standard library
@@ -48,6 +50,7 @@ decrypted_transactions_spreadsheet: (
     "DecryptedTransactionsSpreadsheet | None") = None
 message_mining_registry: "MessageMiningRegistryManager | None" = None
 bot: "Bot | None" = None
+client: "Client | None" = None
 
 # Bot configuration
 coin: str = ""

@@ -4,7 +4,7 @@ import core.global_state as g
 from sys import exit as sys_exit
 
 # Third party
-from discord import (Intents, Client)
+from discord import Intents, Client
 from discord.ext import commands
 from discord.ext.commands import Bot  # type: ignore
 
@@ -27,7 +27,7 @@ intents: Intents = Intents.default()
 intents.message_content = True
 intents.members = True
 g.bot = commands.Bot(command_prefix="!", intents=intents)
-client = Client(intents=intents)
+g.client = Client(intents=intents)
 # endregion
 
 # region Bot environment
