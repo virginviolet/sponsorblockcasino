@@ -4,8 +4,8 @@ from typing import cast
 
 # Third party
 from discord import Interaction, app_commands
-from discord.ext.commands import Bot  # type: ignore
-from sympy import Float, Integer, simplify
+from sympy import (Float, Integer,
+                   simplify)  # pyright: ignore [reportUnknownVariableType]
 
 # Local
 import core.global_state as g

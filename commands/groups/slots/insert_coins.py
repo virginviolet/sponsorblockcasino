@@ -9,7 +9,7 @@ from typing import Dict, List, cast
 from humanfriendly import format_timespan
 from discord import (Interaction, Member, PartialEmoji, User, app_commands,
                      Client)
-from discord.ext.commands import Bot  # type: ignore
+from discord.ext.commands import Bot  # pyright: ignore [reportMissingTypeStubs]
 
 # Local
 import core.global_state as g

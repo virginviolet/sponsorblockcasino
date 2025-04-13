@@ -8,8 +8,9 @@ from os.path import exists
 from typing import Dict, KeysView, List, LiteralString, cast, Literal, Any
 
 # Third party
-from sympy import (symbols, Expr, Add, Mul, Float, Integer, Eq, Lt, Ge,
-                   Rational, Piecewise)
+from sympy import (symbols,  # pyright: ignore [reportUnknownVariableType]
+                   Expr, Add, Mul, Float, Integer, Eq, Lt, Ge, Rational,
+                   Piecewise)
 
 # Local
 import core.global_state as g
@@ -905,7 +906,8 @@ class SlotMachine:
             self.calculate_expected_value(silent=True))[0]
         expected_total_return: Piecewise = (
             cast(Piecewise,
-                 expected_total_return_expression.subs(symbols('W'), wager)))
+                 expected_total_return_expression.subs(  # pyright: ignore [reportUnknownMemberType]
+                     symbols('W'), wager)))
         if not silent:
             print("Expected total return "
                   f"(W = {wager}): {expected_total_return}")

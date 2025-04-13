@@ -3,7 +3,6 @@
 
 # Third party
 from discord import Interaction, Role
-from discord.ext.commands import Bot  # type: ignore
 
 # Local
 import core.global_state as g

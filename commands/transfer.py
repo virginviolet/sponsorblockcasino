@@ -3,7 +3,7 @@
 from discord import (Interaction, Member, User, TextChannel, VoiceChannel,
                      app_commands, CategoryChannel, ForumChannel, StageChannel,
                      DMChannel, GroupChannel, Thread)
-from discord.ext.commands import Bot  # type: ignore
+from discord.ext.commands import Bot  # pyright: ignore [reportMissingTypeStubs]
 
 # Local
 import core.global_state as g
