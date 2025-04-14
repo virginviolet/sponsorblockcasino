@@ -1,7 +1,7 @@
 # region Imports
 # Standard Library
 from random import shuffle
-from typing import List, Literal
+from typing import List, Literal, Sequence
 
 # Third party
 from discord import (Member, Message, Emoji, PartialEmoji, User, TextChannel,
@@ -186,7 +186,7 @@ async def process_reaction(message_id: int,
                     user_id: int = user.id
                     if ((user_id not in coin_reacters_ids) and
                         (user_id != receiver_id) and
-                        (user_id != sender_id)):
+                            (user_id != sender_id)):
                         coin_reacters_from_discord.append(user)
                 break
         # Randomize the order of the old reacters
@@ -321,8 +321,16 @@ async def process_reaction(message_id: int,
             del last_block_timestamp
             del earned_message
 
+        allowed_network_mining_mentions_seq: (
+            Sequence[Member | User | ReactionUser]) = []
+        allowed_network_mining_highlights_mentions_seq: (
+            Sequence[Member | User | ReactionUser]) = []
+        allowed_network_mining_mentions: AllowedMentions = (
+            AllowedMentions.none())
+        allowed_network_mining_highlights_mentions: AllowedMentions = (
+            AllowedMentions.none())
         forwarded_sender_message: Message | None = None
-        mining_update_message: Message | None = None
+        mining_update_message_content: str | None = None
         if reacters_count > 1:
             # Make an update in the mining updates channel
             mining_channel: (VoiceChannel | StageChannel | ForumChannel |
@@ -359,6 +367,23 @@ async def process_reaction(message_id: int,
                 participants_table: str = ""
                 for i, (participant, participant_coins) in enumerate(
                         earnings.items()):
+                    participant_id: int = participant.id
+                    if participant_id == sender_id:
+                        continue
+                    participant_save_data: UserSaveData = UserSaveData(
+                        user_id=participant.id,
+                        user_name=participant.name)
+                    participant_mention_preference: bool = (
+                        participant_save_data
+                        .network_mining_mentions_enabled)
+                    if participant_mention_preference is True:
+                        allowed_network_mining_mentions_seq.append(participant)
+                    participant_highlights_mention_preference: bool = (
+                        participant_save_data
+                        .network_mining_highlights_mentions_enabled)
+                    if participant_highlights_mention_preference is True:
+                        allowed_network_mining_highlights_mentions_seq.append(
+                            participant)
                     participant_mention: str = participant.mention
                     coins_since_start: int = earnings_since_start[participant]
                     participant_id: int = participant.id
@@ -367,24 +392,40 @@ async def process_reaction(message_id: int,
                     participants_table += (
                         f"{title}: {participant_mention}: "
                         f"{coins_since_start} (+{participant_coins})\n")
+                # The type checker expects the value of the users parameter
+                # to be a boolean or a sequence of snowflakes. In reality, it
+                # does not need to be a proper snowflake, as long as it has
+                # an "id" attribute. Adding diagnostic suppression is the
+                # easiest solution.
+                allowed_network_mining_mentions = (
+                    AllowedMentions(
+                        users=(
+                            allowed_network_mining_mentions_seq
+                        )  # pyright: ignore[reportArgumentType]
+                    ))
+                allowed_network_mining_highlights_mentions = (
+                    AllowedMentions(
+                        users=(allowed_network_mining_highlights_mentions_seq
+                               )  # pyright: ignore[reportArgumentType]
+                    ))
                 receiver_mention: str = receiver.mention
-                mining_update_message_content: str = (
+                mining_update_message_content = (
                     f"A total of {earnings_since_start_total} {coin_label} "
                     f"has been mined for {receiver_mention}'s message!\n"
                     f"{participants_table}")
                 del coin_label
                 forwarded_sender_message = (
                     await sender_message.forward(mining_channel))
-                mining_update_message = (
-                    await mining_channel.send(mining_update_message_content,
-                                              allowed_mentions=(
-                                                  AllowedMentions.none())))
+                await mining_channel.send(
+                    mining_update_message_content,
+                    allowed_mentions=(
+                        allowed_network_mining_mentions))
         if reacters_count >= 5:
             highlights_channel: (VoiceChannel | StageChannel |
-                             ForumChannel | TextChannel |
-                             CategoryChannel | Thread |
-                             PrivateChannel |
-                             None) = g.bot.get_channel(
+                                 ForumChannel | TextChannel |
+                                 CategoryChannel | Thread |
+                                 PrivateChannel |
+                                 None) = g.bot.get_channel(
                 g.mining_highlights_channel_id)
             if highlights_channel is None:
                 print("WARNING: Will not forward mining update "
@@ -399,14 +440,16 @@ async def process_reaction(message_id: int,
                 print("WARNING: Will not forward mining update "
                       "to highlights_channel because "
                       "forwarded_sender_message is None.")
-            elif mining_update_message is None:
+            elif mining_update_message_content is None:
                 print("WARNING: Will not forward mining update "
                       "to highlights_channel because "
-                      "mining_update_message is None.")
+                      "mining_update_message_content is None.")
             else:
                 await forwarded_sender_message.forward(highlights_channel)
-                await mining_update_message.forward(highlights_channel)
-
+                await highlights_channel.send(
+                    mining_update_message_content,
+                    allowed_mentions=(
+                        allowed_network_mining_highlights_mentions))
 
     # region Finalize mining
     # Log the mining

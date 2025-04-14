@@ -66,6 +66,8 @@ class UserSaveData:
         self._reaction_message_received: bool
         self._when_last_bonus_received: float | None
         self._mining_messages_enabled: bool
+        self._network_mining_mentions_enabled: bool
+        self._network_mining_highlights_mentions_enabled: bool
         self._blocked_from_receiving_coins: bool
         self._blocked_from_receiving_coins_reason: str | None
         self._user_name: str
@@ -87,6 +89,8 @@ class UserSaveData:
             self._when_last_bonus_received = None
             self._reaction_message_received = False
             self._mining_messages_enabled = True
+            self._network_mining_mentions_enabled = True
+            self._network_mining_highlights_mentions_enabled = True
             self._blocked_from_receiving_coins = False
             self._blocked_from_receiving_coins_reason = None
             self.create()
@@ -118,6 +122,12 @@ class UserSaveData:
         self._mining_messages_enabled = self._load_value(
             key="mining_messages_enabled",
             expected_type=bool, default=True)
+        self._network_mining_mentions_enabled = self._load_value(
+            key="network_mining_mentions_enabled",
+            expected_type=bool, default=False)
+        self._network_mining_highlights_mentions_enabled = self._load_value(
+            key="network_mining_highlights_mentions_enabled",
+            expected_type=bool, default=False)
         self._blocked_from_receiving_coins = self._load_value(
             key="blocked_from_receiving_coins",
             expected_type=bool, default=False)
@@ -144,10 +154,19 @@ class UserSaveData:
                     ', '.join(t.__name__ for t in expected_type))
             else:
                 expected_type_name: str = expected_type.__name__
-            print(f"ERROR: Value of '{key}' ('{value}') does not match "
-                  f"the expected type. Found '{found_type_name}', expected "
-                  f"'{expected_type_name}'. "
-                  f"Setting to default value {default}.")
+            if value is None:
+                print(f"ERROR: Value of '{key}' ('{value}') does not match "
+                    f"the expected type. Found '{found_type_name}', expected "
+                    f"'{expected_type_name}'. "
+                    f"If the value is None, it likely means that the "
+                    f"key '{key}' does not exist. The save file was likely "
+                    "created before this key was added to the code. "
+                    f"Returning default value {default}.")
+            else:
+                print(f"ERROR: Value of '{key}' ('{value}') does not match "
+                    f"the expected type. Found '{found_type_name}', expected "
+                    f"'{expected_type_name}'. "
+                     f"Returning default value {default}.")
             return default
 
     @property
@@ -224,6 +243,36 @@ class UserSaveData:
         """
         self._mining_messages_enabled = value
         self.save("mining_messages_enabled", value)
+
+    @property
+    def network_mining_mentions_enabled(self) -> bool:
+        """
+        Indicates if the user has enabled network mining mentions.
+        """
+        return self._network_mining_mentions_enabled
+    
+    @network_mining_mentions_enabled.setter
+    def network_mining_mentions_enabled(self, value: bool) -> None:
+        """
+        Sets the user's preference for network mining mentions.
+        """
+        self._network_mining_mentions_enabled = value
+        self.save("network_mining_mentions_enabled", value)
+
+    @property
+    def network_mining_highlights_mentions_enabled(self) -> bool:
+        """
+        Indicates if the user has enabled network mining highlights mentions.
+        """
+        return self._network_mining_highlights_mentions_enabled
+    
+    @network_mining_highlights_mentions_enabled.setter
+    def network_mining_highlights_mentions_enabled(self, value: bool) -> None:
+        """
+        Sets the user's preference for network mining highlights mentions.
+        """
+        self._network_mining_highlights_mentions_enabled = value
+        self.save("network_mining_highlights_mentions_enabled", value)
 
     @property
     def blocked_from_receiving_coins(self) -> bool:

@@ -63,7 +63,11 @@ class BotConfiguration:
             "casino_house_id": 0,
             "administrator_id": 0,
             "casino_channel_id": 0,
+            "mining_highlights_channel_id": 0,
+            "mining_highlights_channel_name": (
+                "the network mining highlights channel"),
             "mining_updates_channel_id": 0,
+            "mining_updates_channel_name": "the network mining channel",
             "blockchain_name": "blockchain",
             "Blockchain_name": "Blockchain",
             "network_mining_enabled": True,
@@ -92,8 +96,12 @@ class BotConfiguration:
                     self.configuration["casino_channel_id"])
                 self.mining_updates_channel_id: int = (
                     self.configuration["mining_updates_channel_id"])
+                self.mining_updates_channel_name: str = (
+                    self.configuration["mining_updates_channel_name"])
                 self.mining_highlights_channel_id: int = (
                     self.configuration["mining_highlights_channel_id"])
+                self.mining_highlights_channel_name: str = (
+                    self.configuration["mining_highlights_channel_name"])
                 self.network_mining_enabled: bool = (
                     self.configuration["network_mining_enabled"])
                 self.blockchain_name: str = (
@@ -208,7 +216,10 @@ def invoke_bot_configuration() -> None:
     g.administrator_id = configuration.administrator_id
     g.casino_channel_id = configuration.casino_channel_id
     g.mining_updates_channel_id = configuration.mining_updates_channel_id
+    g.mining_updates_channel_name = configuration.mining_updates_channel_name
     g.mining_highlights_channel_id = configuration.mining_highlights_channel_id
+    g.mining_highlights_channel_name = (
+        configuration.mining_highlights_channel_name)
     g.blockchain_name = configuration.blockchain_name
     g.Blockchain_name = configuration.Blockchain_name
     g.network_mining_enabled = configuration.network_mining_enabled
