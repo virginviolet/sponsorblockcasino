@@ -10,6 +10,7 @@ from discord import Interaction, app_commands, User, Member
 # Local
 import core.global_state as g
 from bot_configuration import invoke_bot_configuration
+from models.message_mining_registry import MessageMiningRegistryManager
 from models.slot_machine import SlotMachine
 from models.grifter_suppliers import GrifterSuppliers
 from models.transfers_waiting_approval import TransfersWaitingApproval
@@ -50,6 +51,7 @@ async def reboot(interaction: Interaction,
     g.slot_machine = SlotMachine()
     g.grifter_suppliers = GrifterSuppliers()
     g.transfers_waiting_approval = TransfersWaitingApproval()
+    g.message_mining_registry = MessageMiningRegistryManager()
 
     # Remove invoker from active players in case they are stuck in it
     # Multiple checks are put in place to prevent cheating

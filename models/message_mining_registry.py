@@ -50,9 +50,11 @@ class MessageMiningRegistryManager:
 
         :param message_mining_registry_path: Path to the messages mined for file.
         """
+        print("Starting the mining registry manager...")
         self.registry_path: Path = Path(registry_path)
         self.messages: Dict[str, MessageMiningTimeline] = (
             self.load_messages())
+        print("Mining registry manager started.")
 
     def load_messages(self) -> Dict[str, MessageMiningTimeline]:
         """
