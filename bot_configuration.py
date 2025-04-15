@@ -74,7 +74,8 @@ class BotConfiguration:
             "grifter_swap_id": 0,
             "sbcoin_id": 0,
             "auto_approve_transfer_limit": 0,
-            "aml_office_thread_id": 0
+            "aml_office_thread_id": 0,
+            "reaction_messages_enabled": True
         }
         attributes_set = False
         while attributes_set is False:
@@ -116,6 +117,8 @@ class BotConfiguration:
                     self.configuration["auto_approve_transfer_limit"])
                 self.aml_office_thread_id: int = (
                     self.configuration["aml_office_thread_id"])
+                self.reaction_messages_enabled: bool = (
+                    self.configuration["reaction_messages_enabled"])
                 attributes_set = True
             except KeyError as e:
                 print(f"ERROR: Missing key in bot configuration: {e}\n"
@@ -229,4 +232,5 @@ def invoke_bot_configuration() -> None:
         configuration.auto_approve_transfer_limit)
     g.aml_office_thread_id = (
         configuration.aml_office_thread_id)
+    g.reaction_messages_enabled = configuration.reaction_messages_enabled
     print("Bot configuration loaded.")

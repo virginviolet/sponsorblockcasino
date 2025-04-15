@@ -31,6 +31,7 @@ class BotConfig(TypedDict):
     sbcoin_id: int
     auto_approve_transfer_limit: int
     aml_office_thread_id: int
+    reaction_messages_enabled: bool
 
 
 @dataclass(frozen=True)
