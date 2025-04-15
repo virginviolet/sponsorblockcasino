@@ -4,7 +4,7 @@ from random import shuffle
 from typing import List, Literal, Sequence
 
 # Third party
-from discord import (Member, Message, Emoji, PartialEmoji, User, TextChannel,
+from discord import (Member, Message, Emoji, PartialEmoji, Permissions, User, TextChannel,
                      VoiceChannel, CategoryChannel, ForumChannel, StageChannel,
                      Thread, Guild, AllowedMentions)
 from discord.abc import PrivateChannel
@@ -112,6 +112,9 @@ async def process_reaction(message_id: int,
     sender_mention: str = sender.mention
     sender_global_name: str | None = sender.global_name
     mined_for_log_message: str
+    bot_can_read_history: bool | None = None
+    bot_can_read_messages: bool | None = None
+    
 
     if channel is None:
         raise ValueError("ERROR: Could not process reaction because "
@@ -122,6 +125,20 @@ async def process_reaction(message_id: int,
         return
 
     if sender_message is None:
+        # TODO Check which permissions are needed to fetch a message
+        bot_channel_permissions: Permissions = channel.permissions_for(channel.guild.me)
+        bot_can_read_history = bot_channel_permissions.read_message_history
+        if not bot_can_read_history:
+            print("WARNING: Will not send introduction message "
+                  "because bot does not have permission to read message "
+                  f"history in channel {channel}.")
+            return
+        bot_can_read_messages = bot_channel_permissions.read_messages
+        if not bot_can_read_messages:
+            print("WARNING: Will not send introduction message "
+                  "because bot does not have permission to read messages "
+                  f"in channel {channel}.")
+            return
         try:
             sender_message = await channel.fetch_message(message_id)
         except Exception as e:
@@ -523,6 +540,46 @@ async def process_reaction(message_id: int,
         raise ValueError("ERROR: casino_channel is a private channel.")
     elif casino_channel is None:
         raise ValueError("ERROR: casino_channel is None.")
+    if bot_can_read_history is not False:
+        bot_can_read_history = (
+            channel.permissions_for(channel.guild.me).read_message_history)
+    if not bot_can_read_history:
+        print("WARNING: Will not send introduction message "
+                "because bot does not have permission to read message "
+                f"history in channel {channel}.")
+        return
+    if bot_can_read_messages is not False:
+        bot_can_read_messages = (
+            channel.permissions_for(channel.guild.me).read_messages)
+    if not bot_can_read_messages:
+        print("WARNING: Will not send introduction message "
+                "because bot does not have permission to read messages "
+                f"in channel {channel}.")
+        return
+    bot_can_send_messages: bool
+    if isinstance(channel, Thread):
+        bot_can_send_messages = (
+            channel.permissions_for(
+                channel.guild.me).send_messages_in_threads)
+        if not bot_can_send_messages:
+            print("WARNING: Will not send introduction message "
+                    "because bot does not have permission to send messages "
+                    f"in threads in channel {channel}.")
+            return
+    else:
+        bot_can_send_messages: bool = (
+            channel.permissions_for(channel.guild.me).send_messages)
+        if not bot_can_send_messages:
+            print("WARNING: Will not send introduction message "
+                    "because bot does not have permission to send messages "
+                    f"in channel {channel}.")
+            return
+    try:
+        await channel.fetch_message(message_id)
+    except Exception as e:
+        raise ValueError(
+            f"Could not fetch message {message_id} from "
+            f"channel {channel}: {e}")
     # Check if the receiver has permission to read messages in the channel
     # (if not, the bot will not reply to them and the user's save data will
     # not be changed)
@@ -558,8 +615,13 @@ async def process_reaction(message_id: int,
                             f"mined a {g.coin} for you! "
                             f"Enter {about_command_formatted} "
                             "in the chat box to learn more.")
-    await sender_message.reply(message_content,
-                               allowed_mentions=AllowedMentions.none())
+                            
+    try:
+        await sender_message.reply(message_content,
+                                   allowed_mentions=AllowedMentions.none())
+    except Exception as e:
+        raise ValueError(
+            f"Could not send introduction message to {receiver}: {e}")
     del sender_message
     del message_content
     del channel
