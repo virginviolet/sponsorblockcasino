@@ -15,7 +15,6 @@ from discord.reaction import Reaction
 from sponsorblockcasino_types import ReactionUser
 import core.global_state as g
 from core.terminate_bot import terminate_bot
-from sponsorblockchain.models.blockchain import Blockchain
 from models.log import Log
 from models.message_mining_registry import MessageMiningRegistryManager
 from models.user_save_data import UserSaveData
@@ -53,8 +52,9 @@ async def process_reaction(message_id: int,
     # TODO Update docstring
     # region Assertions
     assert isinstance(g.bot, Bot), "g.bot has not been initialized."
-    assert isinstance(g.blockchain, Blockchain), (
-        "g.blockchain has not been initialized.")
+    assert g.blockchain is not None and hasattr(
+        g.blockchain, "add_block"), (
+            "g.blockchain has not been initialized.")
     assert isinstance(g.log, Log), "g.log has not been initialized."
     assert isinstance(g.message_mining_registry,
                       MessageMiningRegistryManager), (
