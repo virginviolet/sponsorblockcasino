@@ -3,8 +3,7 @@
 from discord import (Interaction, PartialEmoji, TextChannel, VoiceChannel,
                      CategoryChannel, ForumChannel, StageChannel, Thread)
 from discord.abc import PrivateChannel
-# pyright: ignore [reportMissingTypeStubs]
-from discord.ext.commands import Bot
+from discord.ext.commands import Bot # pyright: ignore [reportMissingTypeStubs]
 
 # Local
 import core.global_state as g
@@ -76,36 +75,24 @@ async def about_coin(interaction: Interaction) -> None:
         f"stand a chance to earn some {g.coins} yourself. This is called "
         "network mining.\n"
         "It works like this:\n"
-        f"The first time a message gets a {coin_emoji} reaction, the message "
-        f"author gets one {g.coin}. The contributor (the user who added the "
-        f"reaction) gets 0 {g.coins} this time.\n"
-        f"The second time a message gets a {coin_emoji} reaction, the message "
-        f"author gets 2 {g.coins} and the first contributor gets 1 {g.coin}. "
-        f"The new contributor gets 0 {g.coins}.\n"
-        f"The third time a message gets a {coin_emoji} reaction, the message "
-        f"author gets 3 {g.coins}, the first contributor gets 2 {g.coins}, the "
-        f"second contributor gets 1 {g.coin}, and the new contributor gets 0 "
-        f"{g.coins}.\n"
-        "And so on.\n"
-        "The earlier you are to react, the more you may earn.\n"
-        "Another way to put it: each time a message gets a "
-        f"{coin_emoji} reaction, each participant gets a number of coins "
-        "equal to the number of contributors minus the participant's position "
-        "in the list of participants (the message author has position 0, the "
-        "first contributor has position 1, the second has position 2, and so "
-        "on). More formally: the amount of coins you receive is\n"
-        "*n* - *i*, "
+        f"The more {coin_emoji} reactions a message has, the more coins are "
+        f"mined when the next person adds their {coin_emoji} reaction to it.\n"
+        "The coins are distributed to the message author and everyone who "
+        "added a reaction to the message before the new contributor.\n"
+        "The message author always gets the most coins, and the first "
+        "contributor gets the second most. The earlier you are to react, "
+        "the more coins you stand to gain.\n"
+        "More precisely: the amount of coins you receive is\n"
+        "*n* - *i*\n"
         "where *n* is the number of contributors, and *i* is your position in "
-        "the list.\n"
-        "The total amount of coins mined is always a so-called "
-        "[triangular number](https://en.wikipedia.org/wiki/Triangular_number"
-        ").\n"
-        "When a message gets two or more reactions, the bot will send a "
-        f"message in {mining_channel_mention}, reporting on the progress.\n"
-        "If a message gets 5 or more reactions, the bot will send a message "
-        f"in {mining_highlights_channel_mention}.\n"
-        "If you want to get notified of mining updates that concern you, you "
-        "can type\n"
+        "the list of participants. In the list of participants, the "
+        "message author has position 0. The first contributor has position 1, "
+        "the second contributor is position 2, and so on.\n"
+        f"The bot reports on network mining in {mining_channel_mention}.\n"
+        "If a message gets 5 or more reactions, the the report will be sent "
+        f"to {mining_highlights_channel_mention} as well.\n"
+        "If you want to get notified of mining updates that concern you, "
+        "type\n"
         "`/mining settings enable_network_mining_mention: True`.\n"
         "If you want notifications for "
         f"{mining_highlights_channel_mention}, type\n"
@@ -118,7 +105,7 @@ async def about_coin(interaction: Interaction) -> None:
         f"{casino_channel_mention} some time. You can play on the slot "
         "machines there with the `/slots insert_coins` command.\n"
         "If you want to know more about how the slot machine game works, \n"
-        "type "
+        "type \n"
         "`/slots show_help`.")
     await interaction.response.send_message(message_1_content, ephemeral=True)
     await interaction.followup.send(message_2_content, ephemeral=True)
