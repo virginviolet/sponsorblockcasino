@@ -396,13 +396,13 @@ async def process_reaction(message_id: int,
                         participant_save_data
                         .network_mining_mentions_enabled)
                     if ((participant_mention_preference is True) and
-                            (participant_id != message_author_id)):
+                            (participant_id != reacter_id)):
                         allowed_network_mining_mentions_seq.append(participant)
                     participant_highlights_mention_preference: bool = (
                         participant_save_data
                         .network_mining_highlights_mentions_enabled)
                     if ((participant_highlights_mention_preference is True) and
-                            (participant_id != message_author_id)):
+                            (participant_id != reacter_id)):
                         allowed_network_mining_highlights_mentions_seq.append(
                             participant)
                     participant_mention: str = participant.mention
