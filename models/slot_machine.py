@@ -116,6 +116,8 @@ class SlotMachine:
                 self.header: str = f"### {Coin} Slot Machine"
                 self.next_bonus_wait_seconds: int = (
                     self.configuration["new_bonus_wait_seconds"])
+                self.starting_bonus_die_enabled: bool = (
+                    self.configuration["starting_bonus_die_enabled"])
                 attributes_set = True
             except KeyError as e:
                 print(f"ERROR: Missing key in slot machine configuration: {e}\n"
@@ -321,7 +323,8 @@ class SlotMachine:
                 }
             },
             "jackpot_pool": 0,
-            "new_bonus_wait_seconds": 86400
+            "new_bonus_wait_seconds": 86400,
+            "starting_bonus_die_enabled": False
         }
         # Save the configuration to the file
         with open(self.file_name, "w") as file:

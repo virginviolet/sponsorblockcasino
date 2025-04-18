@@ -103,6 +103,7 @@ class SlotMachineConfig(TypedDict):
     fees: dict[str, int | float]
     jackpot_pool: int
     new_bonus_wait_seconds: int
+    starting_bonus_die_enabled: bool
 
 
 class SaveData(TypedDict):

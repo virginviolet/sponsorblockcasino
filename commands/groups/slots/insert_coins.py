@@ -248,40 +248,84 @@ async def insert_coins(interaction: Interaction,
         main_bonus_requirements_passed and not is_grifter_supplier)
     if should_give_bonus:
         # Send message to inform user of starting bonus
-        starting_bonus_awards: Dict[int, int] = {
-            1: 50, 2: 100, 3: 200, 4: 300, 5: 400, 6: 500}
-        starting_bonus_table: str = "> **Die roll**\t**Amount**\n"
-        for die_roll, resulting_amount in starting_bonus_awards.items():
-            starting_bonus_table += f"> {die_roll}\t\t\t\t{resulting_amount}\n"
-        message_preamble: str
-        if has_played_before:
-            message_preamble = (f"Welcome back! You spent all your {g.coins} "
-                                "and we want to give you another chance.\n"
-                                f"Roll the die and we will give you a bonus.")
-        else:
-            message_preamble = (f"Welcome to the {g.Coin} Casino! This seems "
-                                "to be your first time here.\n"
-                                "A standard 6-sided die will decide your "
-                                "starting bonus.")
-        # TODO Move the table to a separate message
-        message_content: str = (f"{message_preamble}\n"
-                                "The possible outcomes "
-                                "are displayed below.\n\n"
-                                f"{starting_bonus_table}")
-
-        starting_bonus_view = (
-            StartingBonusView(invoker=user,
-                              starting_bonus_awards=starting_bonus_awards,
-                              save_data=save_data,
-                              interaction=interaction))
-        await interaction.response.send_message(content=message_content,
-                                                view=starting_bonus_view)
-        wait: bool = await starting_bonus_view.wait()
-        timed_out: bool = wait is True
-        if not timed_out:
+        if g.slot_machine.starting_bonus_die_enabled is False:
+            bonus_amount: int = save_data.starting_bonus_level * 10
+            message_content: str
+            coin_label_b: str = format_coin_label(bonus_amount)
+            if has_played_before:
+                message_content = (
+                    f"Welcome back! You spent all your {coin_label_b}, "
+                    "and now it is time to get back in the game!\n"
+                    f"As a special bonus, we're giving you "
+                    f"{bonus_amount} {coin_label_b}.\n"
+                    "Remember, the next time you run out of coins, "
+                    "your bonus will be even bigger!")
+            else:
+                message_content = (
+                    f"Welcome to the {g.Coin} Casino. It looks like this "
+                    "is your first visit—how exciting!\n"
+                    f"As a special welcome gift, we're giving you "
+                    f"{bonus_amount} {coin_label_b} to kick off your journey.\n"
+                    "Each time you run out of coins, "
+                    "we'll reward you with even bigger bonuses.\n"
+                    "Now, go ahead and play on the slot machines!")
+            del coin_label_b
+            await interaction.response.send_message(
+                content=message_content, ephemeral=should_use_ephemeral)
+            await add_block_transaction(blockchain=g.blockchain,
+                                        sender=g.casino_house_id,
+                                        receiver=user,
+                                        amount=bonus_amount,
+                                        method="starting_bonus")
+            last_block_timestamp: float | None = get_last_block_timestamp()
+            if last_block_timestamp is None:
+                print("ERROR: Could not get last block timestamp.")
+                await terminate_bot()
+            g.log.log(
+                line=(f"{user} ({user_id}) received "
+                      f"{bonus_amount} {g.coins} as a special bonus."),
+                timestamp=last_block_timestamp)
+            save_data.when_last_bonus_received = last_block_timestamp
+            del last_block_timestamp
+            save_data.starting_bonus_available = False
             save_data.has_visited_casino = True
-            current_time: float = time()
-            save_data.when_last_bonus_received = current_time
+            save_data.starting_bonus_level += 1
+        else:
+            starting_bonus_awards: Dict[int, int] = {
+                1: 50, 2: 100, 3: 200, 4: 300, 5: 400, 6: 500}
+            starting_bonus_table: str = "> **Die roll**\t**Amount**\n"
+            for die_roll, resulting_amount in starting_bonus_awards.items():
+                starting_bonus_table += f"> {die_roll}\t\t\t\t{resulting_amount}\n"
+            message_preamble: str
+            if has_played_before:
+                message_preamble = (
+                    f"Welcome back! You spent all your {g.coins} and we want "
+                    "to give you another chance.\n"
+                    f"Roll the die and we will give you a bonus.")
+            else:
+                message_preamble = (
+                    f"Welcome to the {g.Coin} Casino! This seems to be your "
+                    "first time here.\n"
+                    "A standard 6-sided die will decide your starting bonus.")
+            # TODO Move the table to a separate message
+            message_content: str = (f"{message_preamble}\n"
+                                    "The possible outcomes "
+                                    "are displayed below.\n\n"
+                                    f"{starting_bonus_table}")
+
+            starting_bonus_view = (
+                StartingBonusView(invoker=user,
+                                  starting_bonus_awards=starting_bonus_awards,
+                                  save_data=save_data,
+                                  interaction=interaction))
+            await interaction.response.send_message(content=message_content,
+                                                    view=starting_bonus_view)
+            wait: bool = await starting_bonus_view.wait()
+            timed_out: bool = wait is True
+            if not timed_out:
+                save_data.has_visited_casino = True
+                current_time: float = time()
+                save_data.when_last_bonus_received = current_time
         await remove_from_active_players(interaction, user_id)
         return
 
@@ -385,7 +429,8 @@ async def insert_coins(interaction: Interaction,
             if button_clicked:
                 buttons_clicked_count += 1
         # Cast to int because Pylance thinks that the variable can only be 0
-        buttons_clicked_count = cast(int, buttons_clicked_count)
+        # Now it doesn't think that anymore
+        # buttons_clicked_count = cast(int, buttons_clicked_count)
         user_irresonsive = buttons_clicked_count == 0
         all_buttons_clicked = buttons_clicked_count == 3
         user_stopped_clicking = (
@@ -574,13 +619,11 @@ async def insert_coins(interaction: Interaction,
             # flip to positive value (transferring a negative amount would mean
             # reducing the receiver's balance)
             transfer_amount = -net_return
-        await add_block_transaction(
-            blockchain=g.blockchain,
-            sender=sender,
-            receiver=receiver,
-            amount=transfer_amount,
-            method="slot_machine"
-        )
+        await add_block_transaction(blockchain=g.blockchain,
+                                    sender=sender,
+                                    receiver=receiver,
+                                    amount=transfer_amount,
+                                    method="slot_machine")
         del sender
         del receiver
         del transfer_amount
@@ -607,6 +650,7 @@ async def insert_coins(interaction: Interaction,
         invoker: str = user.mention
         all_grifter_suppliers: List[int] = g.grifter_suppliers.suppliers
         is_grifter_supplier: bool = user_id in all_grifter_suppliers
+        message_content: str
         if is_grifter_supplier:
             message_content = (
                 f"{invoker} You're all out of {g.coins}!\n"
@@ -620,20 +664,19 @@ async def insert_coins(interaction: Interaction,
                 "use `!suppliers` to prove you're no longer a supplier.")
             await interaction.followup.send(content=message_content,
                                             ephemeral=should_use_ephemeral)
-            del message_content
         else:
-            message_content: str = (f"{invoker} You're all out of {g.coins}!\n"
-                                    f"Come back in {next_bonus_time_left} "
-                                    "for a new starting bonus.")
+            message_content = (f"{invoker} You're all out of {g.coins}!\n"
+                               f"Come back in {next_bonus_time_left} "
+                               "for a new starting bonus.")
             del next_bonus_time_left
             await interaction.followup.send(content=message_content,
                                             ephemeral=should_use_ephemeral)
-            del message_content
             next_bonus_point_in_time: float = (
                 time() + g.slot_machine.next_bonus_wait_seconds)
             save_data.starting_bonus_available = next_bonus_point_in_time
             del next_bonus_point_in_time
-
+        del message_content
+        
     if user_id in g.active_slot_machine_players:
         await remove_from_active_players(interaction, user_id)
 

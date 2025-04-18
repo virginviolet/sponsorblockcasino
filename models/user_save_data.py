@@ -61,16 +61,17 @@ class UserSaveData:
         # print("Initializing save data...")
         self.user_id: int = user_id
         self.file_name: str = f"data/save_data/{user_id}/save_data.json"
+        self._user_name: str
         self._starting_bonus_available: bool | float
         self._has_visited_casino: bool
         self._reaction_message_received: bool
         self._when_last_bonus_received: float | None
+        self._starting_bonus_level: int
         self._mining_messages_enabled: bool
         self._network_mining_mentions_enabled: bool
         self._network_mining_highlights_mentions_enabled: bool
         self._blocked_from_receiving_coins: bool
         self._blocked_from_receiving_coins_reason: str | None
-        self._user_name: str
         file_exists: bool = exists(self.file_name)
         file_empty: bool | None = None
         file_size: int
@@ -87,6 +88,7 @@ class UserSaveData:
             self._has_visited_casino = False
             self._starting_bonus_available = True
             self._when_last_bonus_received = None
+            self._starting_bonus_level = 1
             self._reaction_message_received = False
             self._mining_messages_enabled = True
             self._network_mining_mentions_enabled = True
@@ -116,6 +118,9 @@ class UserSaveData:
         self._when_last_bonus_received = self._load_value(
             key="when_last_bonus_received",
             expected_type=(float, type(None)), default=None)
+        self._starting_bonus_level = (self._load_value(
+            key="starting_bonus_level",
+            expected_type=int, default=0))
         self._reaction_message_received = self._load_value(
             key="reaction_message_received",
             expected_type=bool, default=False)
@@ -213,6 +218,21 @@ class UserSaveData:
         """
         self._when_last_bonus_received = value
         self.save("when_last_bonus_received", value)
+
+    @property
+    def starting_bonus_level(self) -> int:
+        """
+        Indicates the starting bonus level of the user.
+        """
+        return self._starting_bonus_level
+    
+    @starting_bonus_level.setter
+    def starting_bonus_level(self, value: int) -> None:
+        """
+        Sets the starting bonus level of the user.
+        """
+        self._starting_bonus_level = value
+        self.save("starting_bonus_level", value)
 
     @property
     def reaction_message_received(self) -> bool:

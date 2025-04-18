@@ -108,9 +108,9 @@ class StartingBonusView(View):
             self.die_button.disabled = True
             await interaction.response.edit_message(view=self)
             die_roll: int = random.randint(1, 6)
-            starting_bonus: int = self.starting_bonus_awards[die_roll]
+            bonus_amount: int = self.starting_bonus_awards[die_roll]
             message_content: str = (
-                f"You rolled a {die_roll} and won {starting_bonus} {g.coins}!\n"
+                f"You rolled a {die_roll} and won {bonus_amount} {g.coins}!\n"
                 "You may now play on the slot machines. Good luck!")
             await interaction.followup.send(message_content)
             del message_content
@@ -118,7 +118,7 @@ class StartingBonusView(View):
                 blockchain=g.blockchain,
                 sender=g.casino_house_id,
                 receiver=self.invoker,
-                amount=starting_bonus,
+                amount=bonus_amount,
                 method="starting_bonus"
             )
             self.save_data.starting_bonus_available = False
@@ -128,7 +128,7 @@ class StartingBonusView(View):
                 await terminate_bot()
             g.log.log(
                 line=(f"{self.invoker} ({self.invoker_id}) won "
-                      f"{starting_bonus} {g.coins} from the starting bonus."),
+                      f"{bonus_amount} {g.coins} from the starting bonus."),
                 timestamp=last_block_timestamp)
             del last_block_timestamp
             self.stop()
