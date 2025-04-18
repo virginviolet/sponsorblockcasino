@@ -410,7 +410,7 @@ async def process_reaction(message_id: int,
                     participant_id: int = participant.id
                     title: str = ("Author"
                                   if participant_id == message_author_id
-                                  else f"Miner #{i}")
+                                  else f"Contributor #{i}")
                     participants_table += (
                         f"{title}: {participant_mention}: "
                         f"{coins_since_start} (+{participant_coins})\n")
