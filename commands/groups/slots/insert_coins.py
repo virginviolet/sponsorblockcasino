@@ -249,7 +249,9 @@ async def insert_coins(interaction: Interaction,
     if should_give_bonus:
         # Send message to inform user of starting bonus
         if g.slot_machine.starting_bonus_die_enabled is False:
-            bonus_amount: int = save_data.starting_bonus_level * 10
+            bonus_level: int = save_data.starting_bonus_level
+            bonus_amount: int = (save_data.starting_bonus_level * 10) if (
+                bonus_level > 0) else 10
             message_content: str
             coin_label_b: str = format_coin_label(bonus_amount)
             if has_played_before:
