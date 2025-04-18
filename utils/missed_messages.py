@@ -86,11 +86,11 @@ async def process_missed_messages(limit: int | None = None) -> None:
                                     reaction.emoji)
                                 await process_reaction(message_id=message_id,
                                                        emoji=emoji,
-                                                       sender=sender,
-                                                       receiver=receiver,
+                                                       reacter=sender,
+                                                       message_author=receiver,
                                                        channel_id=channel_id,
                                                        channel=channel,
-                                                       sender_message=message,
+                                                       reacter_message=message,
                                                        greet_new_players=False)
                     del message_id
             except Exception as e:

@@ -4,9 +4,9 @@ from random import shuffle
 from typing import List, Literal, Sequence
 
 # Third party
-from discord import (Member, Message, Emoji, PartialEmoji, Permissions, User, TextChannel,
-                     VoiceChannel, CategoryChannel, ForumChannel, StageChannel,
-                     Thread, Guild, AllowedMentions)
+from discord import (Member, Message, Emoji, PartialEmoji, Permissions, User,
+                     TextChannel, VoiceChannel, CategoryChannel, ForumChannel,
+                     StageChannel, Thread, Guild, AllowedMentions)
 from discord.abc import PrivateChannel
 from discord.ext.commands import Bot  # type: ignore
 from discord.reaction import Reaction
@@ -28,25 +28,25 @@ from utils.formatting import format_coin_label
 
 async def process_reaction(message_id: int,
                            emoji: PartialEmoji | Emoji | str,
-                           sender: Member | User,
+                           reacter: Member | User,
                            channel_id: int,
-                           sender_message: Message | None = None,
+                           reacter_message: Message | None = None,
                            channel: (VoiceChannel | StageChannel |
                                      ForumChannel | TextChannel |
                                      CategoryChannel | Thread |
                                      PrivateChannel | None) = None,
-                           receiver: Member | User | None = None,
-                           receiver_id: int | None = None,
+                           message_author: Member | User | None = None,
+                           message_author_id: int | None = None,
                            timestamp: float | None = None,
                            greet_new_players: bool = True) -> None:
     """
-    Processes a reaction event to mine a coin for a receiver.
+    Processes a reaction event to possibly mine a coin for a message author.
 
     Args:
         emoji: The emoji used in the reaction.
-        sender: The user who added the reaction.
-        receiver: The user who receives the coin. Defaults to None.
-        receiver_id: The ID of the user who receives the coin. Defaults
+        reacter: The user who added the reaction.
+        message_author: The user who receives the coin. Defaults to None.
+        message_author_id: The ID of the user who receives the coin. Defaults
             to None.
     """
     # TODO Update docstring
@@ -75,47 +75,46 @@ async def process_reaction(message_id: int,
     if emoji_id != g.coin_emoji_id:
         return
 
-    if receiver is None:
-        # Get receiver from id
-        if receiver_id is not None:
-            receiver = await g.bot.fetch_user(receiver_id)
+    if message_author is None:
+        # Get message author from id
+        if message_author_id is not None:
+            message_author = await g.bot.fetch_user(message_author_id)
         else:
-            raise ValueError("Receiver is None.")
+            raise ValueError("message_author_id is None.")
     else:
-        receiver_id = receiver.id
+        message_author_id = message_author.id
 
     # Common variables (1/3)
-    sender_id: int = sender.id
+    reacter_id: int = reacter.id
 
-    if sender_id == receiver_id:
+    if reacter_id == message_author_id:
         return
 
     # Common variables (2/3)
-    sender_name: str = sender.name
-    sender_save_data: UserSaveData = UserSaveData(
-        user_id=sender_id, user_name=sender_name)
+    reacter_name: str = reacter.name
+    reacter_save_data: UserSaveData = UserSaveData(
+        user_id=reacter_id, user_name=reacter_name)
 
     # Check if the user has mined for the message already
     message_mined_data: str | List[int] | bool | float | None = (
-        sender_save_data.load("messages_mined"))
+        reacter_save_data.load("messages_mined"))
     message_mined: List[int] = (
         message_mined_data if isinstance(message_mined_data, list) else [])
     if message_id in message_mined:
         return
 
     # Common variables (3/3)
-    receiver_name: str = receiver.name
+    message_author_name: str = message_author.name
     if channel is None:
         channel = g.bot.get_channel(channel_id)
     last_block_timestamp: float | None = None
     log_messages: dict[float | None, str] = {}
-    sender_mention: str = sender.mention
-    sender_global_name: str | None = sender.global_name
+    reacter_mention: str = reacter.mention
+    reacter_global_name: str | None = reacter.global_name
     mined_for_log_message: str
     bot_channel_permissions: Permissions | None = None
     bot_can_read_history: bool | None = None
     bot_can_read_messages: bool | None = None
-    
 
     if channel is None:
         raise ValueError("ERROR: Could not process reaction because "
@@ -125,7 +124,7 @@ async def process_reaction(message_id: int,
               f"Skipping reaction because channel is {type(channel)}.")
         return
 
-    if sender_message is None:
+    if reacter_message is None:
         # TODO Check which permissions are needed to fetch a message
         bot_channel_permissions = channel.permissions_for(channel.guild.me)
         bot_can_read_history = bot_channel_permissions.read_message_history
@@ -141,7 +140,7 @@ async def process_reaction(message_id: int,
                   f"in channel {channel}.")
             return
         try:
-            sender_message = await channel.fetch_message(message_id)
+            reacter_message = await channel.fetch_message(message_id)
         except Exception as e:
             raise ValueError("ERROR: "
                              f"Could not fetch message {message_id}: {e}")
@@ -152,24 +151,25 @@ async def process_reaction(message_id: int,
     # Doing this before rather than after the transaction
     # as an anti-cheating precaution
     message_mined.append(message_id)
-    sender_save_data.save(key="messages_mined", value=message_mined)
+    reacter_save_data.save(key="messages_mined", value=message_mined)
     # endregion
 
     if g.network_mining_enabled is False:
         # region Classic mining
-        print(f"{sender} ({sender_id}) is mining 1 {g.coin} "
-              f"for {receiver} ({receiver_id})...")
+        print(f"{reacter} ({reacter_id}) is mining 1 {g.coin} "
+              f"for {message_author} ({message_author_id})...")
 
         await add_block_transaction(blockchain=g.blockchain,
-                                    sender=sender,
-                                    receiver=receiver,
+                                    sender=reacter,
+                                    receiver=message_author,
                                     amount=1,
                                     method="reaction")
 
         # Set variables for logging
         last_block_timestamp = get_last_block_timestamp()
-        mined_for_log_message = (f"{sender} ({sender_id}) mined 1 {g.coin} "
-                                 f"for {receiver} ({receiver_id}).")
+        mined_for_log_message = (f"{reacter} ({reacter_id}) mined 1 {g.coin} "
+                                 f"for {message_author} "
+                                 f"({message_author_id}).")
         log_messages[last_block_timestamp] = mined_for_log_message
         del last_block_timestamp
         del mined_for_log_message
@@ -177,8 +177,8 @@ async def process_reaction(message_id: int,
     else:
         # region Network mining
         print("--------------------")
-        print(f"Miner {sender} ({sender_id}) is mining for "
-              f"{receiver} ({receiver_id}) "
+        print(f"Miner {reacter} ({reacter_id}) is mining for "
+              f"{message_author} ({message_author_id}) "
               f"(message {message_id})...")
 
         # Find any existing miners for the message
@@ -190,7 +190,7 @@ async def process_reaction(message_id: int,
         # sorted chronologically (at least with Discord.py 2.5.2)
         # As missing reactions likely are from before the network mining
         # update, we place them before the new miner
-        reactions: List[Reaction] = sender_message.reactions
+        reactions: List[Reaction] = reacter_message.reactions
         coin_reacters_from_discord: List[Member | User | ReactionUser] = []
         for reaction in reactions:
             reaction_emoji: PartialEmoji | Emoji | str = reaction.emoji
@@ -203,8 +203,8 @@ async def process_reaction(message_id: int,
                 async for user in reaction.users():
                     user_id: int = user.id
                     if ((user_id not in coin_reacters_ids) and
-                        (user_id != receiver_id) and
-                            (user_id != sender_id)):
+                        (user_id != message_author_id) and
+                            (user_id != reacter_id)):
                         coin_reacters_from_discord.append(user)
                 break
         # Randomize the order of the old reacters
@@ -216,47 +216,48 @@ async def process_reaction(message_id: int,
         # (otherwise the reacters are shuffled anew each time a new reaction
         # is added, which would actually be fair, but it would also be
         # confusing for the users)
-        message_timestamp: float = sender_message.created_at.timestamp()
+        message_timestamp: float = reacter_message.created_at.timestamp()
         if timestamp is None:
             raise ValueError("ERROR: Timestamp is None.")
         coin_reacters_from_discord_count: int = len(coin_reacters_from_discord)
-        for i, reacter in enumerate(coin_reacters_from_discord):
-            reacter_id: int = reacter.id
-            reacter_name: str = reacter.name
-            reacter_global_name: str | None = reacter.global_name
-            reacter_mention: str = reacter.mention
-            # Subtract 1 second from the message timestamp for each reacter
+        for i, coin_reacter in enumerate(coin_reacters_from_discord):
+            coin_reacter_id: int = coin_reacter.id
+            coin_reacter_name: str = coin_reacter.name
+            coin_reacter_global_name: str | None = coin_reacter.global_name
+            coin_reacter_mention: str = coin_reacter.mention
+            # Subtract 1 second from the message timestamp
+            # for each coin reacter
             # so that the order is preserved
             seconds_to_subtract: float = coin_reacters_from_discord_count - i
             reaction_timestamp: float = timestamp - seconds_to_subtract
             g.message_mining_registry.add_reaction(
                 message_id=message_id,
                 message_timestamp=message_timestamp,
-                message_author_id=receiver_id,
-                message_author_name=receiver_name,
+                message_author_id=message_author_id,
+                message_author_name=message_author_name,
                 channel_id=channel_id,
-                user_id=reacter_id,
-                user_name=reacter_name,
-                user_global_name=reacter_global_name,
-                user_mention=reacter_mention,
+                user_id=coin_reacter_id,
+                user_name=coin_reacter_name,
+                user_global_name=coin_reacter_global_name,
+                user_mention=coin_reacter_mention,
                 created_at=reaction_timestamp)
         # Add the current reaction to the message mining registry
         g.message_mining_registry.add_reaction(
             message_id=message_id,
             message_timestamp=message_timestamp,
-            message_author_id=receiver_id,
-            message_author_name=receiver_name,
+            message_author_id=message_author_id,
+            message_author_name=message_author_name,
             channel_id=channel_id,
-            user_id=sender_id,
-            user_name=sender_name,
-            user_global_name=sender_global_name,
-            user_mention=sender_mention,
+            user_id=reacter_id,
+            user_name=reacter_name,
+            user_global_name=reacter_global_name,
+            user_mention=reacter_mention,
             created_at=timestamp)
-        sender_reaction_user: ReactionUser = ReactionUser(
-            global_name=sender_global_name,
-            id=sender_id,
-            name=sender_name,
-            mention=sender_mention)
+        reacter_reaction_user: ReactionUser = ReactionUser(
+            global_name=reacter_global_name,
+            id=reacter_id,
+            name=reacter_name,
+            mention=reacter_mention)
         # Only in the edge case that there are existing reacters
         # for the message in the registry _and_ we discover new ones with
         # discord.py does it matter which which list we append first.
@@ -269,8 +270,8 @@ async def process_reaction(message_id: int,
         # and the get_reacters method sorts them for us.
         coin_reacters.extend(coin_reacters_from_registry)
         coin_reacters.extend(coin_reacters_from_discord)
-        coin_reacters.append(sender_reaction_user)
-        coin_reacters_from_registry.append(sender_reaction_user)
+        coin_reacters.append(reacter_reaction_user)
+        coin_reacters_from_registry.append(reacter_reaction_user)
 
         reacters_count: int = len(coin_reacters)
 
@@ -278,14 +279,14 @@ async def process_reaction(message_id: int,
         earnings: dict[Member | User | ReactionUser, int] = {}
         # Add the message author as the first entry
         # (they should get the most coins)
-        earnings[receiver] = 0
+        earnings[message_author] = 0
         for miner in coin_reacters:
             earnings[miner] = 0
         # Add values to the keys in the earnings dictionary
         for i, participant in enumerate(earnings.keys()):
             participant_id: int = participant.id
             # Each subsequent reacter gets one less coin than the previous one
-            # The most recent one (the "sender") gets 0 coins
+            # The most recent one (the "reacter") gets 0 coins
             coins_to_give: int = reacters_count - i
             earnings[participant] = coins_to_give
 
@@ -298,22 +299,22 @@ async def process_reaction(message_id: int,
             participant_name: str = participant.name
             coin_label: str = format_coin_label(coins)
             method: Literal["reaction", "reaction_network"]
-            if participant_id == receiver_id:
+            if participant_id == message_author_id:
                 method = "reaction"
-                print(f"{sender_name} ({sender_id}) is mining "
-                      f"for {receiver_name}, and "
-                      f"author {receiver_name} ({receiver_id}) is "
+                print(f"{reacter_name} ({reacter_id}) is mining "
+                      f"for {message_author_name}, and "
+                      f"author {message_author_name} ({message_author_id}) is "
                       f"earning {coins} {coin_label} "
                       f"(message {message_id})...")
             else:
                 method = "reaction_network"
-                print(f"{sender_name} ({sender_id}) is mining "
-                      f"for {receiver_name}, and "
+                print(f"{reacter_name} ({reacter_id}) is mining "
+                      f"for {message_author_name}, and "
                       f"miner #{i} {participant_name} ({participant_id}) "
                       f"is earning {coins} {coin_label} from having mined for "
                       f"the same message earlier (message {message_id}).")
             await add_block_transaction(blockchain=g.blockchain,
-                                        sender=sender,
+                                        sender=reacter,
                                         receiver=participant,
                                         amount=coins,
                                         method=method)
@@ -324,14 +325,16 @@ async def process_reaction(message_id: int,
                 print("ERROR: Could not get last block timestamp.")
                 await terminate_bot()
             earned_message: str
-            if participant_id == receiver_id:
+            if participant_id == message_author_id:
                 earned_message = (
-                    f"{sender_name} ({sender_id}) mined for {receiver_name}, "
-                    f"and author {receiver_name} ({receiver_id}) "
+                    f"{reacter_name} ({reacter_id}) mined "
+                    f"for {message_author_name}, "
+                    f"and author {message_author_name} ({message_author_id}) "
                     f"earned {coins} {coin_label} (message {message_id}).")
             else:
                 earned_message = (
-                    f"{sender_name} ({sender_id}) mined for {receiver_name}, "
+                    f"{reacter_name} ({reacter_id}) mined "
+                    f"for {message_author_name}, "
                     f"and miner #{i} {participant_name} ({participant_id}) "
                     f"earned {coins} {coin_label} from having mined for the "
                     f"same message earlier (message {message_id}).")
@@ -347,7 +350,7 @@ async def process_reaction(message_id: int,
             AllowedMentions.none())
         allowed_network_mining_highlights_mentions: AllowedMentions = (
             AllowedMentions.none())
-        forwarded_sender_message: Message | None = None
+        forwarded_reacter_message: Message | None = None
         mining_update_message_content: str | None = None
         if reacters_count > 1:
             # Make an update in the mining updates channel
@@ -386,7 +389,7 @@ async def process_reaction(message_id: int,
                 for i, (participant, participant_coins) in enumerate(
                         earnings.items()):
                     participant_id: int = participant.id
-                    if participant_id == sender_id:
+                    if participant_id == reacter_id:
                         continue
                     participant_save_data: UserSaveData = UserSaveData(
                         user_id=participant.id,
@@ -405,7 +408,8 @@ async def process_reaction(message_id: int,
                     participant_mention: str = participant.mention
                     coins_since_start: int = earnings_since_start[participant]
                     participant_id: int = participant.id
-                    title: str = ("Author" if participant_id == receiver_id
+                    title: str = ("Author"
+                                  if participant_id == message_author_id
                                   else f"Miner #{i}")
                     participants_table += (
                         f"{title}: {participant_mention}: "
@@ -426,14 +430,14 @@ async def process_reaction(message_id: int,
                         users=(allowed_network_mining_highlights_mentions_seq
                                )  # pyright: ignore[reportArgumentType]
                     ))
-                receiver_mention: str = receiver.mention
+                message_author_mention: str = message_author.mention
                 mining_update_message_content = (
                     f"A total of {earnings_since_start_total} {coin_label} "
-                    f"has been mined for {receiver_mention}'s message!\n"
+                    f"has been mined for {message_author_mention}'s message!\n"
                     f"{participants_table}")
                 del coin_label
-                forwarded_sender_message = (
-                    await sender_message.forward(mining_channel))
+                forwarded_reacter_message = (
+                    await reacter_message.forward(mining_channel))
                 await mining_channel.send(
                     mining_update_message_content,
                     allowed_mentions=(
@@ -454,16 +458,16 @@ async def process_reaction(message_id: int,
                 print("WARNING: Will not forward mining update "
                       f"to highlights_channel because highlights_channel is "
                       f"{type(highlights_channel)}.")
-            elif forwarded_sender_message is None:
+            elif forwarded_reacter_message is None:
                 print("WARNING: Will not forward mining update "
                       "to highlights_channel because "
-                      "forwarded_sender_message is None.")
+                      "forwarded_reacter_message is None.")
             elif mining_update_message_content is None:
                 print("WARNING: Will not forward mining update "
                       "to highlights_channel because "
                       "mining_update_message_content is None.")
             else:
-                await forwarded_sender_message.forward(highlights_channel)
+                await forwarded_reacter_message.forward(highlights_channel)
                 await highlights_channel.send(
                     mining_update_message_content,
                     allowed_mentions=(
@@ -496,15 +500,17 @@ async def process_reaction(message_id: int,
         await terminate_bot()
 
     if g.network_mining_enabled is True:
-        print(f"Miner {sender_name} ({sender_id}) has mined "
-              f"for {receiver_name} ({receiver_id}) (message {message_id}).")
+        print(f"Miner {reacter_name} ({reacter_id}) has mined "
+              f"for {message_author_name} ({message_author_id}) "
+              f"(message {message_id}).")
         print("--------------------")
     # endregion
 
     # region Info message
-    # Inform receiver about the coin if it's the first time they receive a coin
+    # Inform message_author about the coin
+    # if it's the first time they receive a coin
     if not greet_new_players:
-            return
+        return
     if g.reaction_messages_enabled is False:
         return
     if ((g.coin == "coin") or
@@ -518,7 +524,7 @@ async def process_reaction(message_id: int,
         print(f"casino_channel_id: {g.casino_channel_id}")
         print(f"casino_channel: {g.casino_channel_id}")
         return
-    mining_messages_enabled: bool = sender_save_data.mining_messages_enabled
+    mining_messages_enabled: bool = reacter_save_data.mining_messages_enabled
     about_command_formatted: str | None = (
         g.about_command_formatted)
     if about_command_formatted is None:
@@ -528,11 +534,11 @@ async def process_reaction(message_id: int,
         raise ValueError(error_message)
     if not mining_messages_enabled:
         return
-    save_data_receiver: UserSaveData = UserSaveData(
-        user_id=receiver_id, user_name=receiver_name)
-    del receiver_name
+    save_data_message_author: UserSaveData = UserSaveData(
+        user_id=message_author_id, user_name=message_author_name)
+    del message_author_name
     informed_about_coin_reactions: bool = (
-        save_data_receiver.reaction_message_received)
+        save_data_message_author.reaction_message_received)
     if informed_about_coin_reactions:
         return
     casino_channel: (VoiceChannel | StageChannel | ForumChannel |
@@ -543,21 +549,21 @@ async def process_reaction(message_id: int,
         raise ValueError("ERROR: casino_channel is a private channel.")
     elif casino_channel is None:
         raise ValueError("ERROR: casino_channel is None.")
-    
+
     if bot_channel_permissions is None:
         # TODO Check which permissions are needed to send a message
         bot_channel_permissions = channel.permissions_for(channel.guild.me)
     bot_can_read_history = bot_channel_permissions.read_message_history
     if not bot_can_read_history:
         print("WARNING: Will not send reaction message "
-                "because bot does not have permission to read message "
-                f"history in channel {channel}.")
+              "because bot does not have permission to read message "
+              f"history in channel {channel}.")
         return
     bot_can_read_messages = bot_channel_permissions.read_messages
     if not bot_can_read_messages:
         print("WARNING: Will not send reaction message "
-                "because bot does not have permission to read messages "
-                f"in channel {channel}.")
+              "because bot does not have permission to read messages "
+              f"in channel {channel}.")
         return
     bot_can_send_messages: bool
     if isinstance(channel, Thread):
@@ -566,16 +572,16 @@ async def process_reaction(message_id: int,
                 channel.guild.me).send_messages_in_threads)
         if not bot_can_send_messages:
             print("WARNING: Will not send reaction message "
-                    "because bot does not have permission to send messages "
-                    f"in threads in channel {channel}.")
+                  "because bot does not have permission to send messages "
+                  f"in threads in channel {channel}.")
             return
     else:
         bot_can_send_messages: bool = (
             channel.permissions_for(channel.guild.me).send_messages)
         if not bot_can_send_messages:
             print("WARNING: Will not send reaction message "
-                    "because bot does not have permission to send messages "
-                    f"in channel {channel}.")
+                  "because bot does not have permission to send messages "
+                  f"in channel {channel}.")
             return
     try:
         user_message: Message = await channel.fetch_message(message_id)
@@ -583,51 +589,53 @@ async def process_reaction(message_id: int,
         raise ValueError(
             f"Could not fetch message {message_id} from "
             f"channel {channel}: {e}")
-    # Check if the receiver has permission to read messages in the channel
+    # Check if the message author has permission to read messages in
+    # the channel
     # (if not, the bot will not reply to them and the user's save data will
     # not be changed)
     # The permissions_for() method only works for Member objects,
-    # not User objects, so we need to get the Member object if the receiver
-    # is a User.
-    receiver_member: Member | None
-    if isinstance(receiver, Member):
-        receiver_member = receiver
+    # not User objects, so we need to get the Member object if
+    # the message author is a User.
+    message_author_member: Member | None
+    if isinstance(message_author, Member):
+        message_author_member = message_author
     else:
-        # receiver is a User
+        # message_author is a User
         # Try to get member object from the guild
         if hasattr(channel, "guild"):
             guild: Guild = channel.guild
-            receiver_member = guild.get_member(receiver_id)
+            message_author_member = guild.get_member(message_author_id)
             # If not in cache, fetch from API
-            if receiver_member is None:
-                receiver_member = await guild.fetch_member(receiver_id)
+            if message_author_member is None:
+                message_author_member = (
+                    await guild.fetch_member(message_author_id))
         else:
-            receiver_member = None
-    if receiver_member is None:
-        print("WARNING: Could not get member object for receiver.")
+            message_author_member = None
+    if message_author_member is None:
+        print("WARNING: Could not get member object for message author.")
         return
-    receiver_can_read_messages: bool = (
-        channel.permissions_for(receiver_member).view_channel and
-        channel.permissions_for(receiver_member).read_messages)
-    if not receiver_can_read_messages:
-        print(f"Will not consider replying to {receiver} because "
-                f"they do not have permission to channel {channel}.")
+    author_can_read_messages: bool = (
+        channel.permissions_for(message_author_member).view_channel and
+        channel.permissions_for(message_author_member).read_messages)
+    if not author_can_read_messages:
+        print(f"Will not consider replying to {message_author} because "
+              f"they do not have permission to channel {channel}.")
         return
-    sender_mention: str = sender.mention
-    message_content: str = (f"-# {sender_mention} has "
+    reacter_mention: str = reacter.mention
+    message_content: str = (f"-# {reacter_mention} has "
                             f"mined a {g.coin} for you! "
                             f"Enter {about_command_formatted} "
                             "in the chat box to learn more.")
     try:
         await user_message.reply(message_content,
-                                    allowed_mentions=AllowedMentions.none())
+                                 allowed_mentions=AllowedMentions.none())
         del user_message
         del message_content
         del channel
         del channel_id
-        del sender_mention
-        save_data_receiver.reaction_message_received = True
+        del reacter_mention
+        save_data_message_author.reaction_message_received = True
     except Exception as e:
         raise ValueError(
-            f"Could not send reaction message to {receiver}: {e}")
+            f"Could not send reaction message to {message_author}: {e}")
 # endregion

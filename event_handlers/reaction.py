@@ -44,8 +44,8 @@ async def on_raw_reaction_add(payload: RawReactionActionEvent) -> None:
         channel_id: int = payload.channel_id
         await process_reaction(message_id=message_id,
                                emoji=payload.emoji,
-                               sender=sender,
-                               receiver_id=receiver_user_id,
+                               reacter=sender,
+                               message_author_id=receiver_user_id,
                                timestamp=timestamp,
                                channel_id=channel_id)
         del receiver_user_id
