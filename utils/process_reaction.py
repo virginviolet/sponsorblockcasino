@@ -177,7 +177,7 @@ async def process_reaction(message_id: int,
     else:
         # region Network mining
         print("--------------------")
-        print(f"Miner {reacter} ({reacter_id}) is mining for "
+        print(f"Contributor {reacter} ({reacter_id}) is mining for "
               f"{message_author} ({message_author_id}) "
               f"(message {message_id})...")
 
@@ -389,20 +389,20 @@ async def process_reaction(message_id: int,
                 for i, (participant, participant_coins) in enumerate(
                         earnings.items()):
                     participant_id: int = participant.id
-                    if participant_id == reacter_id:
-                        continue
                     participant_save_data: UserSaveData = UserSaveData(
                         user_id=participant.id,
                         user_name=participant.name)
                     participant_mention_preference: bool = (
                         participant_save_data
                         .network_mining_mentions_enabled)
-                    if participant_mention_preference is True:
+                    if ((participant_mention_preference is True) and
+                            (participant_id != message_author_id)):
                         allowed_network_mining_mentions_seq.append(participant)
                     participant_highlights_mention_preference: bool = (
                         participant_save_data
                         .network_mining_highlights_mentions_enabled)
-                    if participant_highlights_mention_preference is True:
+                    if ((participant_highlights_mention_preference is True) and
+                            (participant_id != message_author_id)):
                         allowed_network_mining_highlights_mentions_seq.append(
                             participant)
                     participant_mention: str = participant.mention
@@ -500,7 +500,7 @@ async def process_reaction(message_id: int,
         await terminate_bot()
 
     if g.network_mining_enabled is True:
-        print(f"Miner {reacter_name} ({reacter_id}) has mined "
+        print(f"Contributor {reacter_name} ({reacter_id}) has mined "
               f"for {message_author_name} ({message_author_id}) "
               f"(message {message_id}).")
         print("--------------------")
