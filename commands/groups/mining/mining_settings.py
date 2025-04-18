@@ -20,12 +20,14 @@ from utils.smart_send_interaction_message import smart_send_interaction_message
 
 mining_updates_channel_string: str = (
     f"{g.mining_updates_channel_name}"
-    if g.mining_updates_channel_name.startswith("#")
+    if ((g.mining_updates_channel_name.startswith("#") and
+         not " " in g.mining_updates_channel_name))
     else f"#{g.mining_updates_channel_name}"
 )
 mining_highlights_channel_string: str = (
     f"{g.mining_highlights_channel_name}"
-    if g.mining_highlights_channel_name.startswith("#")
+    if (g.mining_highlights_channel_name.startswith("#") and
+        not " " in g.mining_highlights_channel_name)
     else f"#{g.mining_highlights_channel_name}")
 
 
@@ -92,17 +94,17 @@ async def settings(interaction: Interaction,
                                              ephemeral=True)
         del message_content
         has_sent_message = True
-    
+
     if enable_network_mining_mention is not None:
         assert isinstance(g.bot, Bot), "bot is not initialized."
         mining_channel: (VoiceChannel | StageChannel | ForumChannel | TextChannel |
-                        CategoryChannel | Thread | PrivateChannel |
-                        None)
+                         CategoryChannel | Thread | PrivateChannel |
+                         None)
         if g.mining_updates_channel_id == 0:
             raise TypeError("mining_updates_channel_id is 0")
         mining_channel: (VoiceChannel | StageChannel | ForumChannel | TextChannel |
-                        CategoryChannel | Thread | PrivateChannel |
-                        None) = g.bot.get_channel(g.mining_updates_channel_id)
+                         CategoryChannel | Thread | PrivateChannel |
+                         None) = g.bot.get_channel(g.mining_updates_channel_id)
         mining_channel_mention: str
         if isinstance(mining_channel, PrivateChannel):
             raise TypeError("mining_channel is a PrivateChannel")
@@ -129,8 +131,8 @@ async def settings(interaction: Interaction,
     if enable_mentions_in_highlights is not None:
         assert isinstance(g.bot, Bot), "bot is not initialized."
         highlights_channel: (VoiceChannel | StageChannel | ForumChannel |
-                            TextChannel | CategoryChannel | Thread | PrivateChannel |
-                            None)
+                             TextChannel | CategoryChannel | Thread | PrivateChannel |
+                             None)
         if g.mining_highlights_channel_id == 0:
             raise TypeError("mining_highlights_channel_id is 0")
         highlights_channel = g.bot.get_channel(g.mining_highlights_channel_id)
