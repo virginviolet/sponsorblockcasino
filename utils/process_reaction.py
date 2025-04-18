@@ -112,6 +112,7 @@ async def process_reaction(message_id: int,
     sender_mention: str = sender.mention
     sender_global_name: str | None = sender.global_name
     mined_for_log_message: str
+    bot_channel_permissions: Permissions | None = None
     bot_can_read_history: bool | None = None
     bot_can_read_messages: bool | None = None
     
@@ -126,7 +127,7 @@ async def process_reaction(message_id: int,
 
     if sender_message is None:
         # TODO Check which permissions are needed to fetch a message
-        bot_channel_permissions: Permissions = channel.permissions_for(channel.guild.me)
+        bot_channel_permissions = channel.permissions_for(channel.guild.me)
         bot_can_read_history = bot_channel_permissions.read_message_history
         if not bot_can_read_history:
             print("WARNING: Will not send reaction message "
@@ -542,90 +543,91 @@ async def process_reaction(message_id: int,
         raise ValueError("ERROR: casino_channel is a private channel.")
     elif casino_channel is None:
         raise ValueError("ERROR: casino_channel is None.")
-    if bot_can_read_history is not False:
-        bot_can_read_history = (
-            channel.permissions_for(channel.guild.me).read_message_history)
-        if not bot_can_read_history:
+    
+    if bot_channel_permissions is None:
+        # TODO Check which permissions are needed to send a message
+        bot_channel_permissions = channel.permissions_for(channel.guild.me)
+    bot_can_read_history = bot_channel_permissions.read_message_history
+    if not bot_can_read_history:
+        print("WARNING: Will not send reaction message "
+                "because bot does not have permission to read message "
+                f"history in channel {channel}.")
+        return
+    bot_can_read_messages = bot_channel_permissions.read_messages
+    if not bot_can_read_messages:
+        print("WARNING: Will not send reaction message "
+                "because bot does not have permission to read messages "
+                f"in channel {channel}.")
+        return
+    bot_can_send_messages: bool
+    if isinstance(channel, Thread):
+        bot_can_send_messages = (
+            channel.permissions_for(
+                channel.guild.me).send_messages_in_threads)
+        if not bot_can_send_messages:
             print("WARNING: Will not send reaction message "
-                  "because bot does not have permission to read message "
-                  f"history in channel {channel}.")
+                    "because bot does not have permission to send messages "
+                    f"in threads in channel {channel}.")
             return
-        bot_can_read_messages: bool = (
-            channel.permissions_for(channel.guild.me).read_messages)
-        if not bot_can_read_messages:
+    else:
+        bot_can_send_messages: bool = (
+            channel.permissions_for(channel.guild.me).send_messages)
+        if not bot_can_send_messages:
             print("WARNING: Will not send reaction message "
-                  "because bot does not have permission to read messages "
-                  f"in channel {channel}.")
+                    "because bot does not have permission to send messages "
+                    f"in channel {channel}.")
             return
-        bot_can_send_messages: bool
-        if isinstance(channel, Thread):
-            bot_can_send_messages = (
-                channel.permissions_for(
-                    channel.guild.me).send_messages_in_threads)
-            if not bot_can_send_messages:
-                print("WARNING: Will not send reaction message "
-                      "because bot does not have permission to send messages "
-                      f"in threads in channel {channel}.")
-                return
+    try:
+        user_message: Message = await channel.fetch_message(message_id)
+    except Exception as e:
+        raise ValueError(
+            f"Could not fetch message {message_id} from "
+            f"channel {channel}: {e}")
+    # Check if the receiver has permission to read messages in the channel
+    # (if not, the bot will not reply to them and the user's save data will
+    # not be changed)
+    # The permissions_for() method only works for Member objects,
+    # not User objects, so we need to get the Member object if the receiver
+    # is a User.
+    receiver_member: Member | None
+    if isinstance(receiver, Member):
+        receiver_member = receiver
+    else:
+        # receiver is a User
+        # Try to get member object from the guild
+        if hasattr(channel, "guild"):
+            guild: Guild = channel.guild
+            receiver_member = guild.get_member(receiver_id)
+            # If not in cache, fetch from API
+            if receiver_member is None:
+                receiver_member = await guild.fetch_member(receiver_id)
         else:
-            bot_can_send_messages: bool = (
-                channel.permissions_for(channel.guild.me).send_messages)
-            if not bot_can_send_messages:
-                print("WARNING: Will not send reaction message "
-                      "because bot does not have permission to send messages "
-                      f"in channel {channel}.")
-                return
-        try:
-            user_message: Message = await channel.fetch_message(message_id)
-        except Exception as e:
-            raise ValueError(
-                f"Could not fetch message {message_id} from "
-                f"channel {channel}: {e}")
-        # Check if the receiver has permission to read messages in the channel
-        # (if not, the bot will not reply to them and the user's save data will
-        # not be changed)
-        # The permissions_for() method only works for Member objects,
-        # not User objects, so we need to get the Member object if the receiver
-        # is a User.
-        receiver_member: Member | None
-        if isinstance(receiver, Member):
-            receiver_member = receiver
-        else:
-            # receiver is a User
-            # Try to get member object from the guild
-            if hasattr(channel, "guild"):
-                guild: Guild = channel.guild
-                receiver_member = guild.get_member(receiver_id)
-                # If not in cache, fetch from API
-                if receiver_member is None:
-                    receiver_member = await guild.fetch_member(receiver_id)
-            else:
-                receiver_member = None
-        if receiver_member is None:
-            print("WARNING: Could not get member object for receiver.")
-            return
-        receiver_can_read_messages: bool = (
-            channel.permissions_for(receiver_member).view_channel and
-            channel.permissions_for(receiver_member).read_messages)
-        if not receiver_can_read_messages:
-            print(f"Will not consider replying to {receiver} because "
-                  f"they do not have permission to channel {channel}.")
-            return
-        sender_mention: str = sender.mention
-        message_content: str = (f"-# {sender_mention} has "
-                                f"mined a {g.coin} for you! "
-                                f"Enter {about_command_formatted} "
-                                "in the chat box to learn more.")
-        try:
-            await user_message.reply(message_content,
-                                     allowed_mentions=AllowedMentions.none())
-            del user_message
-            del message_content
-            del channel
-            del channel_id
-            del sender_mention
-            save_data_receiver.reaction_message_received = True
-        except Exception as e:
-            raise ValueError(
-                f"Could not send reaction message to {receiver}: {e}")
+            receiver_member = None
+    if receiver_member is None:
+        print("WARNING: Could not get member object for receiver.")
+        return
+    receiver_can_read_messages: bool = (
+        channel.permissions_for(receiver_member).view_channel and
+        channel.permissions_for(receiver_member).read_messages)
+    if not receiver_can_read_messages:
+        print(f"Will not consider replying to {receiver} because "
+                f"they do not have permission to channel {channel}.")
+        return
+    sender_mention: str = sender.mention
+    message_content: str = (f"-# {sender_mention} has "
+                            f"mined a {g.coin} for you! "
+                            f"Enter {about_command_formatted} "
+                            "in the chat box to learn more.")
+    try:
+        await user_message.reply(message_content,
+                                    allowed_mentions=AllowedMentions.none())
+        del user_message
+        del message_content
+        del channel
+        del channel_id
+        del sender_mention
+        save_data_receiver.reaction_message_received = True
+    except Exception as e:
+        raise ValueError(
+            f"Could not send reaction message to {receiver}: {e}")
 # endregion
