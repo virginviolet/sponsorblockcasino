@@ -12,6 +12,7 @@ from .get_project_root import get_project_root
 from .missed_messages import process_missed_messages
 from .process_reaction import process_reaction
 from .roles import (get_role,
+                    get_slot_machine_technician_role,
                     get_cybersecurity_officer_role,
                     get_aml_officer_role,
                     test_invoker_is_aml_officer)
@@ -28,6 +29,7 @@ __all__: list[str] = [
     'process_missed_messages',
     'process_reaction',
     'get_role',
+    'get_slot_machine_technician_role',
     'get_cybersecurity_officer_role',
     'get_aml_officer_role',
     'test_invoker_is_aml_officer'

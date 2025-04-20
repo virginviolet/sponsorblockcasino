@@ -6,7 +6,8 @@ from typing import Dict
 from typing import Dict
 
 # Third party
-from discord import Interaction, PartialEmoji, app_commands
+from discord import (AllowedMentions, Interaction, PartialEmoji, Role, User,
+                     app_commands)
 from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
     Bot)
 
@@ -14,6 +15,7 @@ from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
 import core.global_state as g
 from sponsorblockcasino_types import ReelSymbol
 from models.slot_machine import SlotMachine
+from utils.roles import get_slot_machine_technician_role
 from .slots_main import slots_group
 # endregion
 
@@ -50,9 +52,18 @@ async def show_help(interaction: Interaction,
         g.slot_machine.configuration["combo_events"]
         ["jackpot"]["fixed_amount"])
     try:
-        administrator: str = (await g.bot.fetch_user(g.administrator_id)).name
-    except Exception:
-        print("ERROR: Could not bot fetch administrator.")
+        administrator: User = (await g.bot.fetch_user(g.administrator_id))
+        administrator_mention: str = administrator.mention
+    except Exception as e:
+        raise RuntimeError(
+            "Failed to fetch administrator user.") from e
+    slot_machine_technician: Role | None = (
+        get_slot_machine_technician_role(interaction))
+    if slot_machine_technician is None:
+        raise RuntimeError("Slot Machine Technician role not found.")
+    slot_machine_technician_mention: str = (
+        slot_machine_technician.mention)
+
     # TODO Import fees from configuration instead of hardcoding them
     help_message_1: str = (
         f"## {g.Coin} Slot Machine Help\n"
@@ -146,8 +157,9 @@ async def show_help(interaction: Interaction,
         "If you are having issues, you can reboot the slot machine by "
         "using the reboot parameter. If you have any other issues, "
         f"please contact the {g.Coin} Casino staff or a Slot Machine "
-        "Technician (ping Slot Machine Technician). If you need to "
-        f"contact the {g.Coin} Casino CEO, ping {administrator}.\n"
+        f"Technician (mention {slot_machine_technician_mention}in a "
+        f"message). If you need to contact the {g.Coin} Casino CEO, "
+        f"mention {administrator_mention}.\n"
         "\n"
         "-# *Not guaranteed. Actually, for legal reasons, nothing about "
         "this game is guaranteed.\n")
@@ -156,6 +168,8 @@ async def show_help(interaction: Interaction,
     await interaction.followup.send(help_message_2,
                                     ephemeral=private_room)
     await interaction.followup.send(help_message_3,
-                                    ephemeral=private_room)
+                                    ephemeral=private_room,
+                                    allowed_mentions=AllowedMentions.none())
+
     return
 # endregion

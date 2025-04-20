@@ -30,6 +30,17 @@ def get_role(interaction: Interaction,
     return requested_role
 # endregion
 
+# region Get Slot Technician
+def get_slot_machine_technician_role(interaction: Interaction) -> Role | None:
+    role_names: List[str] = [
+        "Slot Machine Technician",
+        "Slot machine technician",
+        "slot machine technician",
+        "slot_machine_technician"
+    ]
+    slot_machine_technician: Role | None = get_role(interaction, role_names)
+    return slot_machine_technician
+
 # region Get IT officer
 
 
