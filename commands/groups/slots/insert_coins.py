@@ -9,7 +9,8 @@ from typing import Dict, List, cast
 from humanfriendly import format_timespan
 from discord import (Interaction, Member, PartialEmoji, User, app_commands,
                      Client)
-from discord.ext.commands import Bot  # pyright: ignore [reportMissingTypeStubs]
+from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
+    Bot)
 
 # Local
 import core.global_state as g
@@ -267,7 +268,8 @@ async def insert_coins(interaction: Interaction,
                     f"Welcome to the {g.Coin} Casino. It looks like this "
                     "is your first visit—how exciting!\n"
                     f"As a special welcome gift, we're giving you "
-                    f"{bonus_amount} {coin_label_b} to kick off your journey.\n"
+                    f"{bonus_amount} {coin_label_b} to kick off your"
+                    "journey.\n"
                     "Each time you run out of coins, "
                     "we'll reward you with even bigger bonuses.\n"
                     "Now, go ahead and play on the slot machines!")
@@ -297,7 +299,8 @@ async def insert_coins(interaction: Interaction,
                 1: 50, 2: 100, 3: 200, 4: 300, 5: 400, 6: 500}
             starting_bonus_table: str = "> **Die roll**\t**Amount**\n"
             for die_roll, resulting_amount in starting_bonus_awards.items():
-                starting_bonus_table += f"> {die_roll}\t\t\t\t{resulting_amount}\n"
+                starting_bonus_table += (
+                    f"> {die_roll}\t\t\t\t{resulting_amount}\n")
             message_preamble: str
             if has_played_before:
                 message_preamble = (
@@ -678,7 +681,7 @@ async def insert_coins(interaction: Interaction,
             save_data.starting_bonus_available = next_bonus_point_in_time
             del next_bonus_point_in_time
         del message_content
-        
+
     if user_id in g.active_slot_machine_players:
         await remove_from_active_players(interaction, user_id)
 
