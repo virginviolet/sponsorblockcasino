@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from subprocess import Popen
 
     # Third-party
-    from discord.ext.commands import Bot  # type: ignore
+    from discord.ext.commands import Bot  # pyright: ignore [reportMissingTypeStubs]
 
     # Local
     from models.checkpoints import ChannelCheckpoints

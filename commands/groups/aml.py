@@ -10,7 +10,8 @@ from discord import (Interaction, Member, Message, User, TextChannel,
                      VoiceChannel, app_commands, CategoryChannel,
                      ForumChannel, StageChannel, Thread, AllowedMentions, File)
 from discord.abc import PrivateChannel
-from discord.ext.commands import Bot  # pyright: ignore [reportMissingTypeStubs]
+from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
+    Bot)
 
 # Local
 import core.global_state as g

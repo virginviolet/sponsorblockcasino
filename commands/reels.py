@@ -6,7 +6,8 @@ from typing import List, Dict, cast
 # Third party
 from discord import Interaction, Member, Role, User, app_commands, utils
 from discord.app_commands import Choice
-from discord.ext.commands import Bot  # pyright: ignore [reportMissingTypeStubs]
+from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
+    Bot)
 from sympy import (Float, Integer, Le, Eq, Gt, Piecewise, pretty,
                    simplify)  # pyright: ignore [reportUnknownVariableType]
 

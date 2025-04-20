@@ -5,7 +5,8 @@ from typing import List
 # Third party
 from discord import app_commands
 from discord.app_commands import AppCommand
-from discord.ext.commands import Bot  # type: ignore
+from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
+    Bot)
 
 # Local
 import core.global_state as g

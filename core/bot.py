@@ -6,7 +6,8 @@ from sys import exit as sys_exit
 # Third party
 from discord import Intents, Client
 from discord.ext import commands
-from discord.ext.commands import Bot  # type: ignore
+from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
+    Bot)
 
 # Local
 import core.global_state as g

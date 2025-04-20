@@ -8,7 +8,8 @@ from typing import Dict, List
 
 # Third party
 from discord import Member, User
-from discord.ext.commands import Bot  # type: ignore
+from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
+    Bot)
 # endregion
 
 # region Grifter Suppliers

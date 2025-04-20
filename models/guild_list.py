@@ -7,7 +7,8 @@ from typing import List, Sequence
 
 # Third party
 from discord import Guild
-from discord.ext.commands import Bot  # type: ignore
+from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
+    Bot)
 # endregion
 
 # region Guild list

@@ -2,7 +2,8 @@
 
 # Third party
 import lazyimports
-from discord.ext.commands import Bot  # type: ignore
+from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
+    Bot)
 
 # Standard library
 import signal

@@ -6,7 +6,6 @@ from typing import Dict
 # Third party
 from discord import Interaction, Member, User
 from discord.ui import Item, View, Button
-from discord.ext.commands import Bot  # type: ignore
 
 # Local
 import core.global_state as g

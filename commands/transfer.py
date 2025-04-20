@@ -3,7 +3,8 @@
 from discord import (Interaction, Member, User, TextChannel, VoiceChannel,
                      app_commands, CategoryChannel, ForumChannel, StageChannel,
                      DMChannel, GroupChannel, Thread)
-from discord.ext.commands import Bot  # pyright: ignore [reportMissingTypeStubs]
+from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
+    Bot)
 
 # Local
 import core.global_state as g
@@ -15,7 +16,7 @@ assert isinstance(g.bot, Bot), "bot has not been initialized."
 
 
 @g.bot.tree.command(name="transfer",
-                  description=f"Transfer {g.coins} to another user")
+                    description=f"Transfer {g.coins} to another user")
 @app_commands.describe(amount=f"Amount of {g.coins} to transfer",
                        user=f"User to transfer the {g.coins} to",
                        purpose="Purpose of the transfer")

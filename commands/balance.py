@@ -4,7 +4,8 @@ from hashlib import sha256
 
 # Third party
 from discord import Interaction, Member, app_commands, AllowedMentions
-from discord.ext.commands import Bot  # pyright: ignore [reportMissingTypeStubs]
+from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
+    Bot)
 
 # Local
 import core.global_state as g

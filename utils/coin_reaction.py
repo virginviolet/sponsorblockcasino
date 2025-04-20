@@ -7,7 +7,8 @@ from discord import (Member, Message, Emoji, PartialEmoji, User, TextChannel,
                      VoiceChannel, CategoryChannel, ForumChannel, StageChannel,
                      Thread, AllowedMentions)
 from discord.abc import PrivateChannel
-from discord.ext.commands import Bot  # type: ignore
+from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
+    Bot)
 
 # Local
 from core.terminate_bot import terminate_bot

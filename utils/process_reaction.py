@@ -8,7 +8,8 @@ from discord import (Member, Message, Emoji, PartialEmoji, Permissions, User,
                      TextChannel, VoiceChannel, CategoryChannel, ForumChannel,
                      StageChannel, Thread, Guild, AllowedMentions)
 from discord.abc import PrivateChannel
-from discord.ext.commands import Bot  # type: ignore
+from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
+    Bot)
 from discord.reaction import Reaction
 
 # Local

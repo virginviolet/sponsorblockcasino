@@ -15,7 +15,8 @@ from discord import (
     InteractionMessage)
 from discord.abc import PrivateChannel
 from discord.utils import MISSING
-from discord.ext.commands import Bot  # type: ignore
+from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
+    Bot)
 
 # Local
 if TYPE_CHECKING:

@@ -5,7 +5,8 @@ from time import time
 # Third party
 from discord import Member
 from discord.raw_models import RawReactionActionEvent
-from discord.ext.commands import Bot  # type: ignore
+from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
+    Bot)
 
 # Local
 import core.global_state as g
