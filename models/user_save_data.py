@@ -120,7 +120,7 @@ class UserSaveData:
             expected_type=(float, type(None)), default=None)
         self._starting_bonus_level = (self._load_value(
             key="starting_bonus_level",
-            expected_type=int, default=0))
+            expected_type=int, default=1))
         self._reaction_message_received = self._load_value(
             key="reaction_message_received",
             expected_type=bool, default=False)
