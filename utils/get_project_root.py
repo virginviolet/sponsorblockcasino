@@ -9,8 +9,8 @@ def get_project_root() -> Path:
     Get the project root directory path.
     """
     project_root_marker_files: list[str] = [
-        ".gitignore", ".gitattributes", ".git", ".github", ".vscode", "README.md",
-        "LICENSE", "requirements.txt"]
+        ".gitignore", ".gitattributes", ".git", ".github", ".vscode",
+        "README.md", "LICENSE", "requirements.txt"]
     script_path: Path = Path(__file__).resolve()
     script_dir_path: Path = script_path.parent
     script_dir_parents: list[Path] = list(script_dir_path.parents)

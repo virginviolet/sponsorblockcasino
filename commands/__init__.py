@@ -19,6 +19,8 @@ from .groups.slots import jackpot
 from .groups.slots import reboot
 from .groups.slots import rtp
 from .groups.slots import slots_utils
+from .groups.leaderboard import leaderboard_group
+from .groups.leaderboard import sponsors
 
 __all__: list[str] = [
     "transfer",
@@ -36,5 +38,7 @@ __all__: list[str] = [
     "jackpot",
     "reboot",
     "rtp",
-    "slots_utils"
+    "slots_utils",
+    "leaderboard_group",
+    "sponsors",
 ]

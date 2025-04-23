@@ -1,0 +1,10 @@
+# region Imports
+# Third party
+from discord.ext.commands import Bot  # type: ignore
+from discord import app_commands
+# endregion
+
+# region Slots group
+leaderboard_group = app_commands.Group(
+    name="leaderboard", description="See who's the best")
+# endregion

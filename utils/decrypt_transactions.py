@@ -67,8 +67,9 @@ class DecryptedTransactionsSpreadsheet:
                 continue
 
         # Load the data from the file
-        transactions: pd.DataFrame = pd.read_csv(  # type: ignore
-            self.encrypted_spreadsheet_path, sep="\t")
+        transactions: pd.DataFrame = (
+            pd.read_csv(  # pyright: ignore[reportUnknownMemberType]
+            self.encrypted_spreadsheet_path, sep="\t"))
 
         # IMPROVE if user_id and user_name
         # Only keep transactions that involve the specified user as
@@ -83,12 +84,21 @@ class DecryptedTransactionsSpreadsheet:
 
         # Replace hashed user IDs with user names
         transactions["Sender"] = (
-            transactions["Sender"].map(user_names))  # type: ignore
+            transactions[
+                "Sender"
+                ].map(  # pyright: ignore[reportUnknownMemberType]
+                    user_names))
         transactions["Receiver"] = (
-            transactions["Receiver"].map(user_names))  # type: ignore
+            transactions[
+                "Receiver"
+                ].map(  # pyright: ignore[reportUnknownMemberType]
+                    user_names))
         # Replace unix timestamps
         transactions["Time"] = (
-            transactions["Time"].map(format_timestamp))  # type: ignore
+            transactions[
+                "Time"
+                ].map(  # pyright: ignore[reportUnknownMemberType]
+                    format_timestamp))
 
         if user_name:
             # Only keep transactions that involve the specified user
