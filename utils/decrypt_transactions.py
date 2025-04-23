@@ -12,7 +12,6 @@ import pandas as pd
 # Local
 from models.user_save_data import UserSaveData
 from utils.formatting import format_timestamp
-from utils.get_project_root import get_project_root
 # endregion
 
 # region Decrypted tx
@@ -24,19 +23,12 @@ class DecryptedTransactionsSpreadsheet:
     """
 
     def __init__(self, time_zone: str | None = None) -> None:
-        project_root: Path = get_project_root()
-        decrypted_spreadsheet_full_path: Path = (
-            project_root / "data" / "transactions_decrypted.tsv")
-        self.decrypted_spreadsheet_path: Path = (
-            decrypted_spreadsheet_full_path.relative_to(project_root))
-        encrypted_spreadsheet_full_path: Path = (
-            project_root / "data" / "transactions.tsv")
-        self.encrypted_spreadsheet_path: Path = (
-            encrypted_spreadsheet_full_path.relative_to(project_root))
-        save_data_dir_full_path: Path = (
-            project_root / "data" / "save_data")
-        self.save_data_dir_path: Path = (
-            save_data_dir_full_path.relative_to(project_root))
+        self.decrypted_spreadsheet_path: Path = Path(
+            "data/transactions_decrypted.tsv")
+        self.encrypted_spreadsheet_path: Path = Path(
+            "data/transactions.tsv")
+        self.save_data_dir_path: Path = Path(
+            "data/save_data")
         self.time_zone: str | None = time_zone
 
     def decrypt(self,

@@ -8,7 +8,6 @@ from .blockchain_utils import (
 from .coin_reaction import process_reaction
 from .decrypt_transactions import DecryptedTransactionsSpreadsheet
 from .formatting import format_coin_label
-from .get_project_root import get_project_root
 from .missed_messages import process_missed_messages
 from .process_reaction import process_reaction
 from .roles import (get_role,
@@ -25,7 +24,6 @@ __all__: list[str] = [
     'process_reaction',
     'DecryptedTransactionsSpreadsheet',
     'format_coin_label',
-    'get_project_root',
     'process_missed_messages',
     'process_reaction',
     'get_role',
