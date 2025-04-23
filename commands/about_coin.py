@@ -101,7 +101,7 @@ async def about_coin(interaction: Interaction) -> None:
     message_3_content: str = (
         "### Transfers\n"
         f"You can transfer {g.coins} to someone else by typing `/transfer`.\n"
-        f"### {g.coin} Casino\n"
+        f"### {g.Coin} Casino\n"
         "You should come visit the "
         f"{casino_channel_mention} some time. You can play on the slot "
         "machines there with the `/slots insert_coins` command.\n"
