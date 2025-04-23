@@ -351,7 +351,6 @@ async def process_reaction(message_id: int,
             AllowedMentions.none())
         allowed_network_mining_highlights_mentions: AllowedMentions = (
             AllowedMentions.none())
-        forwarded_reacter_message: Message | None = None
         mining_update_message_content: str | None = None
         if reacters_count > 1:
             # Make an update in the mining updates channel
@@ -437,8 +436,7 @@ async def process_reaction(message_id: int,
                     f"has been mined for {message_author_mention}'s message!\n"
                     f"{participants_table}")
                 del coin_label
-                forwarded_reacter_message = (
-                    await reacter_message.forward(mining_channel))
+                await reacter_message.forward(mining_channel)
                 await mining_channel.send(
                     mining_update_message_content,
                     allowed_mentions=(
@@ -459,16 +457,12 @@ async def process_reaction(message_id: int,
                 print("WARNING: Will not forward mining update "
                       f"to highlights_channel because highlights_channel is "
                       f"{type(highlights_channel)}.")
-            elif forwarded_reacter_message is None:
-                print("WARNING: Will not forward mining update "
-                      "to highlights_channel because "
-                      "forwarded_reacter_message is None.")
             elif mining_update_message_content is None:
                 print("WARNING: Will not forward mining update "
                       "to highlights_channel because "
                       "mining_update_message_content is None.")
             else:
-                await forwarded_reacter_message.forward(highlights_channel)
+                await reacter_message.forward(highlights_channel)
                 await highlights_channel.send(
                     mining_update_message_content,
                     allowed_mentions=(

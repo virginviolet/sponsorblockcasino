@@ -80,7 +80,7 @@ def reinitialize_transfers_waiting_approval() -> None:
 # region AML Officer
 
 
-def get_aml_officer_role(interaction: Interaction):
+def get_aml_officer_role(interaction: Interaction) -> None | Role:
     guild: Guild | None = interaction.guild
     if guild is None:
         print("ERROR: Guild is None.")
