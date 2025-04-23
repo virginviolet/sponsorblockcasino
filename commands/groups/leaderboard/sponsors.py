@@ -38,20 +38,33 @@ async def sponsors(interaction: Interaction,
             g.decrypted_transactions_spreadsheet.decrypted_spreadsheet_path,
             sep="\t", dtype={"Sender": str, "Receiver": str, "Method": str,
                              "Amount": str}))
+    print("Decrypted transactions:\n"
+          f"{transactions_decrypted}")
     has_sent_message: bool = False
     invoker: User | Member = interaction.user
     invoker_name: str = invoker.name
     casino_house: User = await g.bot.fetch_user(g.casino_house_id)
     casino_username: str = casino_house.name
+    print(f"Casino house: '{casino_username}'")
+    transactions_decrypted["Sender"] = transactions_decrypted[
+        "Sender"].astype(str).str.strip()
+    transactions_decrypted["Receiver"] = transactions_decrypted[
+        "Receiver"].astype(str).str.strip()
     sponsors_extracted: pd.DataFrame = transactions_decrypted[
         (transactions_decrypted["Receiver"] == casino_username) &
         ((transactions_decrypted["Method"] == "transfer") |
          (transactions_decrypted["Method"] == "transfer_aml"))]
+    print("Sponsors extracted:\n"
+          f"{sponsors_extracted}")
     sponsors: dict[str, int] = {}
     senders_extracted: pd.Series[str | float] = sponsors_extracted["Sender"]
-    unique_sponsors: ndarray[Any, Any] = (
+    print("Senders extracted:\n"
+          f"{senders_extracted}")
+    unique_senders: ndarray[Any, Any] = (
         senders_extracted.unique())  # pyright: ignore[reportUnknownMemberType]
-    for sponsor in unique_sponsors:
+    print("Unique senders:\n"
+          f"{unique_senders}")
+    for sponsor in unique_senders:
         total_amount: int = 0
         donations: pd.DataFrame = cast(pd.DataFrame, sponsors_extracted[
             sponsors_extracted["Sender"] == sponsor])
@@ -62,6 +75,8 @@ async def sponsors(interaction: Interaction,
             sponsors[sponsor] = total_amount
     sponsors = dict(sorted(
         sponsors.items(), key=lambda item: item[1], reverse=True))
+    print("Sponsors:\n"
+          f"{sponsors}")
     message_content: str = f"## {g.Coin} Casino's top sponsors\n"
     for i, (user_name, amount) in enumerate(sponsors.items(), start=1):
         coin_label: str = format_coin_label(amount)
@@ -78,6 +93,8 @@ async def sponsors(interaction: Interaction,
                 f"{user_name}\n"
                 f"-# {amount} {coin_label}\n"
                 "\n")
+        print(f"Entry:\n"
+              f"{entry}")
         message_content += entry
         if len(message_content) >= 2000 - 100:
             await smart_send_interaction_message(
