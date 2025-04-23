@@ -111,31 +111,31 @@ class UserSaveData:
         """
         self._has_visited_casino = self._load_value(
             key="has_visited_casino",
-            expected_type=bool, default=False)
+            expected_type=bool, default=False, print_on_none=False)
         self._starting_bonus_available = self._load_value(
             key="starting_bonus_available",
-            expected_type=(bool, float), default=True)
+            expected_type=(bool, float), default=True, print_on_none=False)
         self._when_last_bonus_received = self._load_value(
             key="when_last_bonus_received",
             expected_type=(float, type(None)), default=None)
         self._starting_bonus_level = (self._load_value(
             key="starting_bonus_level",
-            expected_type=int, default=1))
+            expected_type=int, default=1, print_on_none=False))
         self._reaction_message_received = self._load_value(
             key="reaction_message_received",
-            expected_type=bool, default=False)
+            expected_type=bool, default=False, print_on_none=False)
         self._mining_messages_enabled = self._load_value(
             key="mining_messages_enabled",
-            expected_type=bool, default=True)
+            expected_type=bool, default=True, print_on_none=False)
         self._network_mining_mentions_enabled = self._load_value(
             key="network_mining_mentions_enabled",
-            expected_type=bool, default=False)
+            expected_type=bool, default=False, print_on_none=False)
         self._network_mining_highlights_mentions_enabled = self._load_value(
             key="network_mining_highlights_mentions_enabled",
-            expected_type=bool, default=False)
+            expected_type=bool, default=False, print_on_none=False)
         self._blocked_from_receiving_coins = self._load_value(
             key="blocked_from_receiving_coins",
-            expected_type=bool, default=False)
+            expected_type=bool, default=False, print_on_none=False)
         self._blocked_from_receiving_coins_reason = self._load_value(
             key="blocked_from_receiving_coins_reason",
             expected_type=(str, type(None)), default=None)
@@ -143,7 +143,8 @@ class UserSaveData:
     def _load_value(self,
                     key: str,
                     expected_type: type[T] | tuple[type, ...],
-                    default: T) -> T:
+                    default: T,
+                    print_on_none: bool = True) -> T:
         """
         Load a value from the disk.
         """
@@ -159,7 +160,7 @@ class UserSaveData:
                     ', '.join(t.__name__ for t in expected_type))
             else:
                 expected_type_name: str = expected_type.__name__
-            if value is None:
+            if print_on_none and value is None:
                 print(f"ERROR: Value of '{key}' ('{value}') does not match "
                     f"the expected type. Found '{found_type_name}', expected "
                     f"'{expected_type_name}'. "
@@ -167,7 +168,7 @@ class UserSaveData:
                     f"key '{key}' does not exist. The save file was likely "
                     "created before this key was added to the code. "
                     f"Returning default value {default}.")
-            else:
+            elif value is not None:
                 print(f"ERROR: Value of '{key}' ('{value}') does not match "
                     f"the expected type. Found '{found_type_name}', expected "
                     f"'{expected_type_name}'. "
