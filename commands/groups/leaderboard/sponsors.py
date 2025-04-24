@@ -38,47 +38,43 @@ async def sponsors(interaction: Interaction,
             g.decrypted_transactions_spreadsheet.decrypted_spreadsheet_path,
             sep="\t", dtype={"Sender": str, "Receiver": str, "Method": str,
                              "Amount": str}))
-    print("Decrypted transactions:\n"
-          f"{transactions_decrypted}")
     has_sent_message: bool = False
     invoker: User | Member = interaction.user
     invoker_name: str = invoker.name
     casino_house: User = await g.bot.fetch_user(g.casino_house_id)
     casino_username: str = casino_house.name
-    print(f"Casino house: '{casino_username}'")
     transactions_decrypted["Sender"] = transactions_decrypted[
-        "Sender"].astype(str).str.strip()
+        "Sender"]
     transactions_decrypted["Receiver"] = transactions_decrypted[
-        "Receiver"].astype(str).str.strip()
-    sponsors_extracted: pd.DataFrame = transactions_decrypted[
-        (transactions_decrypted["Receiver"] == casino_username) &
-        ((transactions_decrypted["Method"] == "transfer") |
-         (transactions_decrypted["Method"] == "transfer_aml"))]
-    print("Sponsors extracted:\n"
-          f"{sponsors_extracted}")
-    sponsors: dict[str, int] = {}
-    senders_extracted: pd.Series[str | float] = sponsors_extracted["Sender"]
-    print("Senders extracted:\n"
-          f"{senders_extracted}")
+        "Receiver"]
+    transactions_decrypted["Receiver (normalized)"] = (
+        transactions_decrypted["Receiver"].astype(str).str.strip().str.lower()
+    )
+    donations: pd.DataFrame = transactions_decrypted[
+        (transactions_decrypted["Receiver (normalized)"]
+         == casino_username.lower()) &
+        (transactions_decrypted[
+            "Method"
+        ].isin(  # pyright: ignore[reportUnknownMemberType]
+            ["transfer", "transfer_aml"]))]
+    donators: dict[str, int] = {}
+    donators_extracted: pd.Series[str | float] = donations["Sender"]
     unique_senders: ndarray[Any, Any] = (
-        senders_extracted.unique())  # pyright: ignore[reportUnknownMemberType]
-    print("Unique senders:\n"
-          f"{unique_senders}")
-    for sponsor in unique_senders:
+        donators_extracted
+        .unique())  # pyright: ignore[reportUnknownMemberType]
+    for sender in unique_senders:
         total_amount: int = 0
-        donations: pd.DataFrame = cast(pd.DataFrame, sponsors_extracted[
-            sponsors_extracted["Sender"] == sponsor])
-        donations_amounts: pd.Series[str] = donations["Amount"]
-        for donation in donations_amounts:
+        user_donations: pd.DataFrame = cast(pd.DataFrame, donations[
+            donations["Sender"] == sender])
+        user_donations_amounts: pd.Series[str] = user_donations["Amount"]
+        for donation in user_donations_amounts:
             total_amount += int(donation)
         if total_amount != 0:
-            sponsors[sponsor] = total_amount
-    sponsors = dict(sorted(
-        sponsors.items(), key=lambda item: item[1], reverse=True))
-    print("Sponsors:\n"
-          f"{sponsors}")
+            donators[sender] = total_amount
+    donators = dict(sorted(
+        donators.items(), key=lambda item: item[1], reverse=True))
     message_content: str = f"## {g.Coin} Casino's top sponsors\n"
-    for i, (user_name, amount) in enumerate(sponsors.items(), start=1):
+    for i, (user_name, amount) in enumerate(donators.items(), start=1):
         coin_label: str = format_coin_label(amount)
         entry: str = ""
         if amount > 0:
@@ -93,8 +89,6 @@ async def sponsors(interaction: Interaction,
                 f"{user_name}\n"
                 f"-# {amount} {coin_label}\n"
                 "\n")
-        print(f"Entry:\n"
-              f"{entry}")
         message_content += entry
         if len(message_content) >= 2000 - 100:
             await smart_send_interaction_message(
