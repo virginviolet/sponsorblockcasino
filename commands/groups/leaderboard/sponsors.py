@@ -60,8 +60,8 @@ async def sponsors(interaction: Interaction,
     donators: dict[str, int] = {}
     donators_extracted: pd.Series[str | float] = donations["Sender"]
     unique_senders: ndarray[Any, Any] = (
-        donators_extracted
-        .unique())  # pyright: ignore[reportUnknownMemberType]
+        donators_extracted \
+            .unique())  # pyright: ignore[reportUnknownMemberType]
     for sender in unique_senders:
         total_amount: int = 0
         user_donations: pd.DataFrame = cast(pd.DataFrame, donations[
