@@ -41,7 +41,14 @@ async def sponsors(interaction: Interaction,
     has_sent_message: bool = False
     invoker: User | Member = interaction.user
     invoker_name: str = invoker.name
-    casino_house: User = await g.bot.fetch_user(g.casino_house_id)
+    try:
+        casino_house: User = await g.bot.fetch_user(g.casino_house_id)
+    except Exception as e:
+        print(f"Error fetching casino house: {e}")
+        await interaction.response.send_message(
+            "Error fetching casino house. Please try again later.",
+            ephemeral=True)
+        return
     casino_username: str = casino_house.name
     transactions_decrypted["Sender"] = transactions_decrypted[
         "Sender"]
@@ -82,13 +89,13 @@ async def sponsors(interaction: Interaction,
         if user_name == invoker_name:
             entry += (
                 f"**{user_name}**\n"
-                f"-# {amount} {coin_label}\n"
-                "\n")
+                f"-# {amount:,} {coin_label}\n"
+                "\n").replace(",", "\N{THIN SPACE}")
         else:
             entry += (
                 f"{user_name}\n"
-                f"-# {amount} {coin_label}\n"
-                "\n")
+                f"-# {amount:,} {coin_label}\n"
+                "\n").replace(",", "\N{THIN SPACE}")
         message_content += entry
         if len(message_content) >= 2000 - 100:
             await smart_send_interaction_message(
