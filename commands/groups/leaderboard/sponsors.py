@@ -19,7 +19,7 @@ from utils.smart_send_interaction_message import smart_send_interaction_message
 
 @leaderboard_group.command(
     name="sponsors",
-    description=f"See who's the {g.Coin} Casnio's top sponsors")
+    description=f"See who's the {g.Coin} Casino's top sponsors")
 @app_commands.describe(
     ephemeral="Whether to send the message as ephemeral")
 async def sponsors(interaction: Interaction,
