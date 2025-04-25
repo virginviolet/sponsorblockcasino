@@ -72,6 +72,7 @@ network_mining_enabled: bool = False
 grifter_swap_id: int = 0
 sbcoin_id: int = 0
 auto_approve_transfer_limit: int = 0
+aml_office_channel_id: int = 0
 aml_office_thread_id: int = 0
 reaction_messages_enabled: bool = False
 

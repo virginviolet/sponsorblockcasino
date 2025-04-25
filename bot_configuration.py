@@ -74,6 +74,7 @@ class BotConfiguration:
             "grifter_swap_id": 0,
             "sbcoin_id": 0,
             "auto_approve_transfer_limit": 0,
+            "aml_office_channel_id": 0,
             "aml_office_thread_id": 0,
             "reaction_messages_enabled": True
         }
@@ -115,6 +116,8 @@ class BotConfiguration:
                     self.configuration["sbcoin_id"])
                 self.auto_approve_transfer_limit: int = (
                     self.configuration["auto_approve_transfer_limit"])
+                self.aml_office_channel_id: int = (
+                    self.configuration["aml_office_channel_id"])
                 self.aml_office_thread_id: int = (
                     self.configuration["aml_office_thread_id"])
                 self.reaction_messages_enabled: bool = (
@@ -230,6 +233,7 @@ def invoke_bot_configuration() -> None:
     g.sbcoin_id = configuration.sbcoin_id
     g.auto_approve_transfer_limit = (
         configuration.auto_approve_transfer_limit)
+    g.aml_office_channel_id = configuration.aml_office_channel_id
     g.aml_office_thread_id = (
         configuration.aml_office_thread_id)
     g.reaction_messages_enabled = configuration.reaction_messages_enabled

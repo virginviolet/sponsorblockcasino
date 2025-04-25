@@ -30,6 +30,7 @@ class BotConfig(TypedDict):
     grifter_swap_id: int
     sbcoin_id: int
     auto_approve_transfer_limit: int
+    aml_office_channel_id: int
     aml_office_thread_id: int
     reaction_messages_enabled: bool
 

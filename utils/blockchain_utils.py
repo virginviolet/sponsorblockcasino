@@ -145,8 +145,8 @@ async def transfer_coins(sender: Member | User,
                          interaction: Interaction | None = None) -> None:
     """
     Transfers coins from one user to another.
-    Only pass the interaction parameter if the transfer is immediately initiated
-    by the one who wishes to make a transfer.
+    Only pass the interaction parameter if the transfer is immediately
+    initiated by the one who wishes to make a transfer.
     """
     assert isinstance(g.bot, Bot), "g.bot is not initialized."
     assert isinstance(g.log, Log), "g.log is not initialized."
@@ -329,23 +329,48 @@ async def transfer_coins(sender: Member | User,
                                  f"to queue: {e}")
                 raise Exception(error_message)
             try:
-                aml_office_thread: (
-                    VoiceChannel | StageChannel | ForumChannel | TextChannel |
-                    CategoryChannel | PrivateChannel |
-                    Thread) = await g.bot.fetch_channel(g.aml_office_thread_id)
-                if isinstance(aml_office_thread, Thread):
-                    guild: Guild | None = interaction.guild
-                    if guild is None:
-                        print("ERROR: Guild is None.")
-                        return
-                    aml_officer: Role | None = get_aml_officer_role(
-                        interaction)
-                    if aml_officer is None:
-                        raise Exception("aml_officer is None.")
-                    aml_officer_mention: str = aml_officer.mention
-                    aml_office_message: str = (aml_officer_mention +
-                                               awaiting_approval_message_content)
-
+                if ((g.aml_office_channel_id == 0) and
+                        (g.aml_office_thread_id == 0)):
+                    raise Exception(
+                        "aml_office_channel_id and aml_office_thread_id "
+                        "are both 0.")
+                guild: Guild | None = interaction.guild
+                if guild is None:
+                    print("ERROR: Guild is None.")
+                    return
+                aml_officer: Role | None = get_aml_officer_role(
+                    interaction)
+                if aml_officer is None:
+                    raise Exception("aml_officer is None.")
+                aml_officer_mention: str = aml_officer.mention
+                aml_office_message: str = (
+                    aml_officer_mention +
+                    awaiting_approval_message_content)
+                if g.aml_office_channel_id != 0:
+                    aml_office_channel: (
+                        VoiceChannel | StageChannel | ForumChannel |
+                        TextChannel | CategoryChannel | PrivateChannel |
+                        Thread) = (
+                            await g.bot.fetch_channel(g.aml_office_channel_id))
+                    if isinstance(aml_office_channel,
+                                  (PrivateChannel, ForumChannel,
+                                   CategoryChannel, Thread)):
+                        raise Exception(
+                            "aml_office_channel is a "
+                            f"{type(aml_office_channel).__name__}.")
+                    await aml_office_channel.send(
+                        aml_office_message,
+                        allowed_mentions=AllowedMentions.none())
+                if g.aml_office_thread_id != 0:
+                    aml_office_thread: (
+                        VoiceChannel | StageChannel | ForumChannel |
+                        TextChannel | CategoryChannel | PrivateChannel |
+                        Thread) = (
+                            await g.bot.fetch_channel(g.aml_office_thread_id))
+                    if not isinstance(aml_office_thread, Thread):
+                        raise Exception(
+                            "aml_office_thread is a "
+                            f"{type(aml_office_thread).__name__}.")
                     await aml_office_thread.send(
                         aml_office_message,
                         allowed_mentions=AllowedMentions.none())

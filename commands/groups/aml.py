@@ -39,10 +39,13 @@ async def approve(interaction: Interaction) -> None:
     """
     Command to approve or decline large transactions.
     """
-    assert isinstance(g.bot, Bot), "g.bot is not initialized."
-    assert isinstance(g.transfers_waiting_approval, TransfersWaitingApproval), (
+    assert isinstance(
+        g.bot, Bot), "g.bot is not initialized."
+    assert isinstance(
+        g.transfers_waiting_approval, TransfersWaitingApproval), (
         "g.transfers_waiting_approval is not initialized.")
-    assert isinstance(g.log, Log), "g.log is not initialized."
+    assert isinstance(
+        g.log, Log), "g.log is not initialized."
     invoker_has_aml_role: bool = test_invoker_is_aml_officer(interaction)
     if not invoker_has_aml_role:
         message_content: str = "You are not an AML officer."
@@ -53,7 +56,8 @@ async def approve(interaction: Interaction) -> None:
     invoker: User | Member = interaction.user
     invoker_name: str = invoker.name
     invoker_id: int = invoker.id
-    transfers_list: List[TransactionRequest] = g.transfers_waiting_approval.load()
+    transfers_list: List[TransactionRequest] = (
+        g.transfers_waiting_approval.load())
     has_sent_message = False
     for transfer in transfers_list:
         sender_id: int = transfer["sender_id"]
@@ -186,7 +190,8 @@ async def block_receivals(interaction: Interaction,
     if blocked and not reason:
         message_content: str = ("You must provide a reason for blocking "
                                 "the user from receiving coins.")
-        await interaction.response.send_message(message_content, ephemeral=True)
+        await interaction.response.send_message(message_content,
+                                                ephemeral=True)
         del message_content
         return
 
@@ -208,7 +213,8 @@ async def block_receivals(interaction: Interaction,
             Literal['blocked'] | Literal['not blocked']) = (
             "blocked" if is_blocked else "not blocked")
         message_content = (f"User {user_mention} is currently "
-                           f"{blocked_or_not_blocked} from receiving {g.coins}.")
+                           f"{blocked_or_not_blocked} from "
+                           f"receiving {g.coins}.")
     else:
         blocked_or_unblocked: Literal['blocked'] | Literal['unblocked'] = (
             "blocked" if blocked else "unblocked")
@@ -274,9 +280,10 @@ async def decrypt_spreadsheet(interaction: Interaction,
             g.decrypted_transactions_spreadsheet.decrypted_spreadsheet_path)
         with open(spreadsheet_path, 'rb') as f:
             decrypted_transactions_spreadsheet_file = File(f)
-            await interaction.response.send_message(message_content,
-                                                    file=decrypted_transactions_spreadsheet_file,
-                                                    allowed_mentions=AllowedMentions.none())
+            await interaction.response.send_message(
+                message_content,
+                file=decrypted_transactions_spreadsheet_file,
+                allowed_mentions=AllowedMentions.none())
     except Exception as e:
         error_message: str = ("An error occurred while decrypting the "
                               f"transactions spreadsheet: {e}")
