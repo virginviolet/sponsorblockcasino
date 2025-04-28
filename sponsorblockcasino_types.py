@@ -5,6 +5,7 @@ from typing import Dict, TypedDict, List, TypeVar
 
 # Third party
 from discord import PartialEmoji
+from pydantic import BaseModel
 # endregion
 
 # region Types
@@ -98,7 +99,7 @@ class SpinEmojis(TypedDict):
     spin3: SpinEmoji
 
 
-class SlotMachineConfig(TypedDict):
+class SlotMachineConfig(BaseModel):
     combo_events: dict[str, ReelSymbol]
     reels: Reels
     reel_spin_emojis: SpinEmojis

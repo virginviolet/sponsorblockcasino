@@ -352,7 +352,7 @@ async def insert_coins(interaction: Interaction,
             await remove_from_active_players(interaction, user_id)
         return
 
-    fees_dict: Dict[str, int | float] = g.slot_machine.configuration["fees"]
+    fees_dict: Dict[str, int | float] = g.slot_machine.configuration.fees
     lowest_wager_main_fee: int = (
         cast(int, fees_dict["lowest_wager_main"]))
     low_wager_main_fee: float = (
@@ -395,7 +395,7 @@ async def insert_coins(interaction: Interaction,
         jackpot_fee = round(jackpot_fee_unrounded)
     fees: int = jackpot_fee + main_fee
 
-    spin_emojis: SpinEmojis = g.slot_machine.configuration["reel_spin_emojis"]
+    spin_emojis: SpinEmojis = g.slot_machine.configuration.reel_spin_emojis
     spin_emoji_1_name: str = spin_emojis["spin1"]["emoji_name"]
     spin_emoji_1_id: int = spin_emojis["spin1"]["emoji_id"]
     spin_emoji_1 = PartialEmoji(name=spin_emoji_1_name,
@@ -404,9 +404,10 @@ async def insert_coins(interaction: Interaction,
     reels_row: str = f"{spin_emoji_1}\t\t{spin_emoji_1}\t\t{spin_emoji_1}"
     wager_row: str = f"-# Coin: {amount_int}"
     fees_row: str = f"-# Fee: {fees}"
-    slots_message: str = g.slot_machine.make_message(text_row_1=wager_row,
-                                                     text_row_2=fees_row,
-                                                     reels_row=reels_row)
+    slots_message: str = g.slot_machine.make_message(
+        text_row_1=wager_row,
+        text_row_2=fees_row,
+        reels_row=reels_row)
 
     slot_machine_view = SlotMachineView(invoker=user,
                                         slot_machine=g.slot_machine,
@@ -696,7 +697,7 @@ async def insert_coins(interaction: Interaction,
     if event_name == "jackpot":
         # Reset the jackpot
         combo_events: Dict[str, ReelSymbol] = (
-            g.slot_machine.configuration["combo_events"])
+            g.slot_machine.configuration.combo_events)
         jackpot_seed: int = combo_events["jackpot"]["fixed_amount"]
         g.slot_machine.jackpot = jackpot_seed
     else:

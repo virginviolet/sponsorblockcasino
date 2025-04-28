@@ -1,9 +1,8 @@
 # region Imports
 # Standard library
-import json
 import random
 import math
-from os import makedirs
+from os import makedirs, stat
 from os.path import exists
 from typing import Dict, KeysView, List, LiteralString, cast, Literal, Any
 
@@ -14,7 +13,8 @@ from sympy import (symbols,  # pyright: ignore [reportUnknownVariableType]
 
 # Local
 import core.global_state as g
-from sponsorblockcasino_types import Reels, ReelSymbol, ReelResults, SlotMachineConfig
+from sponsorblockcasino_types import (Reels, ReelSymbol, ReelResults,
+                                      SlotMachineConfig)
 # endregion
 
 
@@ -25,7 +25,8 @@ class SlotMachine:
     calculating expected value, and handling jackpots.
     Methods:
         __init__(file_name = "data/slot_machine.json"):
-            Initializes the SlotMachine class with the given configuration file.
+            Initializes the SlotMachine class with the given
+                configuration file.
         load_reels():
             Loads the reels configuration from the
             slot machine configuration file.
@@ -52,8 +53,8 @@ class SlotMachine:
             Calculate the probability of a specific symbol appearing on a
             given reel.
         calculate_event_probability(symbol):
-            Calculate the overall probability of a given symbol appearing across
-            all reels.
+            Calculate the overall probability of a given symbol appearing
+            across all reels.
         calculate_losing_probabilities():
             Calculate the probability of losing the entire wager and the
             probability of not getting any symbols to match.
@@ -87,8 +88,8 @@ class SlotMachine:
         Initializes the SlotMachine class with the given configuration file.
 
         Args:
-            file_name: The name of the slot machine configuration file. Defaults
-                to "data/slot_machine.json".
+            file_name: The name of the slot machine configuration file.
+                Defaults to "data/slot_machine.json".
 
         Attributes:
             file_name: The name of the slot machine configuration file
@@ -112,15 +113,16 @@ class SlotMachine:
                 self._probabilities: Dict[str, Float] = (
                     self.calculate_all_probabilities())
                 self._jackpot: int = self.load_jackpot()
-                self._fees: dict[str, int | float] = self.configuration["fees"]
+                self._fees: dict[str, int | float] = self.configuration.fees
                 self.header: str = f"### {Coin} Slot Machine"
                 self.next_bonus_wait_seconds: int = (
-                    self.configuration["new_bonus_wait_seconds"])
+                    self.configuration.new_bonus_wait_seconds)
                 self.starting_bonus_die_enabled: bool = (
-                    self.configuration["starting_bonus_die_enabled"])
+                    self.configuration.starting_bonus_die_enabled)
                 attributes_set = True
             except KeyError as e:
-                print(f"ERROR: Missing key in slot machine configuration: {e}\n"
+                print("ERROR: "
+                      f"Missing key in slot machine configuration: {e}\n"
                       "The slot machine configuration file will be replaced "
                       "with template values.")
                 self.create_config()
@@ -136,7 +138,7 @@ class SlotMachine:
         """
         # print("Getting reels...")
         self.configuration = self.load_config()
-        reels: Reels = self.configuration["reels"]
+        reels: Reels = self.configuration.reels
         return reels
 
     @property
@@ -158,7 +160,7 @@ class SlotMachine:
             value: The new value for the reels.
         """
         self._reels = value
-        self.configuration["reels"] = self._reels
+        self.configuration.reels = self._reels
         self.save_config()
 
     @property
@@ -191,7 +193,7 @@ class SlotMachine:
             value (int): The new jackpot value.
         """
         self._jackpot = value
-        self.configuration["jackpot_pool"] = self._jackpot
+        self.configuration.jackpot_pool = self._jackpot
         self.save_config()
 
     def load_jackpot(self) -> int:
@@ -207,9 +209,9 @@ class SlotMachine:
         """
         self.configuration = self.load_config()
         combo_events: Dict[str,
-                           ReelSymbol] = self.configuration["combo_events"]
+                           ReelSymbol] = self.configuration.combo_events
         jackpot_seed: int = combo_events["jackpot"]["fixed_amount"]
-        jackpot_pool: int = self.configuration["jackpot_pool"]
+        jackpot_pool: int = self.configuration.jackpot_pool
         if jackpot_pool < jackpot_seed:
             jackpot: int = jackpot_seed
         else:
@@ -242,8 +244,8 @@ class SlotMachine:
         # jackpot_pool will automatically be set to the jackpot event's
         # fixed_amount value if the latter is higher than the former
         # TODO Change the names: either "small_win" and "large_win" or "low_win" and "high_win"
-        configuration: SlotMachineConfig = {
-            "combo_events": {
+        configuration = SlotMachineConfig(
+            combo_events={
                 "lose_wager": {
                     "emoji_name": "",
                     "emoji_id": 0,
@@ -275,30 +277,30 @@ class SlotMachine:
                     "wager_multiplier": 1.0
                 }
             },
-            "reels": {
-                "reel1": {
-                    "high_win": 6,
-                    "jackpot": 1,
-                    "lose_wager": 2,
-                    "medium_win": 10,
-                    "small_win": 1
+            reels={
+                'reel1': {
+                    'high_win': 6,
+                    'jackpot': 1,
+                    'lose_wager': 2,
+                    'medium_win': 10,
+                    'small_win': 1
                 },
-                "reel2": {
-                    "high_win": 6,
-                    "jackpot": 1,
-                    "lose_wager": 2,
-                    "medium_win": 10,
-                    "small_win": 1
+                'reel2': {
+                    'high_win': 6,
+                    'jackpot': 1,
+                    'lose_wager': 2,
+                    'medium_win': 10,
+                    'small_win': 1
                 },
-                "reel3": {
-                    "high_win": 6,
-                    "jackpot": 1,
-                    "lose_wager": 2,
-                    "medium_win": 10,
-                    "small_win": 1
+                'reel3': {
+                    'high_win': 6,
+                    'jackpot': 1,
+                    'lose_wager': 2,
+                    'medium_win': 10,
+                    'small_win': 1
                 }
             },
-            "fees": {
+            fees={
                 "high_wager_jackpot": 0.01,
                 "high_wager_main": 0.19,
                 "low_wager_jackpot": 1,
@@ -308,27 +310,27 @@ class SlotMachine:
                 "medium_wager_jackpot": 0.01,
                 "medium_wager_main": 0.29
             },
-            "reel_spin_emojis": {
-                "spin1": {
-                    "emoji_name": "",
-                    "emoji_id": 0
+            reel_spin_emojis={
+                'spin1': {
+                    'emoji_name': "",
+                    'emoji_id': 0
                 },
-                "spin2": {
+                'spin2': {
                     "emoji_name": "",
-                    "emoji_id": 0
+                    'emoji_id': 0
                 },
-                "spin3": {
+                'spin3': {
                     "emoji_name": "",
                     "emoji_id": 0
                 }
             },
-            "jackpot_pool": 0,
-            "new_bonus_wait_seconds": 86400,
-            "starting_bonus_die_enabled": False
-        }
+            jackpot_pool=0,
+            new_bonus_wait_seconds=86400,
+            starting_bonus_die_enabled=False
+        )
         # Save the configuration to the file
         with open(self.file_name, "w") as file:
-            file.write(json.dumps(configuration))
+            file.write(configuration.model_dump_json(indent=4))
         print("Template slot machine configuration file created.")
 
     def load_config(self) -> SlotMachineConfig:
@@ -340,11 +342,14 @@ class SlotMachine:
         Returns:
             SlotMachineConfig: The loaded slot machine configuration.
         """
-        if not exists(self.file_name):
+        file_exists: bool = exists(self.file_name)
+        file_is_empty: bool = file_exists and stat(self.file_name).st_size == 0
+        if file_is_empty or not file_exists:
             self.create_config()
 
         with open(self.file_name, "r") as file:
-            configuration: SlotMachineConfig = json.loads(file.read())
+            configuration: SlotMachineConfig = (
+                SlotMachineConfig.model_validate_json(file.read()))
             return configuration
 
     def save_config(self) -> None:
@@ -360,7 +365,7 @@ class SlotMachine:
         """
         # print("Saving slot machine configuration...")
         with open(self.file_name, "w") as file:
-            file.write(json.dumps(self.configuration))
+            file.write(self.configuration.model_dump_json(indent=4))
         # print("Slot machine configuration saved.")
     # endregion
 
@@ -557,15 +562,16 @@ class SlotMachine:
         - Total return (TR): The gross return amount that the player gets back
             (this in itself does not tell us if the player made a profit or
             loss).
-        - Return (R): The net amount that the player gets back; the gain or loss
-            part of the total return money; the total return minus the wager .
-        - Expected total return (ETR): The average total return over many plays; 
-            the expected value of the total return.
+        - Return (R): The net amount that the player gets back; the gain or 
+            loss part of the total return money; the total return minus the
+            wager.
+        - Expected total return (ETR): The average total return over
+            many plays; the expected value of the total return.
         - Expected return (ER): The average return (gain or loss) over many
             plays; the expected value of the return.
-        - Piecewise function: A function that is defined by several subfunctions
-            (used here to express ETR and ER with different fees for different
-            wager ranges).
+        - Piecewise function: A function that is defined by
+            several subfunctions (used here to express ETR and ER with
+            different fees for different wager ranges).
 
         Symbolic representation:
         - W: Wager
@@ -581,9 +587,9 @@ class SlotMachine:
         - silent: If True, the function will not print anything to the console.
         - standard_fee_fixed_amount: A fixed amount that is subtracted from the
             player's total return for each spin.
-        - standard_fee_wager_multiplier: A percentage of the player's wager that
-            is subtracted from the player's total return for each spin, and
-            added to the jackpot pool.
+        - standard_fee_wager_multiplier: A percentage of the player's wager
+            that is subtracted from the player's total return for each spin,
+            and added to the jackpot pool.
         - jackpot_fee_fixed_amount: A fixed amount that is subtracted from the
             player's total return for each spin, and added to the jackpot pool.
         """
@@ -601,7 +607,7 @@ class SlotMachine:
         probabilities: Dict[str, Float] = self.calculate_all_probabilities()
         events: KeysView[str] = probabilities.keys()
         combo_events: Dict[str, ReelSymbol] = (
-            self.configuration["combo_events"])
+            self.configuration.combo_events)
 
         # Symbol
         W: Expr = symbols('W')  # wager
@@ -621,7 +627,8 @@ class SlotMachine:
                     standard fee.
                 - standard_fee_wager_multiplier: The multiplier for the
                      standard fee based on the wager.
-                - jackpot_fee_fixed_amount: The fixed amount of the jackpot fee.
+                - jackpot_fee_fixed_amount: The fixed amount of the
+                    jackpot fee.
                 - jackpot_fee_wager_multiplier: The multiplier for the
                     jackpot fee based on the wager.
 
@@ -677,8 +684,8 @@ class SlotMachine:
                 if event == "jackpot" and not no_jackpot_mode:
                     # If the player pays the coin jackpot fee
                     # and wins the jackpot,
-                    # he ends up with his wager minus the standard fee minus the
-                    # jackpot fee, plus the jackpot
+                    # he ends up with his wager minus the standard fee minus
+                    # the jackpot fee, plus the jackpot
                     #
                     # Variables
                     fixed_amount_int = combo_events[event]["fixed_amount"]
@@ -813,7 +820,7 @@ class SlotMachine:
         # Refresh config
         self.configuration = self.load_config()
         self._reels = self.load_reels()
-        self._fees = self.configuration["fees"]
+        self._fees = self.configuration.fees
         # Main fee
         lowest_wager_main_fee: Integer = Integer(
             self._fees["lowest_wager_main"])
@@ -909,7 +916,8 @@ class SlotMachine:
             self.calculate_expected_value(silent=True))[0]
         expected_total_return: Piecewise = (
             cast(Piecewise,
-                 expected_total_return_expression.subs(  # pyright: ignore [reportUnknownMemberType]
+                 expected_total_return_expression
+                 .subs(  # pyright: ignore [reportUnknownMemberType]
                      symbols('W'), wager)))
         if not silent:
             print("Expected total return "
@@ -951,8 +959,8 @@ class SlotMachine:
         """
         Calculate the award money based on the wager and the results of
         the reels. This does not include the fees. It is only the money
-        that a combo event would award the player. It will not return a negative
-        value.
+        that a combo event would award the player. It will not return a
+        negative value.
         It also returns the internal name of the event and a user-friendly name
         of the event.
         Args:
@@ -973,7 +981,7 @@ class SlotMachine:
             return ("standard_lose", "No win", 0)
 
         # IMPROVE Code is repeated from slots() function
-        fees_dict: Dict[str, int | float] = self.configuration["fees"]
+        fees_dict: Dict[str, int | float] = self.configuration.fees
         low_wager_main_fee: int = (
             cast(int, fees_dict["low_wager_main"]))
         low_wager_jackpot_fee: int = (
@@ -1044,7 +1052,7 @@ class SlotMachine:
             str: A user-friendly version of the event name.
         """
         combo_events: Dict[str,
-                           ReelSymbol] = self.configuration["combo_events"]
+                           ReelSymbol] = self.configuration.combo_events
         wager_multiplier: float = (
             combo_events[event_name]["wager_multiplier"])
         fixed_amount_payout: int = (

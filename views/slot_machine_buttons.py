@@ -64,7 +64,7 @@ class SlotMachineView(View):
         self.message_text_row_1: str = text_row_1
         self.message_text_row_2: str = text_row_2
         self.spin_emojis: SpinEmojis = (
-            self.slot_machine.configuration["reel_spin_emojis"])
+            self.slot_machine.configuration.reel_spin_emojis)
         self.spin_emoji_1_name: str = self.spin_emojis["spin1"]["emoji_name"]
         self.spin_emoji_1_id: int = self.spin_emojis["spin1"]["emoji_id"]
         self.spin_emoji_1 = PartialEmoji(name=self.spin_emoji_1_name,
@@ -78,7 +78,7 @@ class SlotMachineView(View):
                                       text_row_2=self.message_text_row_2,
                                       reels_row=self.message_reels_row))
         self.combo_events: Dict[str, ReelSymbol] = (
-            self.slot_machine.configuration["combo_events"])
+            self.slot_machine.configuration.combo_events)
         self.interaction: Interaction = interaction
         self.reels_results: ReelResults
         self.reels_results = {
