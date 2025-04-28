@@ -10,9 +10,12 @@ from typing import Dict, KeysView, List, LiteralString, cast, Literal, Any
 from sympy import (symbols,  # pyright: ignore [reportUnknownVariableType]
                    Expr, Add, Mul, Float, Integer, Eq, Lt, Ge, Rational,
                    Piecewise)
+import lazyimports
 
 # Local
 import core.global_state as g
+with lazyimports.lazy_imports("schemas.pydantic_models:SlotEvent"):
+    from schemas.pydantic_models import SlotEvent
 from sponsorblockcasino_types import (Reels, ReelSymbol, ReelResults,
                                       SlotMachineConfig)
 # endregion
@@ -348,8 +351,16 @@ class SlotMachine:
             self.create_config()
 
         with open(self.file_name, "r") as file:
-            configuration: SlotMachineConfig = (
-                SlotMachineConfig.model_validate_json(file.read()))
+            try:
+                configuration: SlotMachineConfig = (
+                    SlotMachineConfig.model_validate_json(file.read()))
+            except Exception as e:
+                print("WARNING: "
+                      f"Failed to load slot machine configuration: {e}")
+                self.create_config()
+                with open(self.file_name, "r") as file:
+                    configuration: SlotMachineConfig = (
+                        SlotMachineConfig.model_validate_json(file.read()))
             return configuration
 
     def save_config(self) -> None:
@@ -955,7 +966,7 @@ class SlotMachine:
     def calculate_award_money(self,
                               wager: int,
                               results: ReelResults
-                              ) -> tuple[str, str, int]:
+                              ) -> tuple[SlotEvent, int]:
         """
         Calculate the award money based on the wager and the results of
         the reels. This does not include the fees. It is only the money
@@ -969,8 +980,7 @@ class SlotMachine:
             combo events.
         Returns:
             tuple: A tuple containing:
-                - event_name: The internal name of the event.
-                - event_name_friendly: A user-friendly name of the event.
+                - event: A SlotEvent object representing the event.
                 - win_money_rounded: The amount of money won, rounded down to
                     the nearest integer.
         """
@@ -978,7 +988,13 @@ class SlotMachine:
             results["reel1"]["associated_combo_event"].keys()
             == results["reel2"]["associated_combo_event"].keys()
                 == results["reel3"]["associated_combo_event"].keys())):
-            return ("standard_lose", "No win", 0)
+            event = SlotEvent(
+                name="standard_lose",
+                name_friendly="No win",
+                fixed_amount=0,
+                wager_multiplier=0.0,
+            )
+            return (event, 0)
 
         # IMPROVE Code is repeated from slots() function
         fees_dict: Dict[str, int | float] = self.configuration.fees
@@ -1007,7 +1023,13 @@ class SlotMachine:
         win_money_rounded: int = 0
         if event_name == "lose_wager":
             event_name_friendly = "Lose stake"
-            return (event_name, event_name_friendly, 0)
+            event = SlotEvent(
+                name=event_name,
+                name_friendly=event_name_friendly,
+                fixed_amount=fixed_amount_payout,
+                wager_multiplier=wager_multiplier,
+            )
+            return (event, 0)
         elif event_name == "jackpot":
             if no_jackpot_mode:
                 event_name = "jackpot_fail"
@@ -1016,7 +1038,13 @@ class SlotMachine:
             else:
                 event_name_friendly = "JACKPOT"
                 win_money_rounded = self.jackpot
-            return (event_name, event_name_friendly, win_money_rounded)
+            event = SlotEvent(
+                name=event_name,
+                name_friendly=event_name_friendly,
+                fixed_amount=fixed_amount_payout,
+                wager_multiplier=wager_multiplier,
+            )
+            return (event, win_money_rounded)
         win_money = (
             (wager * wager_multiplier) + fixed_amount_payout) - wager
         win_money_rounded: int = math.floor(win_money)
@@ -1030,7 +1058,13 @@ class SlotMachine:
         event_name_friendly += "{}X".format(event_multiplier_friendly)
         if fixed_amount_payout > 0:
             event_name_friendly = "+{}".format(fixed_amount_payout)
-        return (event_name, event_name_friendly, win_money_rounded)
+        event = SlotEvent(
+            name=event_name,
+            name_friendly=event_name_friendly,
+            fixed_amount=fixed_amount_payout,
+            wager_multiplier=wager_multiplier,
+        )
+        return (event, win_money_rounded)
     # endregion
 
     # region Friendly event name

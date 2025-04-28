@@ -1,15 +1,15 @@
 # region Imports
 # Standard library
-from typing import Any, cast
+from typing import List
 
 # Third party
-from numpy import ndarray
-import pandas as pd
 from discord import Interaction, Member, User, app_commands
+# from discord.utils import format_dt
 
 # Local
 import core.global_state as g
 from commands.groups.leaderboard import leaderboard_slots_group
+from schemas.pydantic_models import SlotsHighScoreWinEntry
 from utils.formatting import format_coin_label
 from utils.smart_send_interaction_message import smart_send_interaction_message
 # endregion
@@ -26,81 +26,41 @@ from utils.smart_send_interaction_message import smart_send_interaction_message
 async def single_win(interaction: Interaction,
                      ephemeral: bool = False) -> None:
     """
-    Command to show the single win (net win) leaderboard of the slots.
+    Command to show the single win leaderboard of the slot machine.
     """
     assert g.bot, (
         "Bot is not initialized.")
-    assert g.decrypted_transactions_spreadsheet, (
-        "Decrypted transactions spreadsheet is not initialized.")
-    g.decrypted_transactions_spreadsheet.decrypt()
-    await interaction.response.defer(thinking=True, ephemeral=ephemeral)
+    assert g.slot_machine_high_scores, (
+        "Slot machine high scores are not initialized.")
 
-    transactions_decrypted: pd.DataFrame = (
-        pd.read_csv(  # pyright: ignore[reportUnknownMemberType]
-            g.decrypted_transactions_spreadsheet.decrypted_spreadsheet_path,
-            sep="\t", dtype={"Sender": str, "Receiver": str, "Method": str,
-                             "Amount": str}))
-    has_sent_message: bool = False
-    invoker: User | Member = interaction.user
-    invoker_name: str = invoker.name
-    try:
-        casino_house: User = await g.bot.fetch_user(g.casino_house_id)
-    except Exception as e:
-        print(f"Error fetching casino house: {e}")
-        await interaction.response.send_message(
-            "Error fetching casino house. Please try again later.",
-            ephemeral=True)
-        return
-    casino_username: str = casino_house.name
-    transactions_decrypted["Sender (normalized)"] = (
-        transactions_decrypted["Sender"].astype(str).str.strip().str.lower()
-    )
-    slot_outcomes: pd.DataFrame = transactions_decrypted[
-        (transactions_decrypted["Method"]
-         == "slot_machine") &
-        (transactions_decrypted["Sender (normalized)"]
-         == casino_username.lower())]
-    gamblers: dict[str, int] = {}
-    gamblers_extracted: pd.Series[str | float] = slot_outcomes["Receiver"]
-    unique_gamblers: ndarray[Any, Any] = (
-        gamblers_extracted
-        .unique())  # pyright: ignore[reportUnknownMemberType]
-    for gambler in unique_gamblers:
-        user_wins: pd.DataFrame = cast(pd.DataFrame, slot_outcomes[
-            slot_outcomes["Receiver"] == gambler])
-        highest_win: int = 0
-        for _, row in (  # pyright: ignore[reportUnknownVariableType]
-            user_wins.iterrows()):  # pyright: ignore[reportUnknownMemberType]
-            amount_str: str = cast(str, row["Amount"])
-            try:
-                amount: int = int(amount_str)
-                if amount > highest_win:
-                    highest_win = amount
-            except ValueError:
-                print(f"ValueError: {row['Amount']}")
-        if highest_win != 0:
-            gamblers[gambler] = int(highest_win)
-    gamblers = dict(sorted(
-        gamblers.items(), key=lambda item: item[1], reverse=True))
+    high_scores_unsorted: List[SlotsHighScoreWinEntry] = (
+        g.slot_machine_high_scores.high_scores.highest_wins.entries)
+    high_scores: list[SlotsHighScoreWinEntry] = sorted(
+        high_scores_unsorted, key=lambda x: (-x.win_money, x.created_at))
     message_content: str = (f"## {g.Coin} Slot Machine leaderboard "
                             "\N{EN DASH} Single win\n")
-    for i, (user_name, amount) in enumerate(gamblers.items(), start=1):
-        coin_label: str = format_coin_label(amount)
-        entry: str = ""
-        if amount > 0:
-            entry = f"{i}. "
-        if user_name == invoker_name:
-            entry += (
-                f"**{user_name}**\n"
-                f"-# {amount:,} {coin_label}\n"
+    invoker: User | Member = interaction.user
+    invoker_name: str = invoker.name
+    has_sent_message = False
+    for i, entry in enumerate(high_scores):
+        coin_label: str = format_coin_label(entry.win_money)
+        message_entry: str = f"{i}. "
+        # dt: datetime = datetime.fromtimestamp(entry.created_at)
+        # dt_formatted: str = format_dt(dt)
+        if entry.user.name == invoker_name:
+            message_entry += (
+                f"**{entry.user.name}**\n"
+                # f"-# {dt_formatted}\n"
+                f"-# {entry.win_money:,} {coin_label}\n"
                 "\n").replace(",", "\N{THIN SPACE}")
         else:
-            entry += (
-                f"{user_name}\n"
-                f"-# {amount:,} {coin_label}\n"
+            message_entry += (
+                f"{entry.user.name}\n"
+                # f"-# {dt_formatted}\n"
+                f"-# {entry.win_money:,} {coin_label}\n"
                 "\n").replace(",", "\N{THIN SPACE}")
-        message_content += entry
-        has_sent_message = True
+        
+        message_content += message_entry
         if len(message_content) >= 2000 - 100:
             await smart_send_interaction_message(
                 interaction, message_content, has_sent_message, ephemeral)

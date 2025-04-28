@@ -16,6 +16,7 @@ from models.grifter_suppliers import GrifterSuppliers
 from models.log import Log
 from models.message_mining_registry import MessageMiningRegistryManager
 from models.slot_machine import SlotMachine
+from models.slot_machine_high_scores import SlotMachineHighScores
 from models.transfers_waiting_approval import TransfersWaitingApproval
 from utils.decrypt_transactions import DecryptedTransactionsSpreadsheet
 # FIXME blockchain gets defined both here and in the waitress thread
@@ -55,6 +56,7 @@ def setup_bot_environment() -> None:
     g.grifter_suppliers = GrifterSuppliers()
     g.decrypted_transactions_spreadsheet = (
         DecryptedTransactionsSpreadsheet(time_zone=g.time_zone))
+    g.slot_machine_high_scores = SlotMachineHighScores()
     print("Class instances started.")
     print("Bot environment set up.")
 # endregion

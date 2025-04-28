@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from models.grifter_suppliers import GrifterSuppliers
     from models.log import Log
     from models.slot_machine import SlotMachine
+    from models.slot_machine_high_scores import SlotMachineHighScores
     from models.transfers_waiting_approval import TransfersWaitingApproval
     from models.message_mining_registry import MessageMiningRegistryManager
     from utils.decrypt_transactions import DecryptedTransactionsSpreadsheet
@@ -49,6 +50,7 @@ transfers_waiting_approval: "TransfersWaitingApproval | None" = None
 decrypted_transactions_spreadsheet: (
     "DecryptedTransactionsSpreadsheet | None") = None
 message_mining_registry: "MessageMiningRegistryManager | None" = None
+slot_machine_high_scores: "SlotMachineHighScores | None" = None
 bot: "Bot | None" = None
 client: "Client | None" = None
 

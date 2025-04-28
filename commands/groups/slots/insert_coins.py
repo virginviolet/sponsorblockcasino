@@ -1,6 +1,7 @@
 # region Imports
 # Standard library
 import asyncio
+from datetime import datetime
 from time import time
 from hashlib import sha256
 from typing import Dict, List, cast
@@ -8,18 +9,23 @@ from typing import Dict, List, cast
 # Third party
 from humanfriendly import format_timespan
 from discord import (Interaction, Member, PartialEmoji, User, app_commands,
-                     Client)
+                     Client, Message)
 from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
     Bot)
+from discord.utils import time_snowflake
 
 # Local
 import core.global_state as g
 from sponsorblockcasino_types import ReelSymbol,  ReelResults, SpinEmojis
 from core.terminate_bot import terminate_bot
 from models.slot_machine import SlotMachine
+from models.slot_machine_high_scores import SlotMachineHighScores
 from models.grifter_suppliers import GrifterSuppliers
 from models.log import Log
 from models.user_save_data import UserSaveData
+from schemas.pydantic_models import (SlotEvent, SlotFeeDetail, SlotMessage,
+                                     SlotReelSymbol, SlotResultSimple,
+                                     SlotsHighScoreWinEntry, UserSimple)
 from utils.blockchain_utils import (add_block_transaction,
                                     get_last_block_timestamp)
 from utils.formatting import format_coin_label
@@ -78,6 +84,8 @@ async def insert_coins(interaction: Interaction,
     assert isinstance(g.grifter_suppliers, GrifterSuppliers), (
         "g.grifter_suppliers has not been initialized.")
     assert isinstance(g.log, Log), "g.log has not been initialized."
+    assert isinstance(g.slot_machine_high_scores, SlotMachineHighScores), (
+        "g.slot_machine_high_scores has not been initialized.")
 
     user: User | Member = interaction.user
     user_id: int = user.id
@@ -373,27 +381,59 @@ async def insert_coins(interaction: Interaction,
     jackpot_fee_paid: bool = (
         amount_int >= (low_wager_main_fee + low_wager_jackpot_fee))
     no_jackpot_mode: bool = False if jackpot_fee_paid else True
-    jackpot_fee: int
-    main_fee: int
+    main_fee_amount: int
+    jackpot_fee_amount: int
+    main_fee: SlotFeeDetail
+    jackpot_fee: SlotFeeDetail
     if no_jackpot_mode:
         # IMPROVE Make min_wager config keys
-        main_fee = lowest_wager_main_fee
-        jackpot_fee = lowest_wager_jackpot_fee  # Should be 0
+        main_fee = SlotFeeDetail(
+            name="lowest_wager_main",
+            percentage=lowest_wager_main_fee,
+            amount=lowest_wager_main_fee)
+        jackpot_fee = SlotFeeDetail(
+            name="lowest_wager_jackpot",
+            percentage=lowest_wager_jackpot_fee,
+            amount=lowest_wager_jackpot_fee  # Should be 0
+        )
     elif amount_int < 10:
         main_fee_unrounded: float = amount_int * low_wager_main_fee
-        main_fee = round(main_fee_unrounded)
-        jackpot_fee = low_wager_jackpot_fee
+        main_fee_amount = round(main_fee_unrounded)
+        main_fee = SlotFeeDetail(
+            name="low_wager_main",
+            percentage=low_wager_main_fee,
+            amount=main_fee_amount)
+        jackpot_fee = SlotFeeDetail(
+            name="low_wager_jackpot",
+            percentage=low_wager_jackpot_fee,
+            amount=low_wager_jackpot_fee)
     elif amount_int < 100:
         main_fee_unrounded: float = amount_int * medium_wager_main_fee
-        main_fee = round(main_fee_unrounded)
+        main_fee_amount = round(main_fee_unrounded)
+        main_fee = SlotFeeDetail(
+            name="medium_wager_main",
+            percentage=medium_wager_main_fee,
+            amount=main_fee_amount)
         jackpot_fee_unrounded: float = amount_int * medium_wager_jackpot_fee
-        jackpot_fee = round(jackpot_fee_unrounded)
+        jackpot_fee_amount = round(jackpot_fee_unrounded)
+        jackpot_fee = SlotFeeDetail(
+            name="medium_wager_jackpot",
+            percentage=medium_wager_jackpot_fee,
+            amount=jackpot_fee_amount)
     else:
         main_fee_unrounded: float = amount_int * high_wager_main_fee
-        main_fee = round(main_fee_unrounded)
+        main_fee_amount = round(main_fee_unrounded)
+        main_fee = SlotFeeDetail(
+            name="high_wager_main",
+            percentage=high_wager_main_fee,
+            amount=main_fee_amount)
         jackpot_fee_unrounded: float = amount_int * high_wager_jackpot_fee
-        jackpot_fee = round(jackpot_fee_unrounded)
-    fees: int = jackpot_fee + main_fee
+        jackpot_fee_amount = round(jackpot_fee_unrounded)
+        jackpot_fee = SlotFeeDetail(
+            name="high_wager_jackpot",
+            percentage=high_wager_jackpot_fee,
+            amount=jackpot_fee_amount)
+    total_fee_amount: int = jackpot_fee.amount + main_fee.amount
 
     spin_emojis: SpinEmojis = g.slot_machine.configuration.reel_spin_emojis
     spin_emoji_1_name: str = spin_emojis["spin1"]["emoji_name"]
@@ -403,8 +443,8 @@ async def insert_coins(interaction: Interaction,
                                 animated=True)
     reels_row: str = f"{spin_emoji_1}\t\t{spin_emoji_1}\t\t{spin_emoji_1}"
     wager_row: str = f"-# Coin: {amount_int}"
-    fees_row: str = f"-# Fee: {fees}"
-    slots_message: str = g.slot_machine.make_message(
+    fees_row: str = f"-# Fee: {total_fee_amount}"
+    slots_message_content: str = g.slot_machine.make_message(
         text_row_1=wager_row,
         text_row_2=fees_row,
         reels_row=reels_row)
@@ -414,10 +454,10 @@ async def insert_coins(interaction: Interaction,
                                         text_row_1=wager_row,
                                         text_row_2=fees_row,
                                         interaction=interaction)
-    await interaction.response.send_message(content=slots_message,
+    await interaction.response.send_message(content=slots_message_content,
                                             view=slot_machine_view,
                                             ephemeral=should_use_ephemeral)
-    del slots_message
+    del slots_message_content
     # Auto-stop reel timer
     # Views have built-in timers that you can wait for with the wait() method,
     # but since we have tasks to upon the timer running out, that won't work
@@ -454,39 +494,38 @@ async def insert_coins(interaction: Interaction,
     del slot_machine_view
 
     # Calculate win amount
-    event_name: str
-    event_name_friendly: str
+    event: SlotEvent
     # Win money is the amount of money that the event will award
     # (not usually the same as net profit or net return)
     win_money: int
-    event_name, event_name_friendly, win_money = (
+    event, win_money = (
         g.slot_machine.calculate_award_money(wager=amount_int,
                                              results=results))
 
     # Generate outcome messages
     event_message: str | None = None
-    # print(f"event_name: '{event_name}'")
-    # print(f"event_name_friendly: '{event_name_friendly}'")
+    # print(f"event.name: '{event.name}'")
+    # print(f"event.name_friendly: '{event.name_friendly}'")
     # print(f"win money: '{win_money}'")
     coin_label_wm: str = format_coin_label(win_money)
-    if event_name == "jackpot_fail":
+    if event.name == "jackpot_fail":
         jackpot_pool: int = g.slot_machine.jackpot
         coin_label_fee: str = format_coin_label(jackpot_pool)
         coin_label_jackpot: str = format_coin_label(jackpot_pool)
-        event_message = (f"{event_name_friendly}! Unfortunately, you did "
+        event_message = (f"{event.name_friendly}! Unfortunately, you did "
                          "not pay the jackpot fee of "
-                         f"{jackpot_fee} {coin_label_fee}, meaning "
+                         f"{jackpot_fee.amount} {coin_label_fee}, meaning "
                          "that you did not win the jackpot of "
                          f"{jackpot_pool} {coin_label_jackpot}. "
                          "Better luck next time!")
         del coin_label_fee
         del coin_label_jackpot
-    elif event_name == "standard_lose":
+    elif event.name == "standard_lose":
         # event_message = None
         event_message = "So close!"
     else:
         # The rest of the possible events are win events
-        event_message = (f"{event_name_friendly}! "
+        event_message = (f"{event.name_friendly}! "
                          f"You won {win_money} {coin_label_wm}!")
 
     # Calculate net return to determine who should get money (house or player)
@@ -497,15 +536,16 @@ async def insert_coins(interaction: Interaction,
     # get back (wager included)
     total_return: int
     log_line: str = ""
-    if event_name == "lose_wager":
+    if event.name == "lose_wager":
         event_message = (f"You lost your entire "
                          f"stake of {amount_int} {coin_label_wm}. "
                          "Better luck next time!")
         net_return = -amount_int
         total_return = 0
     else:
-        total_return = amount_int + win_money - main_fee - jackpot_fee
-        net_return = win_money - main_fee - jackpot_fee
+        total_return = (
+            amount_int + win_money - main_fee.amount - jackpot_fee.amount)
+        net_return = win_money - main_fee.amount - jackpot_fee.amount
     # print(f"wager: {amount_int}")
     # print(f"standard_fee: {main_fee}")
     # print(f"jackpot_fee: {jackpot_fee}")
@@ -516,22 +556,22 @@ async def insert_coins(interaction: Interaction,
     # print(f"total_return: {total_return}")
     coin_label_nr: str = format_coin_label(net_return)
     if net_return > 0:
-        log_line = (f"{user_name} ({user_id}) won the {event_name} "
-                    f"({event_name_friendly}) reward "
+        log_line = (f"{user_name} ({user_id}) won the {event.name} "
+                    f"({event.name_friendly}) reward "
                     f"of {win_money} {coin_label_wm} and profited "
                     f"{net_return} {coin_label_nr} on "
                     f"the {g.Coin} Slot Machine.")
     elif net_return == 0:
-        if event_name == "jackpot_fail":
+        if event.name == "jackpot_fail":
             # This should not happen with default config
-            log_line = (f"{user_name} ({user_id}) got the {event_name} "
-                        f"({event_name_friendly}) event without paying the "
+            log_line = (f"{user_name} ({user_id}) got the {event.name} "
+                        f"({event.name_friendly}) event without paying the "
                         "jackpot fee, so they did not win the jackpot, "
                         "yet they neither lost any coins nor profited.")
-        elif event_name == "lose_wager":
+        elif event.name == "lose_wager":
             # This should not happen with default config
             log_line = (f"{user_name} ({user_id}) got "
-                        f"the {event_name} event ({event_name_friendly}) "
+                        f"the {event.name} event ({event.name_friendly}) "
                         "and lost their entire wager of "
                         f"{amount_int} {coin_label_nr} on "
                         f"the {g.Coin} Slot Machine, "
@@ -539,8 +579,8 @@ async def insert_coins(interaction: Interaction,
         elif win_money > 0:
             # With the default config, this will happen if the fees are higher
             # than the win money
-            log_line = (f"{user_name} ({user_id}) won the {event_name} "
-                        f"({event_name_friendly}) reward "
+            log_line = (f"{user_name} ({user_id}) won the {event.name} "
+                        f"({event.name_friendly}) reward "
                         f"of {win_money} {coin_label_wm} on the {g.Coin} "
                         "slot machine, but made no profit.")
         else:
@@ -550,21 +590,21 @@ async def insert_coins(interaction: Interaction,
                         f"{g.Coin} Slot Machine.")
     else:
         # if net return is negative, the user lost money
-        if event_name == "lose_wager":
-            log_line = (f"{user_name} ({user_id}) got the {event_name} event "
-                        f"({event_name_friendly}) and lost their entire wager "
+        if event.name == "lose_wager":
+            log_line = (f"{user_name} ({user_id}) got the {event.name} event "
+                        f"({event.name_friendly}) and lost their entire wager "
                         f"of {amount_int} {coin_label_nr} on the "
                         f"{g.Coin} Slot Machine.")
-        if event_name == "jackpot_fail":
+        if event.name == "jackpot_fail":
             log_line = (f"{user_name} ({user_id}) lost {-net_return} "
                         f"{coin_label_nr} on the {g.Coin} Slot Machine by "
-                        f"getting the {event_name} ({event_name_friendly}) "
+                        f"getting the {event.name} ({event.name_friendly}) "
                         "event without paying the jackpot fee.")
         elif win_money > 0:
             # turn -net_return into a positive number
             log_line = (f"{user_name} ({user_id}) won "
                         f"{win_money} {coin_label_wm} on "
-                        f"the {event_name} ({event_name_friendly}) reward, "
+                        f"the {event.name} ({event.name_friendly}) reward, "
                         f"but lost {-net_return} {coin_label_nr} "
                         f"in net return on the {g.Coin} Slot Machine.")
         else:
@@ -646,7 +686,6 @@ async def insert_coins(interaction: Interaction,
     else:
         log_timestamp = time()
     g.log.log(line=log_line, timestamp=log_timestamp)
-    del log_timestamp
     del log_line
 
     coins_left: int = user_balance + net_return
@@ -683,25 +722,93 @@ async def insert_coins(interaction: Interaction,
             del next_bonus_point_in_time
         del message_content
 
+    # Add high score entry
+    if (event.name != "standard_lose" and
+        event.name != "jackpot_fail" and
+            event.name != "lose_wager"):
+        user_high_score: int | None = (
+            g.slot_machine_high_scores.fetch_user_high_score(
+                category="highest_wins", user_id=user_id))
+        if user_high_score is None or user_high_score < win_money:
+            print(f"Adding high score entry for {user_name} ({user_id})...")
+            dt: datetime = datetime.fromtimestamp(log_timestamp)
+            high_score_entry_id: int = time_snowflake(dt)
+            slots_message: Message = await interaction.original_response()
+            slot_message_data = SlotMessage(
+                author_id=slots_message.author.id,
+                author_name=slots_message.author.name,
+                channel_id=slots_message.channel.id,
+                id=slots_message.id)
+            # High score uses Pydantic classes
+            # instead of the TypedDicts used everywhere else
+            reel1_symbol_simple = SlotReelSymbol(
+                name=(results["reel1"]["associated_combo_event"][event.name]
+                      ["emoji_name"]),
+                id=(results["reel1"]["associated_combo_event"][event.name]
+                    ["emoji_id"]))
+            reel2_symbol_simple = SlotReelSymbol(
+                name=(results["reel2"]["associated_combo_event"][event.name]
+                      ["emoji_name"]),
+                id=(results["reel2"]["associated_combo_event"][event.name]
+                    ["emoji_id"]))
+            reel3_symbol_simple = SlotReelSymbol(
+                name=(results["reel3"]["associated_combo_event"][event.name]
+                      ["emoji_name"]),
+                id=(results["reel3"]["associated_combo_event"][event.name]
+                    ["emoji_id"]))
+            result_simple = SlotResultSimple(
+                reel1=reel1_symbol_simple,
+                reel2=reel2_symbol_simple,
+                reel3=reel3_symbol_simple)
+            del slots_message
+            user_global_name: str | None = user.global_name
+            user_mention: str = user.mention
+            user_simple = UserSimple(
+                id=user_id,
+                name=user_name,
+                mention=user_mention,
+                global_name=user_global_name)
+            high_score_win_entry = SlotsHighScoreWinEntry(
+                created_at=log_timestamp,
+                id=high_score_entry_id,
+                result=result_simple,
+                user=user_simple,
+                wager=amount_int,
+                event=event,
+                fees={"jackpot_fee": jackpot_fee, "main_fee": main_fee},
+                message=slot_message_data,
+                win_money=win_money)
+            g.slot_machine_high_scores.add_entry(high_score_win_entry)
+            print(f"High score entry added for {user_name} ({user_id}).")
+            # TODO Make command clickable
+            message_content = (
+                f"High score!\n"
+                "-# Check out the leaderboard with"
+                "`/leaderboard slots single_win`.")
+            await interaction.followup.send(content=message_content,
+                                            ephemeral=should_use_ephemeral)
+            del message_content
+    del log_timestamp
+
     if user_id in g.active_slot_machine_players:
         await remove_from_active_players(interaction, user_id)
 
     if last_block_error:
         # send message to admin
         administrator: str = (await g.bot.fetch_user(g.administrator_id)).name
-        await interaction.response.send_message("An error occurred. "
-                                                f"{administrator} pls fix.")
+        await interaction.followup.send("An error occurred. "
+                                        f"{administrator} pls fix.")
         await terminate_bot()
     del last_block_error
 
-    if event_name == "jackpot":
+    if event.name == "jackpot":
         # Reset the jackpot
         combo_events: Dict[str, ReelSymbol] = (
             g.slot_machine.configuration.combo_events)
         jackpot_seed: int = combo_events["jackpot"]["fixed_amount"]
         g.slot_machine.jackpot = jackpot_seed
     else:
-        g.slot_machine.jackpot += jackpot_fee
+        g.slot_machine.jackpot += jackpot_fee.amount
 
 
 @insert_coins.autocomplete(name="amount")
