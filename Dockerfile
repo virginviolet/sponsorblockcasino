@@ -17,7 +17,7 @@ COPY . ./
 # Fetch the .git folder initialize submodules
 RUN git init && \
     git remote add origin https://github.com/virginviolet/sponsorblockcasino.git && \
-    git fetch --depth=30 origin main && \
+    git fetch origin main && \
     git checkout -f main && \
     git submodule update --init --recursive || echo "No submodules found" && \
     rm -rf .git && \
