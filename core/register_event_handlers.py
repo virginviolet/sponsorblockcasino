@@ -4,6 +4,7 @@ from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
     Bot)
 
 # Local
+from commands.groups.maintainer.maintainer_main import maintainer_group
 import core.global_state as g
 from commands.groups.aml import aml_group
 from commands.groups.slots.slots_main import slots_group
@@ -38,6 +39,7 @@ def register_commands() -> None:
     # Command groups
     g.bot.tree.add_command(aml_group)
     g.bot.tree.add_command(slots_group)
+    g.bot.tree.add_command(maintainer_group)
     g.bot.tree.add_command(mining_group)
     g.bot.tree.add_command(leaderboard_group)
     print("Commands registered.")

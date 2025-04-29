@@ -1,6 +1,5 @@
 # region Imports
 # Third party
-from discord.ext.commands import Bot  # type: ignore
 from discord import app_commands
 # endregion
 

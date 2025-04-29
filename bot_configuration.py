@@ -2,7 +2,7 @@
 # Standard Library
 import json
 from os.path import exists
-from os import environ as os_environ, makedirs
+from os import environ as os_environ, makedirs, stat
 from typing import Dict, cast, Any
 
 # Local
@@ -11,6 +11,8 @@ from sponsorblockcasino_types import BotConfig
 # endregion
 
 # region Bot config
+
+
 class BotConfiguration:
     """
     A class to handle the bot configuration.
@@ -76,7 +78,8 @@ class BotConfiguration:
             "auto_approve_transfer_limit": 0,
             "aml_office_channel_id": 0,
             "aml_office_thread_id": 0,
-            "reaction_messages_enabled": True
+            "reaction_messages_enabled": True,
+            "leaderboard_slots_highest_win_blocked": False
         }
         attributes_set = False
         while attributes_set is False:
@@ -122,6 +125,9 @@ class BotConfiguration:
                     self.configuration["aml_office_thread_id"])
                 self.reaction_messages_enabled: bool = (
                     self.configuration["reaction_messages_enabled"])
+                self._leaderboard_slots_highest_win_blocked: bool = (
+                    self.configuration[
+                        "leaderboard_slots_highest_win_blocked"])
                 attributes_set = True
             except KeyError as e:
                 print(f"ERROR: Missing key in bot configuration: {e}\n"
@@ -142,6 +148,27 @@ class BotConfiguration:
                       f"in '{self.file_name}' "
                       "nor in the environment variables.")
         print(f"Bot configuration initialized.")
+
+    @property
+    def leaderboard_slots_highest_win_blocked(self) -> bool:
+        """
+        Gets the _leaderboard_slots_highest_win_blocked attribute.
+        This property is used to check if the leaderboard for the highest
+        win is blocked or not.
+        Returns:
+            bool: True if the leaderboard is blocked, False otherwise.
+        """
+        return self._leaderboard_slots_highest_win_blocked
+
+    @leaderboard_slots_highest_win_blocked.setter
+    def leaderboard_slots_highest_win_blocked(self, value: bool) -> None:
+        """
+        Sets the _leaderboard_slots_highest_win_blocked attribute.
+        """
+        self._leaderboard_slots_highest_win_blocked: bool = value
+        self.configuration["leaderboard_slots_highest_win_blocked"] = value
+        with open(self.file_name, "w") as file:
+            file.write(json.dumps(self.configuration, indent=4))
 
     def create(self) -> None:
         """
@@ -174,7 +201,7 @@ class BotConfiguration:
         configuration: BotConfig = self._default_config
         # Save the configuration to the file
         with open(self.file_name, "w") as file:
-            file.write(json.dumps(configuration))
+            file.write(json.dumps(configuration, indent=4))
 
     def read(self) -> BotConfig:
         """
@@ -185,8 +212,14 @@ class BotConfiguration:
             The bot configuration dictionary with possible overrides
                 from environment variables.
         """
-        if not exists(self.file_name):
+        file_exists: bool = exists(self.file_name)
+        file_is_empty: bool = file_exists and (
+            stat(self.file_name).st_size == 0)
+        if file_is_empty or not file_exists:
+            print(f"WARNING: '{self.file_name}' is empty or does not exist. "
+                  "Creating a new configuration file with default values.")
             self.create()
+            return self._default_config
 
         with open(self.file_name, "r") as file:
             configuration: BotConfig = json.loads(file.read())
@@ -204,6 +237,7 @@ class BotConfiguration:
                           f"environment variable to {env_value}.")
             return configuration
 
+
 def invoke_bot_configuration() -> None:
     """
     Updates the global config variables.
@@ -211,30 +245,32 @@ def invoke_bot_configuration() -> None:
     a slash command.
     """
     print("Loading bot configuration...")
-    configuration = BotConfiguration()
-    g.coin = configuration.coin
-    g.Coin = configuration.Coin
-    g.coins = configuration.coins
-    g.Coins = configuration.Coins
-    g.coin_emoji_id = configuration.coin_emoji_id
-    g.coin_emoji_name = configuration.coin_emoji_name
-    g.casino_house_id = configuration.casino_house_id
-    g.administrator_id = configuration.administrator_id
-    g.casino_channel_id = configuration.casino_channel_id
-    g.mining_updates_channel_id = configuration.mining_updates_channel_id
-    g.mining_updates_channel_name = configuration.mining_updates_channel_name
-    g.mining_highlights_channel_id = configuration.mining_highlights_channel_id
+    g.configuration = BotConfiguration()
+    g.coin = g.configuration.coin
+    g.Coin = g.configuration.Coin
+    g.coins = g.configuration.coins
+    g.Coins = g.configuration.Coins
+    g.coin_emoji_id = g.configuration.coin_emoji_id
+    g.coin_emoji_name = g.configuration.coin_emoji_name
+    g.casino_house_id = g.configuration.casino_house_id
+    g.administrator_id = g.configuration.administrator_id
+    g.casino_channel_id = g.configuration.casino_channel_id
+    g.mining_updates_channel_id = g.configuration.mining_updates_channel_id
+    g.mining_updates_channel_name = g.configuration.mining_updates_channel_name
+    g.mining_highlights_channel_id = g.configuration.mining_highlights_channel_id
     g.mining_highlights_channel_name = (
-        configuration.mining_highlights_channel_name)
-    g.blockchain_name = configuration.blockchain_name
-    g.Blockchain_name = configuration.Blockchain_name
-    g.network_mining_enabled = configuration.network_mining_enabled
-    g.grifter_swap_id = configuration.grifter_swap_id
-    g.sbcoin_id = configuration.sbcoin_id
+        g.configuration.mining_highlights_channel_name)
+    g.blockchain_name = g.configuration.blockchain_name
+    g.Blockchain_name = g.configuration.Blockchain_name
+    g.network_mining_enabled = g.configuration.network_mining_enabled
+    g.grifter_swap_id = g.configuration.grifter_swap_id
+    g.sbcoin_id = g.configuration.sbcoin_id
     g.auto_approve_transfer_limit = (
-        configuration.auto_approve_transfer_limit)
-    g.aml_office_channel_id = configuration.aml_office_channel_id
+        g.configuration.auto_approve_transfer_limit)
+    g.aml_office_channel_id = g.configuration.aml_office_channel_id
     g.aml_office_thread_id = (
-        configuration.aml_office_thread_id)
-    g.reaction_messages_enabled = configuration.reaction_messages_enabled
+        g.configuration.aml_office_thread_id)
+    g.reaction_messages_enabled = g.configuration.reaction_messages_enabled
+    g.leaderboard_slots_highest_win_blocked = (
+        g.configuration.leaderboard_slots_highest_win_blocked)
     print("Bot configuration loaded.")

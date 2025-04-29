@@ -32,6 +32,23 @@ async def single_win(interaction: Interaction,
         "Bot is not initialized.")
     assert g.slot_machine_high_scores, (
         "Slot machine high scores are not initialized.")
+    if g.leaderboard_slots_highest_win_blocked is True:
+        message_content: str
+        if ((g.donation_goal is not None) and
+            (g.donation_goal.reward_setting
+            == "leaderboard_slots_highest_win_blocked")):
+            message_content = (
+                f"The {g.Coin} Slot Machine \"highest win\" leaderboard "
+                "will be unlocked once the donation goal is achieved.\n"
+                "-# Type `/donation_goal` to check the current progress.")
+            ephemeral = False
+        else:
+            message_content = (
+                f"The {g.Coin} Slot Machine \"highest win\" leaderboard "
+                "is currently disabled. Please try again later.")
+        await interaction.response.send_message(message_content,
+                                                ephemeral=ephemeral)
+        return
 
     high_scores_unsorted: List[SlotsHighScoreWinEntry] = (
         g.slot_machine_high_scores.high_scores.highest_wins.entries)

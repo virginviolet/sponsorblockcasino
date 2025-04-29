@@ -5,10 +5,13 @@ This package contains all the slash commands available in the bot.
 
 from .about_coin import about_coin
 from .balance import balance
+from .donation_goal import donation_goal
 from .groups.mining import mining_main
 from .reels import reels
 from .transfer import transfer
 from .groups.aml import aml_group
+from .groups.maintainer.maintainer_main import maintainer_group
+from .groups.maintainer import maintainer_donation_goal
 from .groups.mining.mining_main import mining_group
 from .groups.mining import mining_stats
 from .groups.mining import mining_settings
@@ -28,6 +31,7 @@ __all__: list[str] = [
     "mining_main",
     "balance",
     "about_coin",
+    "maintainer_donation_goal",
     "aml_group",
     "mining_settings",
     "mining_stats",
@@ -39,6 +43,8 @@ __all__: list[str] = [
     "reboot",
     "rtp",
     "slots_utils",
+    "maintainer_group",
+    "donation_goal",
     "leaderboard_group",
     "leaderboard_slots_group",
     "sponsors",

@@ -723,7 +723,8 @@ async def insert_coins(interaction: Interaction,
         del message_content
 
     # Add high score entry
-    if (event.name != "standard_lose" and
+    if (g.leaderboard_slots_highest_win_blocked is False and
+        event.name != "standard_lose" and
         event.name != "jackpot_fail" and
             event.name != "lose_wager"):
         user_high_score: int | None = (

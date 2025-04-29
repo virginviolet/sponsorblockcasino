@@ -28,8 +28,9 @@ from core.terminate_bot import terminate_bot
 from models.log import Log
 from models.transfers_waiting_approval import TransfersWaitingApproval
 from models.user_save_data import UserSaveData
-from utils.roles import get_aml_officer_role
+from utils.donation_goal_apply_setting import apply_donation_reward
 from utils.formatting import format_coin_label
+from utils.roles import get_aml_officer_role
 from sponsorblockchain.sponsorblockchain_types import Transaction
 from sponsorblockchain.models.blockchain import Blockchain
 from sponsorblockchain.models.block import Block
@@ -150,7 +151,8 @@ async def transfer_coins(sender: Member | User,
     """
     assert isinstance(g.bot, Bot), "g.bot is not initialized."
     assert isinstance(g.log, Log), "g.log is not initialized."
-    assert isinstance(g.transfers_waiting_approval, TransfersWaitingApproval), (
+    assert isinstance(
+        g.transfers_waiting_approval, TransfersWaitingApproval), (
         "g.transfers_waiting_approval is not initialized.")
     if g.blockchain is None:
         raise ValueError("blockchain is None.")
@@ -163,7 +165,8 @@ async def transfer_coins(sender: Member | User,
 
     async def send_message(message_text: str,
                            ephemeral: bool = False,
-                           allowed_mentions: AllowedMentions = MISSING) -> None:
+                           allowed_mentions: AllowedMentions = MISSING
+                           ) -> None:
         if interaction is None:
             if channel is None:
                 print("ERROR: channel is None.")
@@ -212,7 +215,8 @@ async def transfer_coins(sender: Member | User,
     try:
         balance = g.blockchain.get_balance(user_unhashed=sender_id)
     except Exception as e:
-        administrator: str = (await g.bot.fetch_user(g.administrator_id)).mention
+        administrator: str = (
+            await g.bot.fetch_user(g.administrator_id)).mention
         await send_message(f"Error getting balance. {administrator} pls fix.")
         error_message: str = ("ERROR: Error getting balance "
                               f"for user {sender} ({sender_id}): {e}")
@@ -251,7 +255,7 @@ async def transfer_coins(sender: Member | User,
                                "mistake, please contact "
                                "an anti-money-laundering officer by "
                                f"mentioning {aml_mention}.")
-            await interaction.response.send_message(
+            await send_message(
                 message_content, allowed_mentions=AllowedMentions.none())
             del message_content
             return
@@ -269,8 +273,9 @@ async def transfer_coins(sender: Member | User,
                     "manually approve this transaction. "
                     "Please state your purpose of transferring "
                     f"{amount} {coin_label_a} to {receiver_mention}.")
-                await interaction.response.send_message(message_content)
+                await send_message(message_content)
                 del message_content
+                has_responded = True
 
                 def check(message: Message) -> bool:
                     message_author: User | Member = message.author
@@ -314,8 +319,8 @@ async def transfer_coins(sender: Member | User,
                     allowed_mentions=AllowedMentions.none())
                 log_message: str = (
                     f"A request for transferring {amount} {coin_label_a} "
-                    f"to {receiver_mention} for the purpose of \"{purpose}\" has "
-                    "been sent for approval.")
+                    f"to {receiver_mention} for the purpose of \"{purpose}\" "
+                    "has been sent for approval.")
                 g.log.log(log_message, request_timestamp)
                 del log_message
             except Exception as e:
@@ -392,26 +397,71 @@ async def transfer_coins(sender: Member | User,
                                 receiver=receiver,
                                 amount=amount,
                                 method=method)
-    assert isinstance(g.bot, Bot), "g.bot is not initialized."
     last_block: Block | None = g.blockchain.get_last_block()
     if last_block is None:
         print("ERROR: Last block is None.")
-        administrator: str = (await g.bot.fetch_user(g.administrator_id)).mention
+        administrator: str = (
+            await g.bot.fetch_user(g.administrator_id)).mention
         await send_message(f"Error transferring {g.coins}. "
                            f"{administrator} pls fix.")
         await terminate_bot()
+        raise Exception("Last block is None.")
     timestamp: float = last_block.timestamp
-    g.log.log(line=f"{sender} ({sender_id}) transferred {amount} {coin_label_a} "
+    g.log.log(line=f"{sender} ({sender_id}) transferred "
+              f"{amount} {coin_label_a} "
               f"to {receiver} ({receiver_id}).",
               timestamp=timestamp)
+    
+    # Prepare transferred message
     sender_mention: str = sender.mention
     receiver_mention: str = receiver.mention
-    allowed_pings = AllowedMentions(users=[receiver])
-    await send_message(
+    transferred_message_content: str = (
         f"{sender_mention} transferred "
         f"{amount} {coin_label_a} "
-        f"to {receiver_mention}'s account.",
+        f"to {receiver_mention}'s account.")
+    allowed_pings = AllowedMentions(users=[receiver])
+    # Donation goal
+    donation_goal_message: str = ""
+    if (g.donation_goal is not None and
+            g.donation_goal.donation_recipient_id == receiver_id):
+        g.donation_goal.donated_amount += amount
+        donation_goal_message: str
+        remaining_donation_ratio: float = (
+            g.donation_goal.target_amount -
+            g.donation_goal.donated_amount) / g.donation_goal.target_amount
+        if g.donation_goal.donation_recipient_id == g.casino_house_id:
+            transferred_message_content += "\nThank you for your donation!"
+        if g.donation_goal.donated_amount >= g.donation_goal.target_amount:
+            # Goal reached
+            recipient_pronoun: str = (
+                "its" if receiver_id == g.casino_house_id else "their")
+            coin_label_g: str = format_coin_label(
+                g.donation_goal.target_amount)
+            donation_goal_message: str = (
+                f"{receiver_mention} has reached "
+                f"{recipient_pronoun} donation goal of "
+                f"{g.donation_goal.target_amount} {coin_label_g}!\n")
+            del coin_label_g
+            if g.donation_goal.goal_reached_message_content is not None:
+                donation_goal_message += (
+                    f"{g.donation_goal.goal_reached_message_content}")
+            apply_donation_reward()
+            g.donation_goal = None
+        else:
+            donation_goal_message = (
+                "Donation goal "
+                f"for {g.donation_goal.donation_recipient_mention} updated:\n"
+                f"## {g.donation_goal.goal_description}\n"
+                f"{g.donation_goal.donated_amount}/"
+                f"{g.donation_goal.target_amount} {coin_label_a} "
+                f"({remaining_donation_ratio:.0%})\n")
+    # Send messages
+    await send_message(
+        transferred_message_content,
         allowed_mentions=allowed_pings)
+    has_responded = True
+    if donation_goal_message != "":
+        await send_message(donation_goal_message)
     del sender
     del sender_id
     del receiver

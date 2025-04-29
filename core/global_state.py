@@ -5,6 +5,7 @@ from os import getenv
 
 # Third party
 from dotenv import load_dotenv
+
 if TYPE_CHECKING:
     from discord import Client
 
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
     from discord.ext.commands import Bot  # pyright: ignore [reportMissingTypeStubs]
 
     # Local
+    from bot_configuration import BotConfiguration
     from models.checkpoints import ChannelCheckpoints
     from models.grifter_suppliers import GrifterSuppliers
     from models.log import Log
@@ -23,6 +25,7 @@ if TYPE_CHECKING:
     from models.slot_machine_high_scores import SlotMachineHighScores
     from models.transfers_waiting_approval import TransfersWaitingApproval
     from models.message_mining_registry import MessageMiningRegistryManager
+    from schemas.pydantic_models import DonationGoal
     from utils.decrypt_transactions import DecryptedTransactionsSpreadsheet
     from sponsorblockchain.models.blockchain import Blockchain
 # endregion
@@ -43,6 +46,7 @@ time_zone: str = "Canada/Central"
 
 waitress_process: "Popen[str] | None" = None
 log: "Log | None" = None
+configuration: "BotConfiguration | None" = None
 blockchain: "Blockchain | None" = None
 slot_machine: "SlotMachine | None" = None
 grifter_suppliers: "GrifterSuppliers | None" = None
@@ -77,6 +81,9 @@ auto_approve_transfer_limit: int = 0
 aml_office_channel_id: int = 0
 aml_office_thread_id: int = 0
 reaction_messages_enabled: bool = False
+leaderboard_slots_highest_win_blocked: bool = False
+
+donation_goal: "DonationGoal | None" = None
 
 all_channel_checkpoints: "Dict[int, ChannelCheckpoints]" = {}
 
