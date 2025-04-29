@@ -34,7 +34,7 @@ async def show_help(interaction: Interaction,
         "g.slot_machine has not been initialized.")
     pay_table: str = ""
     combo_events: Dict[str, ReelSymbol] = (
-        g.slot_machine.configuration["combo_events"])
+        g.slot_machine.configuration.combo_events)
     combo_event_count: int = len(combo_events)
     for event in combo_events:
         event_name: str = event
@@ -49,7 +49,7 @@ async def show_help(interaction: Interaction,
     # strip the last ">"
     pay_table = pay_table[:pay_table.rfind("\n> ")]
     jackpot_seed: int = (
-        g.slot_machine.configuration["combo_events"]
+        g.slot_machine.configuration.combo_events
         ["jackpot"]["fixed_amount"])
     try:
         administrator: User = (await g.bot.fetch_user(g.administrator_id))
