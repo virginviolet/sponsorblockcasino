@@ -36,7 +36,7 @@ async def single_win(interaction: Interaction,
         message_content: str
         if ((g.donation_goal is not None) and
             (g.donation_goal.reward_setting
-            == "leaderboard_slots_highest_win_blocked")):
+                == "leaderboard_slots_highest_win_blocked")):
             message_content = (
                 f"The {g.Coin} Slot Machine \"highest win\" leaderboard "
                 "will be unlocked once the donation goal is achieved.\n"
@@ -59,24 +59,21 @@ async def single_win(interaction: Interaction,
     invoker: User | Member = interaction.user
     invoker_name: str = invoker.name
     has_sent_message = False
-    for i, entry in enumerate(high_scores):
+    rank: int = 0
+    for entry in high_scores:
+        rank += 1
         coin_label: str = format_coin_label(entry.win_money)
-        message_entry: str = f"{i}. "
+        message_entry: str = f"{rank}. "
+        if entry.user.name == invoker_name:
+            message_entry += f"**{entry.user.name}**\n"
+        else:
+            message_entry += f"{entry.user.name}\n"
         # dt: datetime = datetime.fromtimestamp(entry.created_at)
         # dt_formatted: str = format_dt(dt)
-        if entry.user.name == invoker_name:
-            message_entry += (
-                f"**{entry.user.name}**\n"
-                # f"-# {dt_formatted}\n"
-                f"-# {entry.win_money:,} {coin_label}\n"
-                "\n").replace(",", "\N{THIN SPACE}")
-        else:
-            message_entry += (
-                f"{entry.user.name}\n"
-                # f"-# {dt_formatted}\n"
-                f"-# {entry.win_money:,} {coin_label}\n"
-                "\n").replace(",", "\N{THIN SPACE}")
-        
+        message_entry += (
+            # f"-# {dt_formatted}\n"
+            f"-# {entry.win_money:,} {coin_label}\n"
+            "\n").replace(",", "\N{THIN SPACE}")
         message_content += message_entry
         if len(message_content) >= 2000 - 100:
             await smart_send_interaction_message(
