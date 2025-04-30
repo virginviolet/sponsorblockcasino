@@ -22,7 +22,8 @@ from utils.smart_send_interaction_message import smart_send_interaction_message
     description=(
         f"See who has won the highest amount on the {g.Coin} Slot Machine"))
 @app_commands.describe(
-    ephemeral="Whether to send the message as ephemeral")
+    ephemeral=(
+        "Whether to send the message as ephemeral (visible only to the user)"))
 async def single_win(interaction: Interaction,
                      ephemeral: bool = False) -> None:
     """

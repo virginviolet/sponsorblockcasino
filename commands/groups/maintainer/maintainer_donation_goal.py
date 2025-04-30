@@ -23,6 +23,16 @@ from utils.formatting import format_coin_label
     name="add",
     description=f"Add a donation goal for the {g.Coin} Casino"
 )
+@app_commands.describe(
+    donation_recipient="The user who will receive the donations",
+    target_amount="The target amount of the donation goal",
+    starting_amount="The initial amount already donated",
+    goal_description="A description of the donation goal",
+    goal_reached_message="A message to send when the goal is reached",
+    reward_setting="A bot setting to change when the goal is reached",
+    reward_setting_value="The value to set the reward setting to",
+    silent=(
+        "Whether to send the message as ephemeral (visible only to the user)"))
 async def donation_goal_add(
     interaction: Interaction,
     donation_recipient: User | Member,
@@ -137,6 +147,9 @@ async def donation_goal_add_reward_autocomplete(
     return choices
 
 
+@app_commands.describe(
+    silent=(
+        "Whether to send the message as ephemeral (visible only to the user)"))
 @maintainer_donation_goal_group.command(
     name="remove",
     description=f"Remove the donation goal for the {g.Coin} Casino"
