@@ -782,10 +782,9 @@ async def insert_coins(interaction: Interaction,
             g.slot_machine_high_scores.add_entry(high_score_win_entry)
             print(f"High score entry added for {user_name} ({user_id}).")
             # TODO Make command clickable
-            message_content = (
-                f"High score!\n"
-                "-# Check out the leaderboard with"
-                "`/leaderboard slots single_win`.")
+            message_content = (f"High score!\n"
+                               "-# Check out the leaderboard with"
+                               "`/leaderboard slots single_win`.")
             await interaction.followup.send(content=message_content,
                                             ephemeral=should_use_ephemeral)
             del message_content

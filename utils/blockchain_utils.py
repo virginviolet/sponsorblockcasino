@@ -411,7 +411,7 @@ async def transfer_coins(sender: Member | User,
               f"{amount} {coin_label_a} "
               f"to {receiver} ({receiver_id}).",
               timestamp=timestamp)
-    
+
     # Prepare transferred message
     sender_mention: str = sender.mention
     receiver_mention: str = receiver.mention
@@ -421,47 +421,47 @@ async def transfer_coins(sender: Member | User,
         f"to {receiver_mention}'s account.")
     allowed_pings = AllowedMentions(users=[receiver])
     # Donation goal
-    donation_goal_message: str = ""
+    donation_goal_update_message: str = ""
+    donation_goal_reached_message: str = ""
     if (g.donation_goal is not None and
             g.donation_goal.donation_recipient_id == receiver_id):
         g.donation_goal.donated_amount += amount
-        donation_goal_message: str
         remaining_donation_ratio: float = (
             g.donation_goal.target_amount -
             g.donation_goal.donated_amount) / g.donation_goal.target_amount
         if g.donation_goal.donation_recipient_id == g.casino_house_id:
             transferred_message_content += "\nThank you for your donation!"
+        donation_goal_update_message = (
+            "Donation goal "
+            f"for {g.donation_goal.donation_recipient_mention} updated:\n"
+            f"## {g.donation_goal.goal_description}\n"
+            f"{g.donation_goal.donated_amount}/"
+            f"{g.donation_goal.target_amount} {coin_label_a} "
+            f"({remaining_donation_ratio:.0%})\n")
         if g.donation_goal.donated_amount >= g.donation_goal.target_amount:
             # Goal reached
             recipient_pronoun: str = (
                 "its" if receiver_id == g.casino_house_id else "their")
             coin_label_g: str = format_coin_label(
                 g.donation_goal.target_amount)
-            donation_goal_message: str = (
+            donation_goal_reached_message = (
                 f"{receiver_mention} has reached "
                 f"{recipient_pronoun} donation goal of "
                 f"{g.donation_goal.target_amount} {coin_label_g}!\n")
             del coin_label_g
             if g.donation_goal.goal_reached_message_content is not None:
-                donation_goal_message += (
+                donation_goal_reached_message += (
                     f"{g.donation_goal.goal_reached_message_content}")
             apply_donation_reward()
             g.donation_goal = None
-        else:
-            donation_goal_message = (
-                "Donation goal "
-                f"for {g.donation_goal.donation_recipient_mention} updated:\n"
-                f"## {g.donation_goal.goal_description}\n"
-                f"{g.donation_goal.donated_amount}/"
-                f"{g.donation_goal.target_amount} {coin_label_a} "
-                f"({remaining_donation_ratio:.0%})\n")
-    # Send messages
     await send_message(
         transferred_message_content,
         allowed_mentions=allowed_pings)
     has_responded = True
-    if donation_goal_message != "":
-        await send_message(donation_goal_message)
+    if donation_goal_update_message != "":
+        await send_message(donation_goal_update_message)
+    if donation_goal_reached_message != "":
+        await send_message(donation_goal_reached_message)
     del sender
     del sender_id
     del receiver
