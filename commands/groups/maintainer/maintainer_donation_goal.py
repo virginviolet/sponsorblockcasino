@@ -30,9 +30,8 @@ async def donation_goal_add(
     starting_amount: int = 0,
     goal_description: str | None = None,
     goal_reached_message: str | None = None,
-    reward_text: str | None = None,
     reward_setting: str | None = None,
-    reward_value: bool | None = None,
+    reward_setting_value: bool | None = None,
     silent: bool | None = None,
 ) -> None:
     """Add a donation goal for the casino."""
@@ -65,12 +64,12 @@ async def donation_goal_add(
             ephemeral=True)
         return
 
-    if reward_value is not None and reward_setting is None:
+    if reward_setting_value is not None and reward_setting is None:
         await interaction.response.send_message(
             "Reward value is set, but reward setting is not.",
             ephemeral=True)
         return
-    elif reward_setting is not None and reward_value is None:
+    elif reward_setting is not None and reward_setting_value is None:
         await interaction.response.send_message(
             "Reward setting is set, but reward value is not.",
             ephemeral=True)
@@ -85,9 +84,8 @@ async def donation_goal_add(
         id=time_snowflake(datetime.now()),
         donated_amount=starting_amount,
         target_amount=target_amount,
-        reward_setting=reward_setting,
-        reward_text=reward_text,
-        reward_value=reward_value,
+        reward_setting_key=reward_setting,
+        reward_setting_value=reward_setting_value,
         goal_reached_message_content=goal_reached_message)
 
     fraction_reached: float = (
@@ -99,14 +97,11 @@ async def donation_goal_add(
         f"({fraction_reached:.0%})")
     goal_summary_for_message: str = (
         f"## {goal_summary_for_console}")
-    if reward_text is not None and silent is not None:
-        goal_summary_for_console += f"\nReward: \"{reward_text}\""
-        goal_summary_for_message += f"\n-# **Reward**: \"{reward_text}\""
     if reward_setting is not None and silent is not None:
         goal_summary_for_console += (
-            f"\nReward setting: `{reward_setting} = {reward_value}`")
+            f"\nReward setting: `{reward_setting} = {reward_setting_value}`")
         goal_summary_for_message += (
-            f"\n-# **Reward setting**: `{reward_setting} = {reward_value}`")
+            f"\n-# **Reward setting**: `{reward_setting} = {reward_setting_value}`")
     if goal_reached_message is not None and silent is not None:
         goal_summary_for_console += (
             f"\nGoal reached message: \"{goal_reached_message}\"")

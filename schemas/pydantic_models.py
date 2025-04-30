@@ -69,8 +69,7 @@ class DonationGoal(BaseModel):
     donation_recipient_mention: str
     goal_description: str | None
     id: int
-    reward_setting: str | None
-    reward_text: str | None
-    reward_value: bool | None
+    reward_setting_key: str | None
+    reward_setting_value: bool | None
     target_amount: int
     goal_reached_message_content: str | None

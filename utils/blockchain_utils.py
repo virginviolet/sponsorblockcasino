@@ -452,7 +452,9 @@ async def transfer_coins(sender: Member | User,
             if g.donation_goal.goal_reached_message_content is not None:
                 donation_goal_reached_message += (
                     f"{g.donation_goal.goal_reached_message_content}")
-            apply_donation_reward()
+            if (g.donation_goal.reward_setting_key is not None or
+                    g.donation_goal.reward_setting_value is not None):
+                apply_donation_reward()
             g.donation_goal = None
     await send_message(
         transferred_message_content,

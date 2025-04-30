@@ -35,7 +35,7 @@ async def single_win(interaction: Interaction,
     if g.leaderboard_slots_highest_win_blocked is True:
         message_content: str
         if ((g.donation_goal is not None) and
-            (g.donation_goal.reward_setting
+            (g.donation_goal.reward_setting_key
                 == "leaderboard_slots_highest_win_blocked")):
             message_content = (
                 f"The {g.Coin} Slot Machine \"highest win\" leaderboard "
