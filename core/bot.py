@@ -56,7 +56,10 @@ def setup_bot_environment() -> None:
     g.grifter_suppliers = GrifterSuppliers()
     g.decrypted_transactions_spreadsheet = (
         DecryptedTransactionsSpreadsheet(time_zone=g.time_zone))
-    g.slot_machine_high_scores = SlotMachineHighScores()
+    try:
+        g.slot_machine_high_scores = SlotMachineHighScores()
+    except Exception as e:
+        print(f"ERROR: Error initializing slot machine high scores: {e}")
     print("Class instances started.")
     print("Bot environment set up.")
 # endregion
