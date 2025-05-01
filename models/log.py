@@ -121,7 +121,7 @@ class Log:
         if not exists(self.file_name):
             self.create()
         
-        with open(self.file_name, "a") as file:
+        with open(self.file_name, "a", encoding="utf-8") as file:
             timestamped_line: str = f"{timestamp_friendly}: {line}"
             print(timestamped_line)
             file.write(f"{timestamped_line}\n")

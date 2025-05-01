@@ -332,7 +332,7 @@ class SlotMachine:
             starting_bonus_die_enabled=False
         )
         # Save the configuration to the file
-        with open(self.file_name, "w") as file:
+        with open(self.file_name, "w", encoding="utf-8") as file:
             file.write(configuration.model_dump_json(indent=4))
         print("Template slot machine configuration file created.")
 
@@ -350,7 +350,7 @@ class SlotMachine:
         if file_is_empty or not file_exists:
             self.create_config()
 
-        with open(self.file_name, "r") as file:
+        with open(self.file_name, "r", encoding="utf-8") as file:
             try:
                 configuration: SlotMachineConfig = (
                     SlotMachineConfig.model_validate_json(file.read()))
@@ -358,7 +358,7 @@ class SlotMachine:
                 print("WARNING: "
                       f"Failed to load slot machine configuration: {e}")
                 self.create_config()
-                with open(self.file_name, "r") as file:
+                with open(self.file_name, "r", encoding="utf-8") as file:
                     configuration: SlotMachineConfig = (
                         SlotMachineConfig.model_validate_json(file.read()))
             return configuration
@@ -375,7 +375,7 @@ class SlotMachine:
             IOError: If the file cannot be opened or written to.
         """
         # print("Saving slot machine configuration...")
-        with open(self.file_name, "w") as file:
+        with open(self.file_name, "w", encoding="utf-8") as file:
             file.write(self.configuration.model_dump_json(indent=4))
         # print("Slot machine configuration saved.")
     # endregion

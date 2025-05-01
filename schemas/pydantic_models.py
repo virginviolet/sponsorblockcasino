@@ -40,7 +40,7 @@ class UserSimple(BaseModel):
     name: str
 
 
-class SlotsHighScoreWinEntry(BaseModel):
+class SlotsHighScoreEntry(BaseModel):
     created_at: float
     event: SlotEvent
     fees: Dict[str, SlotFeeDetail]
@@ -52,13 +52,14 @@ class SlotsHighScoreWinEntry(BaseModel):
     win_money: int
 
 
-class SlotsHighScoreWins(BaseModel):
-    entries: List[SlotsHighScoreWinEntry]
+class SlotsHighScoreCategory(BaseModel):
+    entries: List[SlotsHighScoreEntry]
     last_updated: float
 
 
 class HighScores(BaseModel):
-    highest_wins: SlotsHighScoreWins
+    highest_wins: SlotsHighScoreCategory
+    highest_wager: SlotsHighScoreCategory
 
 
 class DonationGoal(BaseModel):

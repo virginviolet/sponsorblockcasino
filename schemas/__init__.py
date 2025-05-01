@@ -5,8 +5,8 @@ from .pydantic_models import (
     SlotReelSymbol,
     SlotResultSimple,
     UserSimple,
-    SlotsHighScoreWinEntry,
-    SlotsHighScoreWins,
+    SlotsHighScoreEntry,
+    SlotsHighScoreCategory,
     HighScores)
 
 __all__: list[str] = [
@@ -16,7 +16,7 @@ __all__: list[str] = [
     "SlotReelSymbol",
     "SlotResultSimple",
     "UserSimple",
-    "SlotsHighScoreWinEntry",
-    "SlotsHighScoreWins",
+    "SlotsHighScoreEntry",
+    "SlotsHighScoreCategory",
     "HighScores"
 ]

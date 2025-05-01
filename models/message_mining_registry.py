@@ -76,14 +76,14 @@ class MessageMiningRegistryManager:
             self.registry_path.parent.mkdir(parents=True,
                                             exist_ok=True)
             # Create an empty file if it doesn't exist or is empty
-            with open(self.registry_path, "w") as file:
+            with open(self.registry_path, "w", encoding="utf-8") as file:
                 empty_registry: Dict[str, Dict[str, MessageMiningTimeline]] = (
                     {"messages": {}})
                 file.write(json.dumps(empty_registry, indent=4,
                            cls=DataclassJsonEncoder))
                 file.close()
             return {}
-        with open(self.registry_path, "r") as file:
+        with open(self.registry_path, "r", encoding="utf-8") as file:
             # Read the JSON file,
             # reconstruct the registry so that the user dictionaries are
             # converted into ReactionUser dataclass instances
@@ -174,7 +174,7 @@ class MessageMiningRegistryManager:
                     "created_at": message_timestamp,
                     "reactions": [reaction]
                 }
-            with open(self.registry_path, "w") as file:
+            with open(self.registry_path, "w", encoding="utf-8") as file:
                 message_registry: (
                     Dict[str, Dict[str, MessageMiningTimeline]]) = (
                         {"messages": self.messages})

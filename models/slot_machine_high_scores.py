@@ -2,13 +2,14 @@
 # Standard library
 import os
 from time import time
+from typing import List, Literal
 
 # Third party
 # from pydantic
 
 # Local
-from schemas.pydantic_models import (HighScores, SlotsHighScoreWins,
-                                     SlotsHighScoreWinEntry)
+from schemas.pydantic_models import (HighScores, SlotsHighScoreCategory,
+                                     SlotsHighScoreEntry)
 
 # endregion
 
@@ -35,12 +36,13 @@ class SlotMachineHighScores:
         if file_empty or not file_exists:
             # create file if it doesn't exist
             current_time: float = time()
-            highest_wins: SlotsHighScoreWins = SlotsHighScoreWins(
+            category: SlotsHighScoreCategory = SlotsHighScoreCategory(
                 entries=[],
                 last_updated=current_time
             )
             high_scores: HighScores = HighScores(
-                highest_wins=highest_wins
+                highest_wins=category,
+                highest_wager=category
             )
             with open(self.file_path, "w") as f:
                 f.write(high_scores.model_dump_json(indent=4))
@@ -58,22 +60,35 @@ class SlotMachineHighScores:
             ) from e
 
     def add_entry(self,
-                  entry: SlotsHighScoreWinEntry) -> None:
+                  entry: SlotsHighScoreEntry,
+                  category: Literal["highest_wins",
+                                  "highest_wager"]) -> None:
         """
         Add an entry to the high scores.
         """
         user_is_new: bool = True
-        for i, existing_entry in enumerate(
-                self._high_scores.highest_wins.entries):
+        entries: List[SlotsHighScoreEntry] = (
+            self._high_scores.highest_wins.entries
+            if category == "highest_wins"
+            else self._high_scores.highest_wager.entries)
+        for i, existing_entry in enumerate(entries):
             if existing_entry.user.id == entry.user.id:
                 # update existing entry
-                self._high_scores.highest_wins.entries[i] = entry
+                if category == "highest_wins":
+                    self._high_scores.highest_wins.entries[i] = entry
+                else:
+                    self._high_scores.highest_wager.entries[i] = entry
                 user_is_new = False
                 break
-        if user_is_new:
+        if user_is_new and category == "highest_wins":
             self._high_scores.highest_wins.entries.append(entry)
-        self._high_scores.highest_wins.last_updated = time()
-        with open(self.file_path, "w") as file:
+        elif user_is_new and category == "highest_wager":
+            self._high_scores.highest_wager.entries.append(entry)
+        if category == "highest_wins":
+            self._high_scores.highest_wins.last_updated = time()
+        else:
+            self._high_scores.highest_wager.last_updated = time()
+        with open(self.file_path, "w", encoding="utf-8") as file:
             file.write(self._high_scores.model_dump_json(indent=4))
 
     def fetch_user_high_score(self,
@@ -86,6 +101,10 @@ class SlotMachineHighScores:
             for entry in self._high_scores.highest_wins.entries:
                 if entry.user.id == user_id:
                     return entry.win_money
+        elif category == "highest_wager":
+            for entry in self._high_scores.highest_wager.entries:
+                if entry.user.id == user_id:
+                    return entry.wager
 
     @property
     def high_scores(self) -> HighScores:
@@ -101,7 +120,7 @@ class SlotMachineHighScores:
         """
         self._high_scores = value
         self._high_scores.highest_wins.last_updated = time()
-        with open(self.file_path, "w") as file:
+        with open(self.file_path, "w", encoding="utf-8") as file:
             file.write(value.model_dump_json(indent=4))
 
 

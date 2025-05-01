@@ -25,7 +25,7 @@ from models.log import Log
 from models.user_save_data import UserSaveData
 from schemas.pydantic_models import (SlotEvent, SlotFeeDetail, SlotMessage,
                                      SlotReelSymbol, SlotResultSimple,
-                                     SlotsHighScoreWinEntry, UserSimple)
+                                     SlotsHighScoreEntry, UserSimple)
 from utils.blockchain_utils import (add_block_transaction,
                                     get_last_block_timestamp)
 from utils.formatting import format_coin_label
@@ -54,8 +54,8 @@ async def insert_coins(interaction: Interaction,
     starting bonus of an amount that is decided by a die.
 
     Three blank emojis are displayed and then the reels will stop in a few
-    seconds, or the user can stop them manually by hitting the stop buttons 
-    that appear. The message containing the blank emojis are updated each time 
+    seconds, or the user can stop them manually by hitting the stop buttons
+    that appear. The message containing the blank emojis are updated each time
     a reel is stopped.
     If they get a net positive outcome, the amount will be added to their
     balance. If they get a net negative outcome, the loss amount will be
@@ -722,15 +722,34 @@ async def insert_coins(interaction: Interaction,
             del next_bonus_point_in_time
         del message_content
 
+    # region High score
     # Add high score entry
-    if (g.leaderboard_slots_highest_win_blocked is False and
+    win_event: bool = (
         event.name != "standard_lose" and
         event.name != "jackpot_fail" and
-            event.name != "lose_wager"):
-        user_high_score: int | None = (
+        event.name != "lose_wager")
+    should_check_high_score: bool = (
+        g.leaderboard_slots_highest_wager_blocked is False or
+        (g.leaderboard_slots_highest_win_blocked is False and win_event))
+    print(f"should_check_high_score: {should_check_high_score}")
+    if should_check_high_score:
+        user_high_score_win: int | None = (
             g.slot_machine_high_scores.fetch_user_high_score(
                 category="highest_wins", user_id=user_id))
-        if user_high_score is None or user_high_score < win_money:
+        user_high_score_wager: int | None = (
+            g.slot_machine_high_scores.fetch_user_high_score(
+                category="highest_wager", user_id=user_id))
+        new_high_score_win_achieved: bool = (
+            user_high_score_win is None or win_money > user_high_score_win)
+        new_high_score_wager_achieved: bool = (
+            user_high_score_wager is None or amount_int > user_high_score_wager)
+        any_new_high_score_achieved: bool = (
+            new_high_score_win_achieved or new_high_score_wager_achieved)
+        print(f"new_high_score_win_achieved: {new_high_score_win_achieved}")
+        print(
+            f"new_high_score_wager_achieved: {new_high_score_wager_achieved}")
+        print(f"any_new_high_score_achieved: {any_new_high_score_achieved}")
+        if any_new_high_score_achieved:
             print(f"Adding high score entry for {user_name} ({user_id})...")
             dt: datetime = datetime.fromtimestamp(log_timestamp)
             high_score_entry_id: int = time_snowflake(dt)
@@ -742,21 +761,31 @@ async def insert_coins(interaction: Interaction,
                 id=slots_message.id)
             # High score uses Pydantic classes
             # instead of the TypedDicts used everywhere else
+            symbol_event_name: str
+            symbol_event_name = (
+                list(results["reel1"]["associated_combo_event"].keys())[0])
             reel1_symbol_simple = SlotReelSymbol(
-                name=(results["reel1"]["associated_combo_event"][event.name]
-                      ["emoji_name"]),
-                id=(results["reel1"]["associated_combo_event"][event.name]
-                    ["emoji_id"]))
+                name=(results["reel1"]["associated_combo_event"]
+                      [symbol_event_name]["emoji_name"]),
+                id=(results["reel1"]["associated_combo_event"]
+                    [symbol_event_name]["emoji_id"]))
+            symbol_event_name = (
+                list(results["reel2"]["associated_combo_event"].keys())[0])
             reel2_symbol_simple = SlotReelSymbol(
-                name=(results["reel2"]["associated_combo_event"][event.name]
-                      ["emoji_name"]),
-                id=(results["reel2"]["associated_combo_event"][event.name]
-                    ["emoji_id"]))
+                name=(results["reel2"]["associated_combo_event"]
+                      [symbol_event_name]["emoji_name"]),
+                id=(results["reel2"]["associated_combo_event"]
+                    [symbol_event_name]["emoji_id"]))
+            symbol_event_name = (
+                list(results["reel3"]["associated_combo_event"].keys())[0])
             reel3_symbol_simple = SlotReelSymbol(
-                name=(results["reel3"]["associated_combo_event"][event.name]
-                      ["emoji_name"]),
-                id=(results["reel3"]["associated_combo_event"][event.name]
-                    ["emoji_id"]))
+                name=(results["reel3"]["associated_combo_event"]
+                      [symbol_event_name]["emoji_name"]),
+                id=(results["reel3"]["associated_combo_event"]
+                    [symbol_event_name]["emoji_id"]))
+            symbol_event_name = (
+                list(results["reel3"]["associated_combo_event"].keys())[0])
+            del symbol_event_name
             result_simple = SlotResultSimple(
                 reel1=reel1_symbol_simple,
                 reel2=reel2_symbol_simple,
@@ -769,7 +798,7 @@ async def insert_coins(interaction: Interaction,
                 name=user_name,
                 mention=user_mention,
                 global_name=user_global_name)
-            high_score_win_entry = SlotsHighScoreWinEntry(
+            high_score_win_entry = SlotsHighScoreEntry(
                 created_at=log_timestamp,
                 id=high_score_entry_id,
                 result=result_simple,
@@ -779,16 +808,41 @@ async def insert_coins(interaction: Interaction,
                 fees={"jackpot_fee": jackpot_fee, "main_fee": main_fee},
                 message=slot_message_data,
                 win_money=win_money)
-            g.slot_machine_high_scores.add_entry(high_score_win_entry)
-            print(f"High score entry added for {user_name} ({user_id}).")
+            if new_high_score_win_achieved:
+                g.slot_machine_high_scores.add_entry(
+                    high_score_win_entry, category="highest_wins")
+                print(f"High score entry added for {user_name} ({user_id}) in "
+                      "the highest_wins category.")
+            if new_high_score_wager_achieved:
+                g.slot_machine_high_scores.add_entry(
+                    high_score_win_entry, category="highest_wager")
+                print(f"High score entry added for {user_name} ({user_id}) in "
+                      "the highest_wager category.")
             # TODO Make command clickable
-            message_content = (f"High score!\n"
-                               "-# Check out the leaderboard with"
-                               "`/leaderboard slots single_win`.")
+            if new_high_score_win_achieved and new_high_score_wager_achieved:
+                message_content = ("Congratulations! You've achieved "
+                                   "a new high score in both categories:\n"
+                                   "-# **Single win**: Check it out with "
+                                   "`/leaderboard slots single_win`.\n"
+                                   "-# **Highest stake**: Check it out with "
+                                   "`/leaderboard slots highest_stake`.")
+            elif new_high_score_win_achieved:
+                message_content = (f"Congratulations! You've achieved "
+                                   "a new high score in the "
+                                   "**Single win** category.\n"
+                                   "-# Check it out with "
+                                   "`/leaderboard slots single_win`.")
+            else:
+                message_content = (f"Congratulations! You've achieved "
+                                   "a new high score in the "
+                                   "**Highest stake** category.\n"
+                                   "-# Check it out with "
+                                   "`/leaderboard slots highest_stake`.")
             await interaction.followup.send(content=message_content,
                                             ephemeral=should_use_ephemeral)
             del message_content
     del log_timestamp
+    # endregion
 
     if user_id in g.active_slot_machine_players:
         await remove_from_active_players(interaction, user_id)

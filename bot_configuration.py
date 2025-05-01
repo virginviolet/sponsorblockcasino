@@ -79,6 +79,7 @@ class BotConfiguration:
             "aml_office_channel_id": 0,
             "aml_office_thread_id": 0,
             "reaction_messages_enabled": True,
+            "leaderboard_slots_highest_wager_blocked": False,
             "leaderboard_slots_highest_win_blocked": False
         }
         attributes_set = False
@@ -125,6 +126,9 @@ class BotConfiguration:
                     self.configuration["aml_office_thread_id"])
                 self.reaction_messages_enabled: bool = (
                     self.configuration["reaction_messages_enabled"])
+                self._leaderboard_slots_highest_wager_blocked: bool = (
+                    self.configuration[
+                        "leaderboard_slots_highest_wager_blocked"])
                 self._leaderboard_slots_highest_win_blocked: bool = (
                     self.configuration[
                         "leaderboard_slots_highest_win_blocked"])
@@ -167,7 +171,26 @@ class BotConfiguration:
         """
         self._leaderboard_slots_highest_win_blocked: bool = value
         self.configuration["leaderboard_slots_highest_win_blocked"] = value
-        with open(self.file_name, "w") as file:
+        with open(self.file_name, "w", encoding="utf-8") as file:
+            file.write(json.dumps(self.configuration, indent=4))
+
+    @property
+    def leaderboard_slots_highest_wager_blocked(self) -> bool:
+        """
+        Gets the leaderboard_slots_highest_wager_blocked attribute.
+        Returns:
+            bool: True if the leaderboard is blocked, False otherwise.
+        """
+        return self._leaderboard_slots_highest_wager_blocked
+    
+    @leaderboard_slots_highest_wager_blocked.setter
+    def leaderboard_slots_highest_wager_blocked(self, value: bool) -> None:
+        """
+        Sets the leaderboard_slots_highest_wager_blocked attribute.
+        """
+        self._leaderboard_slots_highest_wager_blocked: bool = value
+        self.configuration["leaderboard_slots_highest_wager_blocked"] = value
+        with open(self.file_name, "w", encoding="utf-8") as file:
             file.write(json.dumps(self.configuration, indent=4))
 
     def create(self) -> None:
@@ -200,7 +223,7 @@ class BotConfiguration:
         # Default configuration
         configuration: BotConfig = self._default_config
         # Save the configuration to the file
-        with open(self.file_name, "w") as file:
+        with open(self.file_name, "w", encoding="utf-8") as file:
             file.write(json.dumps(configuration, indent=4))
 
     def read(self) -> BotConfig:
@@ -221,7 +244,7 @@ class BotConfiguration:
             self.create()
             return self._default_config
 
-        with open(self.file_name, "r") as file:
+        with open(self.file_name, "r", encoding="utf-8") as file:
             configuration: BotConfig = json.loads(file.read())
             # Override the configuration with environment variables
             # TODO Add reels env vars
@@ -273,4 +296,6 @@ def invoke_bot_configuration() -> None:
     g.reaction_messages_enabled = g.configuration.reaction_messages_enabled
     g.leaderboard_slots_highest_win_blocked = (
         g.configuration.leaderboard_slots_highest_win_blocked)
+    g.leaderboard_slots_highest_wager_blocked = (
+        g.configuration.leaderboard_slots_highest_wager_blocked)
     print("Bot configuration loaded.")

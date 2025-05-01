@@ -82,6 +82,7 @@ aml_office_channel_id: int = 0
 aml_office_thread_id: int = 0
 reaction_messages_enabled: bool = False
 leaderboard_slots_highest_win_blocked: bool = False
+leaderboard_slots_highest_wager_blocked: bool = False
 
 donation_goal: "DonationGoal | None" = None
 

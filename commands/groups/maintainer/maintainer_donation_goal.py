@@ -142,7 +142,10 @@ async def donation_goal_add_reward_autocomplete(
     choices: List[app_commands.Choice[str]] = [
         app_commands.Choice(
             name="leaderboard_slots_highest_win_blocked",
-            value="leaderboard_slots_highest_win_blocked")
+            value="leaderboard_slots_highest_win_blocked"),
+        app_commands.Choice(
+            name="leaderboard_slots_highest_wager_blocked",
+            value="leaderboard_slots_highest_wager_blocked"),
     ]
     return choices
 
