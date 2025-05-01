@@ -427,8 +427,7 @@ async def transfer_coins(sender: Member | User,
             g.donation_goal.donation_recipient_id == receiver_id):
         g.donation_goal.donated_amount += amount
         remaining_donation_ratio: float = (
-            g.donation_goal.target_amount -
-            g.donation_goal.donated_amount) / g.donation_goal.target_amount
+            g.donation_goal.donated_amount / g.donation_goal.target_amount)
         if g.donation_goal.donation_recipient_id == g.casino_house_id:
             transferred_message_content += "\nThank you for your donation!"
         donation_goal_update_message = (
