@@ -15,7 +15,8 @@ from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
 import core.global_state as g
 from sponsorblockcasino_types import ReelSymbol
 from models.slot_machine import SlotMachine
-from utils.roles import get_slot_machine_technician_role
+from utils.roles import (get_cybersecurity_officer_role,
+                         get_slot_machine_technician_role)
 from .slots_main import slots_group
 # endregion
 
@@ -63,6 +64,10 @@ async def show_help(interaction: Interaction,
         raise RuntimeError("Slot Machine Technician role not found.")
     slot_machine_technician_mention: str = (
         slot_machine_technician.mention)
+    security_officer: Role | None = get_cybersecurity_officer_role(interaction)
+    if security_officer is None:
+        raise RuntimeError("Cybersecurity Officer role not found.")
+    security_officer_mention: str = security_officer.mention
 
     # TODO Import fees from configuration instead of hardcoding them
     help_message_1: str = (
@@ -85,23 +90,34 @@ async def show_help(interaction: Interaction,
         "leaving you with 198 coins.\n"
         "\n"
         "### Rules\n"
-        "You must be 18 years or older to play.\n\n"
+        "- You must be 18 years or older to play.\n"
+        "- You may not use multiple Discord accounts to benefit one your "
+        "accounts.\n"
+        "- You may use hotkeys for slash commands, but any other form of "
+        "automation is prohibited. This includes but is not limited to "
+        "using scripts or bots to play the slot machine for you.\n"
+        "- Exploiting bugs or glitches for personal gain is strictly "
+        "prohibited. If you find a bug, please report it to "
+        f"the {g.Coin} Casino staff or a {g.Coin} Security Officer "
+        f"(mention {security_officer_mention} in a message).\n"
+        "- You may not use the slot machine to launder money.\n"
+        "\n"
         "### How to play\n"
         "To play, run the `/slots insert_coins` command, and optionally "
         "specify the amount of coins with the `amount` parameter. "
         "Then wait for the reels to stop, or stop them "
         "yourself by hitting the stop buttons. Your goal is to get a "
-        "winning combination of three symbols illustrated on the "
+        "winning combination of three symbols as illustrated on the "
         "pay table.\n"
-        "\n"
+        "\n")
+    help_message_2: str = (
         "### Overview\n"
         f"The {g.Coin} Slot Machine has 3 reels.\n"
         f"Each reel has {combo_event_count} unique symbols.\n"
         "If three symbols match, you get an award based on the symbol, "
         "or, if you're unlucky, you lose your entire stake (see the pay "
         "table).\n"
-        "\n")
-    help_message_2: str = (
+        "\n"
         "### Stake\n"
         "The amount of coins you insert is your stake. This includes the "
         "fees. The stake is the amount of coins you are willing to risk. "

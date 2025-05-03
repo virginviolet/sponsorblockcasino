@@ -50,6 +50,8 @@ def get_cybersecurity_officer_role(interaction: Interaction) -> Role | None:
         f"{coin} security officer", f"{coin}_security_officer",
         f"{Coin} Casino Security Officer", f"{Coin} Casino security officer",
         f"{coin} Casino security officer", f"{coin}_casino_security_officer",
+        "Security Officer", "Security officer",
+        "security officer", "security_officer",
         "Information Security Officer", "Information security officer",
         "information security officer", "information_security_officer"
         "Computer Security Officer", "Computer security officer",
@@ -57,6 +59,7 @@ def get_cybersecurity_officer_role(interaction: Interaction) -> Role | None:
         "Cybersecurity Officer", "Cybersecurity officer",
         "cybersecurity officer", "cybersecurity_officer"]
     cybersecurity_officer: Role | None = get_role(interaction, role_names)
+    # IMPROVE Partial matching if role is not found
     return cybersecurity_officer
 # endregion
 
