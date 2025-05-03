@@ -6,7 +6,7 @@ from typing import List, cast
 from discord import Guild, Interaction, Member, Role, User, utils
 
 # Local
-from core.global_state import coin, Coin
+import core.global_state as g
 
 # region Get role
 
@@ -15,7 +15,7 @@ def get_role(interaction: Interaction,
              role_names: List[str] | str) -> Role | None:
     guild: Guild | None = interaction.guild
     if guild is None:
-        print("ERROR: Guild is None.")
+        print("ERROR: guild is None.")
         return None
 
     requested_role: Role | None = None
@@ -46,10 +46,10 @@ def get_slot_machine_technician_role(interaction: Interaction) -> Role | None:
 
 def get_cybersecurity_officer_role(interaction: Interaction) -> Role | None:
     role_names: List[str] = [
-        f"{Coin} Security Officer", f"{Coin} security officer",
-        f"{coin} security officer", f"{coin}_security_officer",
-        f"{Coin} Casino Security Officer", f"{Coin} Casino security officer",
-        f"{coin} Casino security officer", f"{coin}_casino_security_officer",
+        f"{g.Coin} Security Officer", f"{g.Coin} security officer",
+        f"{g.Coin} security officer", f"{g.Coin}_security_officer",
+        f"{g.Coin} Casino Security Officer", f"{g.Coin} Casino security officer",
+        f"{g.Coin} Casino security officer", f"{g.Coin}_casino_security_officer",
         "Security Officer", "Security officer",
         "security officer", "security_officer",
         "Information Security Officer", "Information security officer",

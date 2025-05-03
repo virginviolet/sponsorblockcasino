@@ -61,12 +61,12 @@ async def show_help(interaction: Interaction,
     slot_machine_technician: Role | None = (
         get_slot_machine_technician_role(interaction))
     if slot_machine_technician is None:
-        raise RuntimeError("Slot Machine Technician role not found.")
+        raise RuntimeError("Slot machine technician role not found.")
     slot_machine_technician_mention: str = (
         slot_machine_technician.mention)
     security_officer: Role | None = get_cybersecurity_officer_role(interaction)
     if security_officer is None:
-        raise RuntimeError("Cybersecurity Officer role not found.")
+        raise RuntimeError("Cybersecurity officer role not found.")
     security_officer_mention: str = security_officer.mention
 
     # TODO Import fees from configuration instead of hardcoding them
