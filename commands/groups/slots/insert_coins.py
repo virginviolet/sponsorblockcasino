@@ -724,13 +724,9 @@ async def insert_coins(interaction: Interaction,
 
     # region High score
     # Add high score entry
-    win_event: bool = (
-        event.name != "standard_lose" and
-        event.name != "jackpot_fail" and
-        event.name != "lose_wager")
     should_check_high_score: bool = (
         g.leaderboard_slots_highest_wager_blocked is False or
-        (g.leaderboard_slots_highest_win_blocked is False and win_event))
+        (g.leaderboard_slots_highest_win_blocked is False and win_money > 0))
     print(f"should_check_high_score: {should_check_high_score}")
     if should_check_high_score:
         user_high_score_win: int | None = (
@@ -740,9 +736,11 @@ async def insert_coins(interaction: Interaction,
             g.slot_machine_high_scores.fetch_user_high_score(
                 category="highest_wager", user_id=user_id))
         new_high_score_win_achieved: bool = (
-            user_high_score_win is None or win_money > user_high_score_win)
+            (win_money > 0) and
+            (user_high_score_win is None or win_money > user_high_score_win))
         new_high_score_wager_achieved: bool = (
-            user_high_score_wager is None or amount_int > user_high_score_wager)
+            user_high_score_wager is None or
+            amount_int > user_high_score_wager)
         any_new_high_score_achieved: bool = (
             new_high_score_win_achieved or new_high_score_wager_achieved)
         print(f"new_high_score_win_achieved: {new_high_score_win_achieved}")
