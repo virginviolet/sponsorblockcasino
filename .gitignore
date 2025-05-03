@@ -6,6 +6,7 @@ data/transactions.tsv
 data/transactions.log
 data/transfers_waiting_approval.json
 data/message_mining_registry.json
+data/slot_machine_high_scores.json
 
 data/checkpoints/
 data/save_data/
