@@ -526,7 +526,8 @@ async def insert_coins(interaction: Interaction,
     else:
         # The rest of the possible events are win events
         event_message = (f"{event.name_friendly}! "
-                         f"You won {win_money} {coin_label_wm}!")
+                         f"You won {win_money:,} {coin_label_wm}!"
+                         ).replace(",", "\N{THIN SPACE}")
 
     # Calculate net return to determine who should get money (house or player)
     # and to generate collect screen message and an informative log line
@@ -727,7 +728,6 @@ async def insert_coins(interaction: Interaction,
     should_check_high_score: bool = (
         g.leaderboard_slots_highest_wager_blocked is False or
         (g.leaderboard_slots_highest_win_blocked is False and win_money > 0))
-    print(f"should_check_high_score: {should_check_high_score}")
     if should_check_high_score:
         user_high_score_win: int | None = (
             g.slot_machine_high_scores.fetch_user_high_score(
@@ -743,10 +743,6 @@ async def insert_coins(interaction: Interaction,
             amount_int > user_high_score_wager)
         any_new_high_score_achieved: bool = (
             new_high_score_win_achieved or new_high_score_wager_achieved)
-        print(f"new_high_score_win_achieved: {new_high_score_win_achieved}")
-        print(
-            f"new_high_score_wager_achieved: {new_high_score_wager_achieved}")
-        print(f"any_new_high_score_achieved: {any_new_high_score_achieved}")
         if any_new_high_score_achieved:
             print(f"Adding high score entry for {user_name} ({user_id})...")
             dt: datetime = datetime.fromtimestamp(log_timestamp)

@@ -55,8 +55,8 @@ async def stats(interaction: Interaction,
             f"{coin_label} for others.")
     else:
         message_content = (
-            f"You have mined {messages_mined_count} {coin_label} "
-            "for others. Keep up the good work!")
+            f"You have mined {messages_mined_count:,} {coin_label} for "
+            "others. Keep up the good work!").replace(",", "\N{THIN SPACE}")
     if incognito is True:
         should_use_ephemeral = True
     else:

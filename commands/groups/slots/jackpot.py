@@ -37,8 +37,10 @@ async def jackpot(interaction: Interaction,
     jackpot_pool: int = g.slot_machine.jackpot
     coin_label: str = format_coin_label(jackpot_pool)
     message_header: str = g.slot_machine.header
-    message_content: str = (f"{message_header}\n"
-                            f"-# JACKPOT: {jackpot_pool} {coin_label}.")
+    message_content: str = (
+        f"{message_header}\n"
+        f"-# JACKPOT: "
+        f"{jackpot_pool:,} {coin_label}.").replace(",", "\N{THIN SPACE}")
     del coin_label
     await interaction.response.send_message(message_content,
                                             ephemeral=private_room)
