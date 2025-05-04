@@ -18,13 +18,13 @@ from utils.formatting import format_coin_label
 
 @leaderboard_group.command(
     name="holder",
-    description=f"Show the top {g.coin} holder")
+    description=f"Show the top {g.coin} holders")
 @app_commands.describe(
     private="Whether to show the leaderboard only to you")
 async def holder(interaction: Interaction,
                   private: bool = False) -> None:
     """
-    Command to show the top holder of the coin.
+    Command to show the top holders of the coin.
     """
     assert g.bot, (
         "Bot is not initialized.")
@@ -91,7 +91,7 @@ async def holder(interaction: Interaction,
             holder[sender] = balance
     holder = dict(sorted(
         holder.items(), key=lambda item: item[1], reverse=True))
-    message_content: str = f"## Top {g.coin} holder\n"
+    message_content: str = f"## Top {g.coin} holders\n"
     for i, (user_name, amount) in enumerate(holder.items(), start=1):
         coin_label: str = format_coin_label(amount)
         entry: str = ""
