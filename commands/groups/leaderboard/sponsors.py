@@ -14,15 +14,15 @@ from utils.formatting import format_coin_label
 from utils.smart_send_interaction_message import smart_send_interaction_message
 # endregion
 
-# region sponsors
+# region sponsor
 
 
 @leaderboard_group.command(
-    name="sponsors",
+    name="sponsor",
     description=f"Show the top sponsors of the {g.Coin} Casino.")
 @app_commands.describe(
     private="Whether to show the leaderboard only to you.")
-async def sponsors(interaction: Interaction,
+async def sponsor(interaction: Interaction,
                    private: bool = False) -> None:
     """
     Command to show the top sponsors of the casino.
