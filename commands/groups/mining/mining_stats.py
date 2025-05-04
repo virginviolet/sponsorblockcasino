@@ -18,8 +18,7 @@ from .mining_main import mining_group
 @mining_group.command(name="stats",
                       description="Show your mining stats")
 @app_commands.describe(user="User to display mining stats for")
-@app_commands.describe(incognito="Set whether the output of this command "
-                       "should be visible only to you")
+@app_commands.describe(incognito="Set whether to show the stats only to you")
 async def stats(interaction: Interaction,
                        user: User | Member | None = None,
                        incognito: bool | None = None) -> None:

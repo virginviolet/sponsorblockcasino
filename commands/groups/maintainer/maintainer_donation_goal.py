@@ -21,7 +21,7 @@ from utils.formatting import format_coin_label
 
 @maintainer_donation_goal_group.command(
     name="add",
-    description=f"Add a donation goal for the {g.Coin} Casino"
+    description=f"Add a {g.coin} donation goal"
 )
 @app_commands.describe(
     donation_recipient="The user who will receive the donations",
@@ -31,8 +31,7 @@ from utils.formatting import format_coin_label
     goal_reached_message="A message to send when the goal is reached",
     reward_setting="A bot setting to change when the goal is reached",
     reward_setting_value="The value to set the reward setting to",
-    silent=(
-        "Whether to send the message as ephemeral (visible only to the user)"))
+    silent="Whether to show the success message only to you")
 async def donation_goal_add(
     interaction: Interaction,
     donation_recipient: User | Member,
@@ -151,12 +150,10 @@ async def donation_goal_add_reward_autocomplete(
 
 
 @app_commands.describe(
-    silent=(
-        "Whether to send the message as ephemeral (visible only to the user)"))
+    silent="Whether to show the success message only to you.")
 @maintainer_donation_goal_group.command(
     name="remove",
-    description=f"Remove the donation goal for the {g.Coin} Casino"
-)
+    description=f"Remove the {g.coin} donation goal, if any")
 async def donation_goal_remove(
     interaction: Interaction,
     silent: bool = False,

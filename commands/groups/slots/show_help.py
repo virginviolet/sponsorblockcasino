@@ -24,7 +24,7 @@ from .slots_main import slots_group
 
 
 @slots_group.command(name="show_help",
-                     description="Show information about the slot machine")
+                     description=f"View the {g.Coin} Slot Machine manual")
 @app_commands.describe(private_room=(
     "Whether you want to book a private room or not"))
 async def show_help(interaction: Interaction,

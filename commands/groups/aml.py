@@ -175,10 +175,10 @@ async def approve(interaction: Interaction) -> None:
 @aml_group.command(name="block_receivals",
                    description=f"Block a user from receiving {g.coins}")
 @app_commands.describe(user=(f"User to block from receiving {g.coins}"))
-@app_commands.describe(blocked=(f"Set whether the user should be blocked "
+@app_commands.describe(blocked=(f"Whether the user should be blocked "
                                 f"from receiving {g.coins}"))
 @app_commands.describe(reason="Reason for blocking user from "
-                       f"receiving {g.coins}")
+                              f"receiving {g.coins}")
 async def block_receivals(interaction: Interaction,
                           user: User | Member,
                           blocked: bool | None = None,
@@ -235,7 +235,7 @@ async def block_receivals(interaction: Interaction,
 
 
 @aml_group.command(name="decrypt_spreadsheet",
-                   description=f"Block a user from receiving {g.coins}")
+                   description=f"Decrypt the transactions spreadsheet")
 @app_commands.describe(user="Filter transactions by user",
                        user_name="Filter transactions by user name")
 async def decrypt_spreadsheet(interaction: Interaction,

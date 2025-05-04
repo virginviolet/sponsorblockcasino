@@ -32,7 +32,7 @@ mining_highlights_channel_string: str = (
 
 
 @mining_group.command(name="settings",
-                      description="Configure mining settings")
+                      description="Configure your mining settings")
 @app_commands.describe(disable_reaction_messages="Stop the bot from messaging "
                        "new players when you mine their messages")
 @app_commands.describe(enable_network_mining_mention="Allow the bot to "

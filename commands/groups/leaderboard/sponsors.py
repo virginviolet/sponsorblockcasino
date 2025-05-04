@@ -19,11 +19,11 @@ from utils.smart_send_interaction_message import smart_send_interaction_message
 
 @leaderboard_group.command(
     name="sponsors",
-    description=f"See who's the {g.Coin} Casino's top sponsors")
+    description=f"Show the top sponsors of the {g.Coin} Casino.")
 @app_commands.describe(
-    ephemeral="Whether to send the message as ephemeral")
+    private="Whether to show the leaderboard only to you.")
 async def sponsors(interaction: Interaction,
-                   ephemeral: bool = False) -> None:
+                   private: bool = False) -> None:
     """
     Command to show the top sponsors of the casino.
     """
@@ -99,10 +99,10 @@ async def sponsors(interaction: Interaction,
         message_content += entry
         if len(message_content) >= 2000 - 100:
             await smart_send_interaction_message(
-                interaction, message_content, has_sent_message, ephemeral)
+                interaction, message_content, has_sent_message, private)
             has_sent_message = True
             message_content = ""
     if message_content != "":
         await smart_send_interaction_message(
-            interaction, message_content, has_sent_message, ephemeral)
+            interaction, message_content, has_sent_message, private)
 # endregion

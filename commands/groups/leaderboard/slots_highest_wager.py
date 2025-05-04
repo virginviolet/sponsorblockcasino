@@ -23,10 +23,10 @@ from utils.smart_send_interaction_message import smart_send_interaction_message
         "Show the leaderboard for the highest stakes "
         f"ever made on the {g.Coin} Slot Machine."))
 @app_commands.describe(
-    ephemeral=(
-        "Whether to send the message as ephemeral (visible only to you)."))
+    private=(
+        "Whether to show the leaderboard only to you."))
 async def highest_stake(interaction: Interaction,
-                        ephemeral: bool = False) -> None:
+                        private: bool = False) -> None:
     """
     Command to display the leaderboard for the highest stakes in
     the slot machine.
@@ -42,13 +42,13 @@ async def highest_stake(interaction: Interaction,
                 f"The {g.Coin} Slot Machine \"highest stake\" leaderboard "
                 "will be unlocked once the donation goal is met.\n"
                 "-# Use `/donation_goal` to check the current progress.")
-            ephemeral = False
+            private = False
         else:
             message_content = (
                 f"The {g.Coin} Slot Machine \"highest stake\" leaderboard "
                 "is currently disabled. Please try again later.")
         await interaction.response.send_message(message_content,
-                                                ephemeral=ephemeral)
+                                                ephemeral=private)
         return
 
     high_scores_unsorted: List[SlotsHighScoreEntry] = (
@@ -78,10 +78,10 @@ async def highest_stake(interaction: Interaction,
         message_content += message_entry
         if len(message_content) >= 2000 - 100:
             await smart_send_interaction_message(
-                interaction, message_content, has_sent_message, ephemeral)
+                interaction, message_content, has_sent_message, private)
             has_sent_message = True
             message_content = ""
     if message_content != "":
         await smart_send_interaction_message(
-            interaction, message_content, has_sent_message, ephemeral)
+            interaction, message_content, has_sent_message, private)
 # endregion

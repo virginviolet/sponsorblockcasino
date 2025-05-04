@@ -40,7 +40,8 @@ reels_choices: List[Choice[str]] = [
 
 
 @g.bot.tree.command(name="reels",
-                    description="Design or look at the slot machine reels")
+                    description=("Design or inspect "
+                                 f"the {g.Coin} Slot Machine reels"))
 @app_commands.choices(add_or_remove_symbol=add_or_remove_choices)
 @app_commands.describe(add_or_remove_symbol="Add or remove a symbol")
 @app_commands.describe(symbol="The symbol to add or remove")

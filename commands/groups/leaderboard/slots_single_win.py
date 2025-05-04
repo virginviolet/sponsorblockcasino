@@ -22,10 +22,9 @@ from utils.smart_send_interaction_message import smart_send_interaction_message
     description=("Show the leaderboard for the highest single wins "
                  f"ever achieved the {g.Coin} Slot Machine."))
 @app_commands.describe(
-    ephemeral=("Whether to send the message as ephemeral "
-               "(visible only to you)."))
+    private=("Whether to show the donation goal only to you."))
 async def single_win(interaction: Interaction,
-                     ephemeral: bool = False) -> None:
+                     private: bool = False) -> None:
     """
     Command to show the single win leaderboard of the slot machine.
     """
@@ -42,13 +41,13 @@ async def single_win(interaction: Interaction,
                 f"The {g.Coin} Slot Machine \"highest win\" leaderboard "
                 "will be unlocked once the donation goal is met.\n"
                 "-# Type `/donation_goal` to check the current progress.")
-            ephemeral = False
+            private = False
         else:
             message_content = (
                 f"The {g.Coin} Slot Machine \"highest win\" leaderboard "
                 "is currently disabled. Please try again later.")
         await interaction.response.send_message(message_content,
-                                                ephemeral=ephemeral)
+                                                ephemeral=private)
         return
 
     high_scores_unsorted: List[SlotsHighScoreEntry] = (
@@ -78,10 +77,10 @@ async def single_win(interaction: Interaction,
         message_content += message_entry
         if len(message_content) >= 2000 - 100:
             await smart_send_interaction_message(
-                interaction, message_content, has_sent_message, ephemeral)
+                interaction, message_content, has_sent_message, private)
             has_sent_message = True
             message_content = ""
     if message_content != "":
         await smart_send_interaction_message(
-            interaction, message_content, has_sent_message, ephemeral)
+            interaction, message_content, has_sent_message, private)
 # endregion
