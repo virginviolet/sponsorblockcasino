@@ -46,6 +46,7 @@ async def donation_goal_add(
     """Add a donation goal for the casino."""
     # Check if the user is a maintainer
     # TODO Use coin bot developer role or maintainer role instead of administrator id
+    # IMPROVE Make persistent; save goal to file
     assert g.bot is not None, (
         "g.bot has not been initialized.")
     if interaction.user.id != g.administrator_id:
@@ -145,6 +146,9 @@ async def donation_goal_add_reward_autocomplete(
         app_commands.Choice(
             name="leaderboard_slots_highest_wager_blocked",
             value="leaderboard_slots_highest_wager_blocked"),
+        app_commands.Choice(
+            name="leaderboard_holders_blocked",
+            value="leaderboard_holders_blocked"),
     ]
     return choices
 

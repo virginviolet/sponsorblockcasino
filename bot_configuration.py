@@ -79,6 +79,7 @@ class BotConfiguration:
             "aml_office_channel_id": 0,
             "aml_office_thread_id": 0,
             "reaction_messages_enabled": True,
+            "leaderboard_holders_blocked": False,
             "leaderboard_slots_highest_wager_blocked": False,
             "leaderboard_slots_highest_win_blocked": False
         }
@@ -126,6 +127,8 @@ class BotConfiguration:
                     self.configuration["aml_office_thread_id"])
                 self.reaction_messages_enabled: bool = (
                     self.configuration["reaction_messages_enabled"])
+                self._leaderboard_holders_blocked: bool = (
+                    self.configuration["leaderboard_holders_blocked"])
                 self._leaderboard_slots_highest_wager_blocked: bool = (
                     self.configuration[
                         "leaderboard_slots_highest_wager_blocked"])
@@ -152,15 +155,34 @@ class BotConfiguration:
                       f"in '{self.file_name}' "
                       "nor in the environment variables.")
         print(f"Bot configuration initialized.")
+        
+    @property
+    def leaderboard_holders_blocked(self) -> bool:
+        """
+        Gets the _leaderboard_holders_blocked attribute.
+        This property is used to check if the leaderboard for holders
+        is blocked or not.
+        Returns:
+            bool: True if the leaderboard is blocked, False otherwise.
+        """
+        return self._leaderboard_holders_blocked
 
+    @leaderboard_holders_blocked.setter
+    def leaderboard_holders_blocked(self, value: bool) -> None:
+        """
+        Sets the _leaderboard_holders_blocked attribute.
+        Args:
+            value (bool): True if the leaderboard is blocked, False otherwise.
+        """
+        self._leaderboard_holders_blocked: bool = value
+        self.configuration["leaderboard_holders_blocked"] = value
+        with open(self.file_name, "w", encoding="utf-8") as file:
+            file.write(json.dumps(self.configuration, indent=4))
+    
     @property
     def leaderboard_slots_highest_win_blocked(self) -> bool:
         """
         Gets the _leaderboard_slots_highest_win_blocked attribute.
-        This property is used to check if the leaderboard for the highest
-        win is blocked or not.
-        Returns:
-            bool: True if the leaderboard is blocked, False otherwise.
         """
         return self._leaderboard_slots_highest_win_blocked
 
@@ -178,8 +200,6 @@ class BotConfiguration:
     def leaderboard_slots_highest_wager_blocked(self) -> bool:
         """
         Gets the leaderboard_slots_highest_wager_blocked attribute.
-        Returns:
-            bool: True if the leaderboard is blocked, False otherwise.
         """
         return self._leaderboard_slots_highest_wager_blocked
     
@@ -294,6 +314,7 @@ def invoke_bot_configuration() -> None:
     g.aml_office_thread_id = (
         g.configuration.aml_office_thread_id)
     g.reaction_messages_enabled = g.configuration.reaction_messages_enabled
+    g.leaderboard_holders_blocked = g.configuration.leaderboard_holders_blocked
     g.leaderboard_slots_highest_win_blocked = (
         g.configuration.leaderboard_slots_highest_win_blocked)
     g.leaderboard_slots_highest_wager_blocked = (

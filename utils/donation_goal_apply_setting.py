@@ -15,13 +15,19 @@ def apply_donation_reward() -> None:
             == "leaderboard_slots_highest_win_blocked"):
         g.configuration.leaderboard_slots_highest_win_blocked = (
             g.donation_goal.reward_setting_value)
-        g.leaderboard_slots_highest_win_blocked = g.donation_goal.reward_setting_value
+        g.leaderboard_slots_highest_win_blocked = (
+            g.donation_goal.reward_setting_value)
     elif (g.donation_goal.reward_setting_key
             == "leaderboard_slots_highest_wager_blocked"):
         g.configuration.leaderboard_slots_highest_wager_blocked = (
             g.donation_goal.reward_setting_value)
         g.leaderboard_slots_highest_wager_blocked = (
             g.donation_goal.reward_setting_value)
+    elif (g.donation_goal.reward_setting_key
+            == "leaderboard_holders_blocked"):
+        g.configuration.leaderboard_holders_blocked = (
+            g.donation_goal.reward_setting_value)
+        g.leaderboard_holders_blocked = g.donation_goal.reward_setting_value
     print(f"{g.donation_goal.reward_setting_key} set "
             f"to {g.donation_goal.reward_setting_value}")
 # endregion

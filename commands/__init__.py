@@ -22,7 +22,7 @@ from .groups.slots import jackpot
 from .groups.slots import reboot
 from .groups.slots import rtp
 from .groups.slots import slots_utils
-from .groups.leaderboard import (leaderboard_group, sponsors,
+from .groups.leaderboard import (leaderboard_group, holders, sponsors,
                                  leaderboard_slots_group, slots_single_win)
 
 __all__: list[str] = [
@@ -47,6 +47,7 @@ __all__: list[str] = [
     "donation_goal",
     "leaderboard_group",
     "leaderboard_slots_group",
+    "holders",
     "sponsors",
     "slots_single_win"
 ]
