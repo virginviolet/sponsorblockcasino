@@ -13,35 +13,35 @@ from commands.groups.leaderboard import leaderboard_group
 from utils.formatting import format_coin_label
 # endregion
 
-# region holders
+# region holder
 
 
 @leaderboard_group.command(
-    name="holders",
-    description=f"Show the top {g.coin} holders")
+    name="holder",
+    description=f"Show the top {g.coin} holder")
 @app_commands.describe(
     private="Whether to show the leaderboard only to you")
-async def holders(interaction: Interaction,
+async def holder(interaction: Interaction,
                   private: bool = False) -> None:
     """
-    Command to show the top holders of the coin.
+    Command to show the top holder of the coin.
     """
     assert g.bot, (
         "Bot is not initialized.")
     assert g.decrypted_transactions_spreadsheet, (
         "Decrypted transactions spreadsheet is not initialized.")
-    if g.leaderboard_holders_blocked:
+    if g.leaderboard_holder_blocked:
         if (g.donation_goal is not None and
                 g.donation_goal.reward_setting_key
-                == "leaderboard_holders_blocked"):
+                == "leaderboard_holder_blocked"):
             message_content = (
-                f"The {g.coin} holders leaderboard "
+                f"The {g.coin} holder leaderboard "
                 "will be unlocked once the donation goal is met.\n"
                 "-# Use `/donation_goal` to check the current progress.")
             private = False
         else:
             message_content = (
-                f"The {g.coin} holders leaderboard "
+                f"The {g.coin} holder leaderboard "
                 "is currently disabled. Please try again later.")
         await interaction.response.send_message(message_content,
                                                 ephemeral=private)
@@ -61,7 +61,7 @@ async def holders(interaction: Interaction,
     transactions_decrypted["Receiver (normalized)"] = (
         transactions_decrypted["Receiver"].astype(str).str.strip().str.lower()
     )
-    holders: dict[str, int] = {}
+    holder: dict[str, int] = {}
     senders_extracted: pd.Series[str | float] = (
         transactions_decrypted["Sender"])
     unique_senders: ndarray[Any, Any] = (
@@ -88,11 +88,11 @@ async def holders(interaction: Interaction,
             remittance: str = cast(str, remittance)
             balance -= int(remittance)
         if balance != 0:
-            holders[sender] = balance
-    holders = dict(sorted(
-        holders.items(), key=lambda item: item[1], reverse=True))
-    message_content: str = f"## Top {g.coin} holders\n"
-    for i, (user_name, amount) in enumerate(holders.items(), start=1):
+            holder[sender] = balance
+    holder = dict(sorted(
+        holder.items(), key=lambda item: item[1], reverse=True))
+    message_content: str = f"## Top {g.coin} holder\n"
+    for i, (user_name, amount) in enumerate(holder.items(), start=1):
         coin_label: str = format_coin_label(amount)
         entry: str = ""
         if amount > 0:

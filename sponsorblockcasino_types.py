@@ -34,7 +34,7 @@ class BotConfig(TypedDict):
     aml_office_channel_id: int
     aml_office_thread_id: int
     reaction_messages_enabled: bool
-    leaderboard_holders_blocked: bool
+    leaderboard_holder_blocked: bool
     leaderboard_slots_highest_wager_blocked: bool
     leaderboard_slots_highest_win_blocked: bool
 

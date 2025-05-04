@@ -147,8 +147,8 @@ async def donation_goal_add_reward_autocomplete(
             name="leaderboard_slots_highest_wager_blocked",
             value="leaderboard_slots_highest_wager_blocked"),
         app_commands.Choice(
-            name="leaderboard_holders_blocked",
-            value="leaderboard_holders_blocked"),
+            name="leaderboard_holder_blocked",
+            value="leaderboard_holder_blocked"),
     ]
     return choices
 
