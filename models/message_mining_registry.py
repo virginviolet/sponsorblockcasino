@@ -9,12 +9,14 @@ from dataclasses import asdict
 from typing import TypeGuard, Any, Dict, List, cast
 
 # Local
-from schemas.sponsorblockcasino_types import (MessageMiningTimeline,
-                                              CoinReaction, ReactionUserDict)
+from schemas.typed import (MessageMiningTimeline,
+                           CoinReaction, ReactionUserDict)
 from schemas.data_classes import ReactionUser
 # endregion
 
 # region Type guard
+
+
 def is_dataclass_instance(obj: object) -> TypeGuard[Any]:
     return hasattr(obj, "__dataclass_fields__")
 
@@ -42,6 +44,7 @@ class MessageMiningRegistryManager:
     """
     Manages the coin reactions for all messages with coin reactions.
     """
+
     def __init__(self,
                  registry_path: str = (
                      "data/message_mining_registry.json")) -> None:
@@ -197,7 +200,7 @@ class MessageMiningRegistryManager:
         # Json keys cannot be integers, so convert to string
         message_id_str: str = str(message_id)
         if message_id_str in self.messages.keys():
-            reactions: List[CoinReaction] 
+            reactions: List[CoinReaction]
             if sort:
                 reactions = sorted(
                     self.messages[message_id_str]["reactions"],

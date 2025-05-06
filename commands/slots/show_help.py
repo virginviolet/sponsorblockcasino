@@ -13,7 +13,7 @@ from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
 
 # Local
 import core.global_state as g
-from schemas.sponsorblockcasino_types import ReelSymbol
+from schemas.typed import ReelSymbol
 from models.slot_machine import SlotMachine
 from utils.roles import (get_cybersecurity_officer_role,
                          get_slot_machine_technician_role)

@@ -16,7 +16,7 @@ from discord.utils import time_snowflake
 
 # Local
 import core.global_state as g
-from schemas.sponsorblockcasino_types import ReelSymbol,  ReelResults, SpinEmojis
+from schemas.typed import ReelSymbol,  ReelResults, SpinEmojis
 from core.terminate_bot import terminate_bot
 from models.slot_machine import SlotMachine
 from models.slot_machine_high_scores import SlotMachineHighScores

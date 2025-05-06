@@ -15,7 +15,7 @@ from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
 
 # Local
 import core.global_state as g
-from schemas.sponsorblockcasino_types import TransactionRequest
+from schemas.typed import TransactionRequest
 from models.transfers_waiting_approval import TransfersWaitingApproval
 from models.user_save_data import UserSaveData
 from models.log import Log

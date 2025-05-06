@@ -8,7 +8,7 @@ from discord import Interaction, Member, User, PartialEmoji
 from discord.ui import View, Button
 
 # Local
-from schemas.sponsorblockcasino_types import ReelSymbol, ReelResult, ReelResults, SpinEmojis
+from schemas.typed import ReelSymbol, ReelResult, ReelResults, SpinEmojis
 from models.slot_machine import SlotMachine
 # endregion
 

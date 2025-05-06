@@ -7,7 +7,7 @@ from typing import Dict, cast, Any
 
 # Local
 import core.global_state as g
-from schemas.sponsorblockcasino_types import BotConfig
+from schemas.typed import BotConfig
 # endregion
 
 # region Bot config

@@ -4,13 +4,13 @@ import json
 from os.path import exists
 from os import makedirs
 from os.path import exists
-from typing import (Dict, List)
+from typing import Dict, List
 
 # Third party
-from discord import (Guild, Interaction, Role, utils)
+from discord import Guild, Interaction, Role, utils
 
 # Local
-from schemas.sponsorblockcasino_types import TransactionRequest
+from schemas.typed import TransactionRequest
 # endregion
 
 # region Transfers waiting
