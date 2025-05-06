@@ -328,8 +328,11 @@ async def transfer_coins(sender: Member | User,
             transferred_message_content += "\nThank you for your donation!"
         donation_goal_update_message = (
             "Donation goal "
-            f"for {g.donation_goal.donation_recipient_mention} updated:\n"
-            f"## {g.donation_goal.goal_description}\n"
+            f"for {g.donation_goal.donation_recipient_mention} updated:\n")
+        if g.donation_goal.goal_description is not None:
+            donation_goal_update_message += (
+                f"## {g.donation_goal.goal_description}\n")
+        donation_goal_update_message += (
             f"{g.donation_goal.donated_amount}/"
             f"{g.donation_goal.target_amount} {coin_label_a} "
             f"({remaining_donation_ratio:.0%})\n")

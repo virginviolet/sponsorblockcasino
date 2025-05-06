@@ -100,8 +100,10 @@ async def donation_goal_add(
 
     fraction_reached: float = (
         starting_amount / target_amount)
-    goal_summary_for_console: str = (
-        f"{goal_description}\n"
+    goal_summary_for_console: str = ""
+    if goal_description is not None:
+        goal_summary_for_console = f"{goal_description}\n"
+    goal_summary_for_console += (
         f"{starting_amount}/"
         f"{target_amount} {format_coin_label(target_amount)} "
         f"({fraction_reached:.0%})")

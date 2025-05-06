@@ -10,10 +10,10 @@ from utils.formatting import format_coin_label
 # endregion
 
 
-
 # region /donation_goal
 assert g.bot is not None, (
     "g.bot has not been initialized.")
+
 
 @g.bot.tree.command(
     name="donation_goal",
@@ -21,29 +21,31 @@ assert g.bot is not None, (
         f"See the {g.Coin} Casino's current donation goal")
 )
 async def donation_goal(
-    interaction: Interaction,
-    ephemeral: bool | None = None) -> None:
+        interaction: Interaction,
+        ephemeral: bool | None = None) -> None:
     """Command to show the current donation goal."""
     should_use_ephemeral: bool = False if ephemeral is None else ephemeral
     if g.donation_goal is None:
         await interaction.response.send_message(
-           "Currently, there are no donation goals. Thank God!",
+            "Currently, there are no donation goals. Thank God!",
             ephemeral=should_use_ephemeral)
         return
-    
+
     fraction_reached: float = (
         g.donation_goal.donated_amount / g.donation_goal.target_amount)
     coin_label: str = format_coin_label(g.donation_goal.target_amount)
     message_content: str = (
-        f"Donation goal for {g.donation_goal.donation_recipient_mention}:\n"
-        f"## {g.donation_goal.goal_description}\n"
+        f"Donation goal for {g.donation_goal.donation_recipient_mention}:\n")
+    if g.donation_goal.goal_description is not None:
+        message_content += (
+            f"## {g.donation_goal.goal_description}\n")
+    message_content += (
         f"{g.donation_goal.donated_amount}/"
         f"{g.donation_goal.target_amount} {coin_label} "
         f"({fraction_reached:.0%})\n")
     if (interaction.user.id == g.administrator_id and
-        g.donation_goal.reward_setting_key is not None):
+            g.donation_goal.reward_setting_key is not None):
         f"Reward: {g.donation_goal.reward_setting_key}\n"
-    
     if g.donation_goal.reward_setting_key is not None and ephemeral is not None:
         message_content += (
             "-# Reward setting: "

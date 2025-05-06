@@ -47,6 +47,6 @@ async def transfer(interaction: Interaction,
                          purpose=purpose,
                          method="transfer",
                          channel_id=channel_id,
-                         interaction=interaction,)
+                         interaction=interaction)
     del sender, sender_id, receiver, receiver_id, amount
 # endregion
