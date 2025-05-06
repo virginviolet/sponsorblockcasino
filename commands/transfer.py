@@ -8,7 +8,7 @@ from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
 
 # Local
 import core.global_state as g
-from utils.blockchain_utils import transfer_coins
+from utils.transfer_coins import transfer_coins
 # endregion
 # region /transfer
 # assert bot is not None, "bot has not been initialized."

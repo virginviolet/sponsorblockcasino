@@ -1,10 +1,7 @@
 """
 Utility modules for SBCoin Nightclub Discord bot.
 """
-from .blockchain_utils import (
-    get_last_block_timestamp,
-    add_block_transaction,
-    transfer_coins)
+from .blockchain_utils import get_last_block_timestamp, add_block_transaction
 from .coin_reaction import process_reaction
 from .decrypt_transactions import DecryptedTransactionsSpreadsheet
 from .formatting import format_coin_label
@@ -15,6 +12,7 @@ from .roles import (get_role,
                     get_cybersecurity_officer_role,
                     get_aml_officer_role,
                     test_invoker_is_aml_officer)
+from .transfer_coins import transfer_coins
 
 # Define what gets imported with "from utils import *"
 __all__: list[str] = [

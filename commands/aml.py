@@ -20,7 +20,7 @@ from models.transfers_waiting_approval import TransfersWaitingApproval
 from models.user_save_data import UserSaveData
 from models.log import Log
 from views.aml_view import AmlView
-from utils.blockchain_utils import transfer_coins
+from utils.transfer_coins import transfer_coins
 from utils.formatting import format_coin_label, format_timestamp
 from utils.roles import test_invoker_is_aml_officer
 # endregion
