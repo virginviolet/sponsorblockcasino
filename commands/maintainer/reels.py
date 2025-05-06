@@ -13,6 +13,7 @@ from sympy import (Float, Integer, Le, Eq, Gt, Piecewise, pretty,
 
 # Local
 import core.global_state as g
+from .maintainer_main import maintainer_group
 from models.slot_machine import SlotMachine
 # endregion
 # region /reels
@@ -39,9 +40,9 @@ reels_choices: List[Choice[str]] = [
 ]
 
 
-@g.bot.tree.command(name="reels",
-                    description=("Design or inspect "
-                                 f"the {g.Coin} Slot Machine reels"))
+@maintainer_group.command(name="reels",
+                          description=("Design or inspect "
+                                       f"the {g.Coin} Slot Machine reels"))
 @app_commands.choices(add_or_remove_symbol=add_or_remove_choices)
 @app_commands.describe(add_or_remove_symbol="Add or remove a symbol")
 @app_commands.describe(symbol="The symbol to add or remove")
@@ -50,7 +51,7 @@ reels_choices: List[Choice[str]] = [
 @app_commands.describe(reel="The reel to modify")
 @app_commands.choices(reel=reels_choices)
 @app_commands.describe(close_off="Close off the area so that others cannot "
-                       "see the reels")
+                                 "see the reels")
 async def reels(interaction: Interaction,
                 add_or_remove_symbol: str | None = None,
                 symbol: str | None = None,
