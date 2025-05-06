@@ -3,14 +3,19 @@
 import json
 from os import makedirs, stat
 from os.path import exists
-from typing import (List, cast)
+from typing import List, TypeVar, cast
 
 # Local
-from sponsorblockcasino_types import (SaveData, T)
+from sponsorblockcasino_types import SaveData
+# endregion
+
+# region TypeVar
+T = TypeVar('T')
+
+
 # endregion
 
 # region UserSaveData
-
 
 
 class UserSaveData:
@@ -162,17 +167,17 @@ class UserSaveData:
                 expected_type_name: str = expected_type.__name__
             if print_on_none and value is None:
                 print(f"ERROR: Value of '{key}' ('{value}') does not match "
-                    f"the expected type. Found '{found_type_name}', expected "
-                    f"'{expected_type_name}'. "
-                    f"If the value is None, it likely means that the "
-                    f"key '{key}' does not exist. The save file was likely "
-                    "created before this key was added to the code. "
-                    f"Returning default value {default}.")
+                      f"the expected type. Found '{found_type_name}', "
+                      f"expected '{expected_type_name}'. "
+                      f"If the value is None, it likely means that the "
+                      f"key '{key}' does not exist. The save file was likely "
+                      "created before this key was added to the code. "
+                      f"Returning default value {default}.")
             elif value is not None:
                 print(f"ERROR: Value of '{key}' ('{value}') does not match "
-                    f"the expected type. Found '{found_type_name}', expected "
-                    f"'{expected_type_name}'. "
-                     f"Returning default value {default}.")
+                      f"the expected type. Found '{found_type_name}', "
+                      f"expected '{expected_type_name}'. "
+                      f"Returning default value {default}.")
             return default
 
     @property
@@ -226,7 +231,7 @@ class UserSaveData:
         Indicates the starting bonus level of the user.
         """
         return self._starting_bonus_level
-    
+
     @starting_bonus_level.setter
     def starting_bonus_level(self, value: int) -> None:
         """
@@ -271,7 +276,7 @@ class UserSaveData:
         Indicates if the user has enabled network mining mentions.
         """
         return self._network_mining_mentions_enabled
-    
+
     @network_mining_mentions_enabled.setter
     def network_mining_mentions_enabled(self, value: bool) -> None:
         """
@@ -286,7 +291,7 @@ class UserSaveData:
         Indicates if the user has enabled network mining highlights mentions.
         """
         return self._network_mining_highlights_mentions_enabled
-    
+
     @network_mining_highlights_mentions_enabled.setter
     def network_mining_highlights_mentions_enabled(self, value: bool) -> None:
         """

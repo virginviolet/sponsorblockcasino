@@ -133,7 +133,4 @@ class TransactionRequest(TypedDict):
     channel_id: int
     message_id: int
     purpose: str
-
-
-T = TypeVar('T')
 # endregion
