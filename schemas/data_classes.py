@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel
 
 # Local
-from .sponsorblockcasino_types import ReelSymbol, Reels, SpinEmojis
+from .typed import ReelSymbol, Reels, SpinEmojis
 # endregion
 
 # region Data Classes
