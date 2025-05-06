@@ -23,7 +23,7 @@ from models.slot_machine_high_scores import SlotMachineHighScores
 from models.grifter_suppliers import GrifterSuppliers
 from models.log import Log
 from models.user_save_data import UserSaveData
-from schemas.pydantic_models import (SlotEvent, SlotFeeDetail, SlotMessage,
+from schemas.data_classes import (SlotEvent, SlotFeeDetail, SlotMessage,
                                      SlotReelSymbol, SlotResultSimple,
                                      SlotsHighScoreEntry, UserSimple)
 from utils.blockchain_utils import (add_block_transaction,

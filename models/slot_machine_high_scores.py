@@ -8,7 +8,7 @@ from typing import List, Literal
 # from pydantic
 
 # Local
-from schemas.pydantic_models import (HighScores, SlotsHighScoreCategory,
+from schemas.data_classes import (HighScores, SlotsHighScoreCategory,
                                      SlotsHighScoreEntry)
 
 # endregion

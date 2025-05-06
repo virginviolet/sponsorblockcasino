@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from models.slot_machine_high_scores import SlotMachineHighScores
     from models.transfers_waiting_approval import TransfersWaitingApproval
     from models.message_mining_registry import MessageMiningRegistryManager
-    from schemas.pydantic_models import DonationGoal
+    from schemas.data_classes import DonationGoal
     from utils.decrypt_transactions import DecryptedTransactionsSpreadsheet
     from sponsorblockchain.models.blockchain import Blockchain
 # endregion

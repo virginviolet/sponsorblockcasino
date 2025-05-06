@@ -1,4 +1,4 @@
-from .pydantic_models import (
+from .data_classes import (
     SlotEvent,
     SlotFeeDetail,
     SlotMessage,

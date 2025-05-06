@@ -9,7 +9,7 @@ from discord import Interaction, Member, User, app_commands
 # Local
 import core.global_state as g
 from commands.leaderboard import leaderboard_slots_group
-from schemas.pydantic_models import SlotsHighScoreEntry
+from schemas.data_classes import SlotsHighScoreEntry
 from utils.formatting import format_coin_label
 from utils.smart_send_interaction_message import smart_send_interaction_message
 # endregion
