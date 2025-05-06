@@ -40,13 +40,11 @@ from .global_state import (
 with lazyimports.lazy_imports(
         "core.bot:run_bot",
         "core.bot:setup_bot_environment",
-        "core.bot:intents",
-        "core.bot:client"):
+        "core.bot:intents"):
     from .bot import (
         run_bot,
         setup_bot_environment,
-        intents,
-        client
+        intents
     )
 
 # Commented because it causes issue with blockchain extension somehow
@@ -96,7 +94,6 @@ __all__: list[str] = [
     'run_bot',
     'setup_bot_environment',
     'intents',
-    'client',
     'terminate_bot',
     'register_event_handlers',  # type: ignore
     'register_commands',  # type: ignore
