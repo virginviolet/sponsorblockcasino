@@ -10,9 +10,9 @@ from discord.utils import time_snowflake
 
 # Local
 import core.global_state as g
-from .maintainer_main import maintainer_donation_goal_group
 from schemas.data_classes import DonationGoal
 from utils.formatting import format_coin_label
+from .maintainer_main import maintainer_donation_goal_group
 # endregion
 
 # region donation_goal

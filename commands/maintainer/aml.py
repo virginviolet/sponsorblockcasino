@@ -23,11 +23,8 @@ from views.aml_view import AmlView
 from utils.transfer_coins import transfer_coins
 from utils.formatting import format_coin_label, format_timestamp
 from utils.roles import test_invoker_is_aml_officer
+from .maintainer_main import aml_group
 # endregion
-
-
-aml_group = app_commands.Group(
-    name="aml", description="Use an Anti-money laundering workstation")
 
 # region approve
 

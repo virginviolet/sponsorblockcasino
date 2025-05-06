@@ -6,7 +6,6 @@ from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
 # Local
 import core.global_state as g
 from commands.maintainer.maintainer_main import maintainer_group
-from commands.maintainer.aml import aml_group
 from commands.slots.slots_main import slots_group
 from commands.mining.mining_main import mining_group
 from commands.leaderboard.leaderboard_main import leaderboard_group
@@ -37,10 +36,9 @@ def register_commands() -> None:
     assert isinstance(g.bot, Bot), "bot is not initialized"
     
     # Command groups
-    g.bot.tree.add_command(aml_group)
-    g.bot.tree.add_command(slots_group)
+    g.bot.tree.add_command(leaderboard_group)
     g.bot.tree.add_command(maintainer_group)
     g.bot.tree.add_command(mining_group)
-    g.bot.tree.add_command(leaderboard_group)
+    g.bot.tree.add_command(slots_group)
     print("Commands registered.")
 # endregion

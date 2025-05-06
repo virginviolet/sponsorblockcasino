@@ -13,8 +13,8 @@ from sympy import (Float, Integer, Le, Eq, Gt, Piecewise, pretty,
 
 # Local
 import core.global_state as g
-from .maintainer_main import maintainer_group
 from models.slot_machine import SlotMachine
+from .maintainer_main import maintainer_group
 # endregion
 # region /reels
 

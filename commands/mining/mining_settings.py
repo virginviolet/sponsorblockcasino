@@ -12,8 +12,8 @@ from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
 # Local
 import core.global_state as g
 from models.user_save_data import UserSaveData
-from .mining_main import mining_group
 from utils.smart_send_interaction_message import smart_send_interaction_message
+from .mining_main import mining_group
 # endregion
 
 # region settings
