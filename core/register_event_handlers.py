@@ -4,9 +4,9 @@ from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
     Bot)
 
 # Local
-from commands.maintainer.maintainer_main import maintainer_group
 import core.global_state as g
-from commands.aml import aml_group
+from commands.maintainer.maintainer_main import maintainer_group
+from commands.maintainer.aml import aml_group
 from commands.slots.slots_main import slots_group
 from commands.mining.mining_main import mining_group
 from commands.leaderboard.leaderboard_main import leaderboard_group
