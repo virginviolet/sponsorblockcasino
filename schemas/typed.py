@@ -1,9 +1,13 @@
 # region Imports
 # Standard Library
-from typing import Dict, TypedDict, List
+from typing import Dict, TypedDict, List, TYPE_CHECKING
 
 # Third party
 from discord import PartialEmoji
+
+# Local
+if TYPE_CHECKING:
+    from .data_classes import ReactionUser
 # endregion
 
 # region Types
@@ -46,7 +50,7 @@ class ReactionUserDict(TypedDict):
 
 class CoinReaction(TypedDict):
     created_at: float
-    user: ReactionUser | ReactionUserDict
+    user: "ReactionUser | ReactionUserDict"
 
 
 class MessageMiningTimeline(TypedDict):
