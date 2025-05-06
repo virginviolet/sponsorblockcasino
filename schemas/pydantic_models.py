@@ -1,5 +1,20 @@
+# region Imports
+# Standard Library
 from typing import Dict, List, Optional
 from pydantic import BaseModel
+
+# Local
+from .sponsorblockcasino_types import ReelSymbol, Reels, SpinEmojis
+
+
+class SlotMachineConfig(BaseModel):
+    combo_events: dict[str, ReelSymbol]
+    reels: Reels
+    reel_spin_emojis: SpinEmojis
+    fees: dict[str, int | float]
+    jackpot_pool: int
+    new_bonus_wait_seconds: int
+    starting_bonus_die_enabled: bool
 
 
 class SlotEvent(BaseModel):
