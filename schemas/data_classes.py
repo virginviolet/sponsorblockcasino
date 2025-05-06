@@ -1,10 +1,24 @@
 # region Imports
 # Standard Library
+from dataclasses import dataclass
 from typing import Dict, List, Optional
+
+# Third party
 from pydantic import BaseModel
 
 # Local
 from .sponsorblockcasino_types import ReelSymbol, Reels, SpinEmojis
+# endregion
+
+# region Data Classes
+
+
+@dataclass(frozen=True)
+class ReactionUser:
+    global_name: str | None
+    id: int
+    name: str
+    mention: str
 
 
 class SlotMachineConfig(BaseModel):
@@ -89,3 +103,4 @@ class DonationGoal(BaseModel):
     reward_setting_value: bool | None
     target_amount: int
     goal_reached_message_content: str | None
+# endregion

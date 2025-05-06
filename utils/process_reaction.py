@@ -13,7 +13,7 @@ from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
 from discord.reaction import Reaction
 
 # Local
-from schemas.sponsorblockcasino_types import ReactionUser
+from schemas.data_classes import ReactionUser
 import core.global_state as g
 from core.terminate_bot import terminate_bot
 from models.log import Log

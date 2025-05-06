@@ -1,6 +1,5 @@
 # region Imports
 # Standard Library
-from dataclasses import dataclass
 from typing import Dict, TypedDict, List
 
 # Third party
@@ -36,14 +35,6 @@ class BotConfig(TypedDict):
     leaderboard_holder_blocked: bool
     leaderboard_slots_highest_wager_blocked: bool
     leaderboard_slots_highest_win_blocked: bool
-
-
-@dataclass(frozen=True)
-class ReactionUser:
-    global_name: str | None
-    id: int
-    name: str
-    mention: str
 
 
 class ReactionUserDict(TypedDict):

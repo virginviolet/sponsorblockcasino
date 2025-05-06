@@ -9,8 +9,9 @@ from dataclasses import asdict
 from typing import TypeGuard, Any, Dict, List, cast
 
 # Local
-from schemas.sponsorblockcasino_types import (MessageMiningTimeline, CoinReaction, ReactionUser,
-                          ReactionUserDict)
+from schemas.sponsorblockcasino_types import (MessageMiningTimeline,
+                                              CoinReaction, ReactionUserDict)
+from schemas.data_classes import ReactionUser
 # endregion
 
 # region Type guard
