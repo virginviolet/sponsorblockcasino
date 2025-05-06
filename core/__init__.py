@@ -95,7 +95,7 @@ __all__: list[str] = [
     'setup_bot_environment',
     'intents',
     'terminate_bot',
-    'register_event_handlers',  # type: ignore
-    'register_commands',  # type: ignore
+    # 'register_event_handlers',
+    # 'register_commands',
     'time_zone'
 ]
