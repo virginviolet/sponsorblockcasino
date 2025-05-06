@@ -8,61 +8,62 @@ from discord import Interaction, Member, User, app_commands
 
 # Local
 import core.global_state as g
-from commands.groups.leaderboard import leaderboard_slots_group
+from commands.leaderboard import leaderboard_slots_group
 from schemas.pydantic_models import SlotsHighScoreEntry
 from utils.formatting import format_coin_label
 from utils.smart_send_interaction_message import smart_send_interaction_message
 # endregion
 
-# region single_win
+# region highest_stake
 
 
 @leaderboard_slots_group.command(
-    name="single_win",
-    description=("Show the leaderboard for the highest single wins "
-                 f"ever achieved the {g.Coin} Slot Machine."))
+    name="highest_stake",
+    description=(
+        "Show the leaderboard for the highest stakes "
+        f"ever made on the {g.Coin} Slot Machine."))
 @app_commands.describe(
-    private=("Whether to show the donation goal only to you."))
-async def single_win(interaction: Interaction,
-                     private: bool = False) -> None:
+    private=(
+        "Whether to show the leaderboard only to you."))
+async def highest_stake(interaction: Interaction,
+                        private: bool = False) -> None:
     """
-    Command to show the single win leaderboard of the slot machine.
+    Command to display the leaderboard for the highest stakes in
+    the slot machine.
     """
-    assert g.bot, (
-        "Bot is not initialized.")
+    assert g.bot, "Bot is not initialized."
     assert g.slot_machine_high_scores, (
         "Slot machine high scores are not initialized.")
-    if g.leaderboard_slots_highest_win_blocked is True:
-        message_content: str
-        if ((g.donation_goal is not None) and
-            (g.donation_goal.reward_setting_key
-                == "leaderboard_slots_highest_win_blocked")):
+    if g.leaderboard_slots_highest_wager_blocked:
+        if (g.donation_goal is not None and
+                g.donation_goal.reward_setting_key
+                == "leaderboard_slots_highest_wager_blocked"):
             message_content = (
-                f"The {g.Coin} Slot Machine \"highest win\" leaderboard "
+                f"The {g.Coin} Slot Machine \"highest stake\" leaderboard "
                 "will be unlocked once the donation goal is met.\n"
-                "-# Type `/donation_goal` to check the current progress.")
+                "-# Use `/donation_goal` to check the current progress.")
             private = False
         else:
             message_content = (
-                f"The {g.Coin} Slot Machine \"highest win\" leaderboard "
+                f"The {g.Coin} Slot Machine \"highest stake\" leaderboard "
                 "is currently disabled. Please try again later.")
         await interaction.response.send_message(message_content,
                                                 ephemeral=private)
         return
 
     high_scores_unsorted: List[SlotsHighScoreEntry] = (
-        g.slot_machine_high_scores.high_scores.highest_wins.entries)
+        g.slot_machine_high_scores.high_scores.highest_wager.entries)
     high_scores: list[SlotsHighScoreEntry] = sorted(
-        high_scores_unsorted, key=lambda x: (-x.win_money, x.created_at))
-    message_content: str = (f"## {g.Coin} Slot Machine leaderboard "
-                            "\N{EN DASH} Single win\n")
+        high_scores_unsorted, key=lambda x: (-x.wager, x.created_at))
+    message_content: str = (f"## {g.Coin} Slot Machine Leaderboard "
+                            "\N{EN DASH} Highest stake\n")
     invoker: User | Member = interaction.user
     invoker_name: str = invoker.name
     has_sent_message = False
     rank: int = 0
     for entry in high_scores:
         rank += 1
-        coin_label: str = format_coin_label(entry.win_money)
+        coin_label: str = format_coin_label(entry.wager)
         message_entry: str = f"{rank}. "
         if entry.user.name == invoker_name:
             message_entry += f"**{entry.user.name}**\n"
@@ -72,7 +73,7 @@ async def single_win(interaction: Interaction,
         # dt_formatted: str = format_dt(dt)
         message_entry += (
             # f"-# {dt_formatted}\n"
-            f"-# {entry.win_money:,} {coin_label}\n"
+            f"-# {entry.wager:,} {coin_label}\n"
             "\n").replace(",", "\N{THIN SPACE}")
         message_content += message_entry
         if len(message_content) >= 2000 - 100:

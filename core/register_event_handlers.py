@@ -4,12 +4,12 @@ from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
     Bot)
 
 # Local
-from commands.groups.maintainer.maintainer_main import maintainer_group
+from commands.maintainer.maintainer_main import maintainer_group
 import core.global_state as g
-from commands.groups.aml import aml_group
-from commands.groups.slots.slots_main import slots_group
-from commands.groups.mining.mining_main import mining_group
-from commands.groups.leaderboard.leaderboard_main import leaderboard_group
+from commands.aml import aml_group
+from commands.slots.slots_main import slots_group
+from commands.mining.mining_main import mining_group
+from commands.leaderboard.leaderboard_main import leaderboard_group
 from event_handlers.on_ready import on_ready
 from event_handlers.message import on_message
 from event_handlers.reaction import on_raw_reaction_add

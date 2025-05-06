@@ -9,7 +9,7 @@ from discord import Interaction, Member, User, app_commands
 
 # Local
 import core.global_state as g
-from commands.groups.leaderboard import leaderboard_group
+from commands.leaderboard import leaderboard_group
 from utils.formatting import format_coin_label
 # endregion
 
