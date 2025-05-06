@@ -13,7 +13,7 @@ from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
 
 # Local
 import core.global_state as g
-from sponsorblockcasino_types import ReelSymbol
+from schemas.sponsorblockcasino_types import ReelSymbol
 from models.slot_machine import SlotMachine
 from utils.roles import (get_cybersecurity_officer_role,
                          get_slot_machine_technician_role)
@@ -52,6 +52,9 @@ async def show_help(interaction: Interaction,
     jackpot_seed: int = (
         g.slot_machine.configuration.combo_events
         ["jackpot"]["fixed_amount"])
+    if g.administrator_id is 0:
+        raise ValueError(
+            "administrator_id is not set. Please set it in the config.")
     try:
         administrator: User = (await g.bot.fetch_user(g.administrator_id))
         administrator_mention: str = administrator.mention

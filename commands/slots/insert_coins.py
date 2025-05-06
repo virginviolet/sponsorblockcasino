@@ -16,7 +16,7 @@ from discord.utils import time_snowflake
 
 # Local
 import core.global_state as g
-from sponsorblockcasino_types import ReelSymbol,  ReelResults, SpinEmojis
+from schemas.sponsorblockcasino_types import ReelSymbol,  ReelResults, SpinEmojis
 from core.terminate_bot import terminate_bot
 from models.slot_machine import SlotMachine
 from models.slot_machine_high_scores import SlotMachineHighScores
@@ -843,9 +843,12 @@ async def insert_coins(interaction: Interaction,
 
     if last_block_error:
         # send message to admin
-        administrator: str = (await g.bot.fetch_user(g.administrator_id)).name
-        await interaction.followup.send("An error occurred. "
-                                        f"{administrator} pls fix.")
+        if g.administrator_id is not 0:
+            administrator: User = (await g.bot.fetch_user(g.administrator_id))
+            administrator_mention: str = administrator.mention
+            await interaction.followup.send(
+                "An error occurred. "
+                f"{administrator_mention} pls fix.")
         await terminate_bot()
     del last_block_error
 

@@ -1,7 +1,7 @@
 # region Imports
 # Standard Library
 from dataclasses import dataclass
-from typing import Dict, TypedDict, List, TypeVar
+from typing import Dict, TypedDict, List
 
 # Third party
 from discord import PartialEmoji

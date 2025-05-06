@@ -10,7 +10,7 @@ from typing import (Dict, List)
 from discord import (Guild, Interaction, Role, utils)
 
 # Local
-from sponsorblockcasino_types import TransactionRequest
+from schemas.sponsorblockcasino_types import TransactionRequest
 # endregion
 
 # region Transfers waiting

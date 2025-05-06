@@ -9,7 +9,7 @@ from dataclasses import asdict
 from typing import TypeGuard, Any, Dict, List, cast
 
 # Local
-from sponsorblockcasino_types import (MessageMiningTimeline, CoinReaction, ReactionUser,
+from schemas.sponsorblockcasino_types import (MessageMiningTimeline, CoinReaction, ReactionUser,
                           ReactionUserDict)
 # endregion
 

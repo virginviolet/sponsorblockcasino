@@ -16,7 +16,7 @@ import lazyimports
 import core.global_state as g
 with lazyimports.lazy_imports("schemas.pydantic_models:SlotEvent"):
     from schemas.pydantic_models import SlotEvent
-from sponsorblockcasino_types import (Reels, ReelSymbol, ReelResults,
+from schemas.sponsorblockcasino_types import (Reels, ReelSymbol, ReelResults,
                                       SlotMachineConfig)
 # endregion
 

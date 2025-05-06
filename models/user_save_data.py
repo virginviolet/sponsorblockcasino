@@ -6,7 +6,7 @@ from os.path import exists
 from typing import List, TypeVar, cast
 
 # Local
-from sponsorblockcasino_types import SaveData
+from schemas.sponsorblockcasino_types import SaveData
 # endregion
 
 # region TypeVar
