@@ -819,7 +819,7 @@ async def insert_coins(interaction: Interaction,
                     "a new high score in both categories:\n"
                     "-# **Single win**: Check it out with "
                     f"{g.leaderboard_slots_single_win_formatted}.\n"
-                    "-# **Highest stake**: Check it out with "
+                    "-# **Stake**: Check it out with "
                     f"{g.leaderboard_slots_wager_formatted}.")
             elif new_high_score_win_achieved:
                 message_content = (
@@ -832,7 +832,7 @@ async def insert_coins(interaction: Interaction,
                 message_content = (
                     f"Congratulations! You've achieved "
                     "a new high score in the "
-                    "**Highest stake** category.\n"
+                    "**Stake** category.\n"
                     "-# Check it out with "
                     f"{g.leaderboard_slots_wager_formatted}.")
             await interaction.followup.send(content=message_content,

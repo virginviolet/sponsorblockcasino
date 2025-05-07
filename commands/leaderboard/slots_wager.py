@@ -14,19 +14,19 @@ from utils.smart_send_interaction_message import smart_send_interaction_message
 from .leaderboard_main import leaderboard_slots_group
 # endregion
 
-# region highest_stake
+# region stake
 
 
 @leaderboard_slots_group.command(
-    name="highest_stake",
+    name="stake",
     description=(
         "Show the leaderboard for the highest stakes "
         f"ever made on the {g.Coin} Slot Machine."))
 @app_commands.describe(
     private=(
         "Whether to show the leaderboard only to you."))
-async def highest_stake(interaction: Interaction,
-                        private: bool = False) -> None:
+async def stake(interaction: Interaction,
+                private: bool = False) -> None:
     """
     Command to display the leaderboard for the highest stakes in
     the slot machine.
@@ -39,14 +39,14 @@ async def highest_stake(interaction: Interaction,
                 g.donation_goal.reward_setting_key
                 == "leaderboard_slots_highest_wager_blocked"):
             message_content = (
-                f"The {g.Coin} Slot Machine \"highest stake\" leaderboard "
+                f"The {g.Coin} Slot Machine \"stake\" leaderboard "
                 "will be unlocked once the donation goal is met.\n"
                 f"-# Use {g.donation_goal_formatted} "
                 "to check the current progress.")
             private = False
         else:
             message_content = (
-                f"The {g.Coin} Slot Machine \"highest stake\" leaderboard "
+                f"The {g.Coin} Slot Machine \"stake\" leaderboard "
                 "is currently disabled. Please try again later.")
         await interaction.response.send_message(message_content,
                                                 ephemeral=private)
@@ -57,7 +57,7 @@ async def highest_stake(interaction: Interaction,
     high_scores: list[SlotsHighScoreEntry] = sorted(
         high_scores_unsorted, key=lambda x: (-x.wager, x.created_at))
     message_content: str = (f"## {g.Coin} Slot Machine Leaderboard "
-                            "\N{EN DASH} Highest stake\n")
+                            "\N{EN DASH} Stake\n")
     invoker: User | Member = interaction.user
     invoker_name: str = invoker.name
     has_sent_message = False
