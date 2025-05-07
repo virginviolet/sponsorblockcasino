@@ -38,14 +38,14 @@ async def single_win(interaction: Interaction,
             (g.donation_goal.reward_setting_key
                 == "leaderboard_slots_highest_win_blocked")):
             message_content = (
-                f"The {g.Coin} Slot Machine \"highest win\" leaderboard "
+                f"The {g.Coin} Slot Machine \"single win\" leaderboard "
                 "will be unlocked once the donation goal is met.\n"
                 f"-# Use {g.donation_goal_formatted} "
                 "to check the current progress.")
             private = False
         else:
             message_content = (
-                f"The {g.Coin} Slot Machine \"highest win\" leaderboard "
+                f"The {g.Coin} Slot Machine \"single win\" leaderboard "
                 "is currently disabled. Please try again later.")
         await interaction.response.send_message(message_content,
                                                 ephemeral=private)
