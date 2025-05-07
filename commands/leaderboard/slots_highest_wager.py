@@ -41,7 +41,8 @@ async def highest_stake(interaction: Interaction,
             message_content = (
                 f"The {g.Coin} Slot Machine \"highest stake\" leaderboard "
                 "will be unlocked once the donation goal is met.\n"
-                "-# Use `/donation_goal` to check the current progress.")
+                f"-# Use {g.donation_goal_formatted} "
+                "to check the current progress.")
             private = False
         else:
             message_content = (

@@ -143,7 +143,7 @@ async def process_reaction(bot: Bot,
         save_data: UserSaveData = UserSaveData(
             user_id=sender_id, user_name=sender_name)
         mining_messages_enabled: bool = save_data.mining_messages_enabled
-        if g.about_command_formatted is None:
+        if g.about_coin_formatted is None:
             error_message = ("ERROR: `about_command_mention` is None. This "
                              "usually means that the commands have not been ")
             raise ValueError(error_message)
@@ -174,7 +174,7 @@ async def process_reaction(bot: Bot,
         sender_mention: str = sender.mention
         message_content: str = (f"-# {sender_mention} has "
                                 f"mined a {g.coin} for you! "
-                                f"Enter {g.about_command_formatted} "
+                                f"Enter {g.about_coin_formatted} "
                                 "in the chat box to learn more.")
         await user_message.reply(message_content,
                                  allowed_mentions=AllowedMentions.none())

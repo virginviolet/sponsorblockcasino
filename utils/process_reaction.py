@@ -520,10 +520,8 @@ async def process_reaction(message_id: int,
         print(f"casino_channel: {g.casino_channel_id}")
         return
     mining_messages_enabled: bool = reacter_save_data.mining_messages_enabled
-    about_command_formatted: str | None = (
-        g.about_command_formatted)
-    if about_command_formatted is None:
-        error_message = ("ERROR: `about_command_formatted` is None. This "
+    if g.about_coin_formatted is None:
+        error_message = ("ERROR: `g.about_coin_formatted` is None. This "
                          "usually means that the commands have not been "
                          "synced with Discord yet.")
         raise ValueError(error_message)
@@ -619,7 +617,7 @@ async def process_reaction(message_id: int,
     reacter_mention: str = reacter.mention
     message_content: str = (f"-# {reacter_mention} has "
                             f"mined a {g.coin} for you! "
-                            f"Enter {about_command_formatted} "
+                            f"Enter {g.about_coin_formatted} "
                             "in the chat box to learn more.")
     try:
         await user_message.reply(message_content,

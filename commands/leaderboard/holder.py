@@ -37,7 +37,8 @@ async def holder(interaction: Interaction,
             message_content = (
                 f"The {g.coin} holder leaderboard "
                 "will be unlocked once the donation goal is met.\n"
-                "-# Use `/donation_goal` to check the current progress.")
+                f"-# Use {g.donation_goal_formatted} "
+                "to check the current progress.")
             private = False
         else:
             message_content = (

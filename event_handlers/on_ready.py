@@ -49,19 +49,23 @@ async def on_ready() -> None:
             await g.bot.tree.sync())
         print(f"Synced commands for bot {g.bot.user}.")
         print(f"Fetching command IDs...")
-        about_command: AppCommand | None = None
+        about_coin_command: AppCommand | None = None
         leaderboard_slots_single_win: AppCommandGroup | None = None
         leaderboard_slots_highest_wager: AppCommandGroup | None = None
         leaderboard_command_group: app_commands.AppCommand | None = None
+        donation_goal_command: AppCommand | None = None
         command_name: str
         for command in global_commands:
             command_name = command.name
             if command_name == f"about_{g.coin.lower()}":
-                about_command = command
+                about_coin_command = command
             elif command_name == "leaderboard":
                 leaderboard_command_group = command
-            if (about_command is not None and
-                    leaderboard_command_group is not None):
+            elif command_name == "donation_goal":
+                donation_goal_command = command
+            if (about_coin_command is not None and
+                    leaderboard_command_group is not None and
+                    donation_goal_command is not None):
                 break
         if leaderboard_command_group is None:
             print("ERROR: Could not find the leaderboard command group.")
@@ -97,13 +101,19 @@ async def on_ready() -> None:
                         break
         print("Command IDs fetched.")
 
-        if about_command is None:
+        if about_coin_command is None:
             print("ERROR: Could not find the about command. "
                   "Using string instead.")
-            g.about_command_formatted = f"about_{g.coin.lower()}"
+            g.about_coin_formatted = f"about_{g.coin.lower()}"
         else:
-            g.about_command_formatted = about_command.mention
+            g.about_coin_formatted = about_coin_command.mention
 
+        if donation_goal_command is None:
+            print("ERROR: Could not find the donation goal command. "
+                  "Using string instead.")
+            g.donation_goal_formatted = "/donation_goal"
+        else:
+            g.donation_goal_formatted = donation_goal_command.mention
         if leaderboard_slots_single_win is None:
             print("ERROR: Could not find the leaderboard slots "
                   "highest win command. Using string instead.")
