@@ -24,8 +24,8 @@ from models.grifter_suppliers import GrifterSuppliers
 from models.log import Log
 from models.user_save_data import UserSaveData
 from schemas.data_classes import (SlotEvent, SlotFeeDetail, SlotMessage,
-                                     SlotReelSymbol, SlotResultSimple,
-                                     SlotsHighScoreEntry, UserSimple)
+                                  SlotReelSymbol, SlotResultSimple,
+                                  SlotsHighScoreEntry, UserSimple)
 from utils.blockchain_utils import (add_block_transaction,
                                     get_last_block_timestamp)
 from utils.formatting import format_coin_label
@@ -814,24 +814,27 @@ async def insert_coins(interaction: Interaction,
                       "the highest_wager category.")
             # TODO Make command clickable
             if new_high_score_win_achieved and new_high_score_wager_achieved:
-                message_content = ("Congratulations! You've achieved "
-                                   "a new high score in both categories:\n"
-                                   "-# **Single win**: Check it out with "
-                                   "`/leaderboard slots single_win`.\n"
-                                   "-# **Highest stake**: Check it out with "
-                                   "`/leaderboard slots highest_stake`.")
+                message_content = (
+                    "Congratulations! You've achieved "
+                    "a new high score in both categories:\n"
+                    "-# **Single win**: Check it out with "
+                    f"{g.leaderboard_slots_single_win_formatted}.\n"
+                    "-# **Highest stake**: Check it out with "
+                    f"{g.leaderboard_slots_wager_formatted}.")
             elif new_high_score_win_achieved:
-                message_content = (f"Congratulations! You've achieved "
-                                   "a new high score in the "
-                                   "**Single win** category.\n"
-                                   "-# Check it out with "
-                                   "`/leaderboard slots single_win`.")
+                message_content = (
+                    "Congratulations! You've achieved "
+                    "a new high score in the "
+                    "**Single win** category.\n"
+                    "-# Check it out with "
+                    f"{g.leaderboard_slots_single_win_formatted}.")
             else:
-                message_content = (f"Congratulations! You've achieved "
-                                   "a new high score in the "
-                                   "**Highest stake** category.\n"
-                                   "-# Check it out with "
-                                   "`/leaderboard slots highest_stake`.")
+                message_content = (
+                    f"Congratulations! You've achieved "
+                    "a new high score in the "
+                    "**Highest stake** category.\n"
+                    "-# Check it out with "
+                    f"{g.leaderboard_slots_wager_formatted}.")
             await interaction.followup.send(content=message_content,
                                             ephemeral=should_use_ephemeral)
             del message_content

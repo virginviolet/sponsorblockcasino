@@ -90,6 +90,8 @@ donation_goal: "DonationGoal | None" = None
 all_channel_checkpoints: "Dict[int, ChannelCheckpoints]" = {}
 
 about_command_formatted: str | None = None
+leaderboard_slots_single_win_formatted: str | None = None
+leaderboard_slots_wager_formatted: str | None = None
 
 active_slot_machine_players: Dict[int, float] = {}
 # endregion
