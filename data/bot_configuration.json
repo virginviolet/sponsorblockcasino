@@ -18,9 +18,9 @@
     "leaderboard_slots_highest_wager_blocked": false,
     "leaderboard_slots_highest_win_blocked": false,
     "mining_highlights_channel_id": 0,
-    "mining_highlights_channel_name": "network-mining-highlights",
+    "mining_highlights_channel_name": "the network mining highlights channel",
     "mining_updates_channel_id": 0,
-    "mining_updates_channel_name": "mining-updates",
+    "mining_updates_channel_name": "the network mining channel",
     "network_mining_enabled": true,
     "reaction_messages_enabled": true,
     "sbcoin_id": 0
