@@ -13,6 +13,7 @@
     "coin_emoji_name": "",
     "coins": "coins",
     "grifter_swap_id": 0,
+    "leaderboard_slots_highest_wager_blocked": false,
     "leaderboard_slots_highest_win_blocked": false,
     "mining_highlights_channel_id": 0,
     "mining_highlights_channel_name": "network-mining-highlights",
