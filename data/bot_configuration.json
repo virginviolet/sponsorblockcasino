@@ -18,5 +18,6 @@
     "mining_updates_channel_id": 0,
     "mining_updates_channel_name": "mining-updates",
     "network_mining_enabled": true,
+    "reaction_messages_enabled": true,
     "sbcoin_id": 0
 }
