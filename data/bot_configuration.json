@@ -14,7 +14,9 @@
     "coins": "coins",
     "grifter_swap_id": 0,
     "mining_highlights_channel_id": 0,
+    "mining_highlights_channel_name": "network-mining-highlights",
     "mining_updates_channel_id": 0,
+    "mining_updates_channel_name": "mining-updates",
     "network_mining_enabled": true,
     "sbcoin_id": 0
 }
