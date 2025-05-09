@@ -56,32 +56,32 @@ class BotConfiguration:
         # TODO Do not integers as string
         self.file_name: str = file_name
         self._default_config: BotConfig = {
-            "coin": "coin",
+            "Blockchain_name": "Blockchain",
             "Coin": "Coin",
-            "coins": "coins",
             "Coins": "Coins",
+            "administrator_id": 0,
+            "aml_office_channel_id": 0,
+            "aml_office_thread_id": 0,
+            "auto_approve_transfer_limit": 0,
+            "blockchain_name": "blockchain",
+            "casino_channel_id": 0,
+            "casino_house_id": 0,
+            "coin": "coin",
             "coin_emoji_id": 0,
             "coin_emoji_name": "",
-            "casino_house_id": 0,
-            "administrator_id": 0,
-            "casino_channel_id": 0,
+            "coins": "coins",
+            "grifter_swap_id": 0,
+            "leaderboard_holder_blocked": False,
+            "leaderboard_slots_highest_wager_blocked": False,
+            "leaderboard_slots_highest_win_blocked": False,
             "mining_highlights_channel_id": 0,
             "mining_highlights_channel_name": (
                 "the network mining highlights channel"),
             "mining_updates_channel_id": 0,
             "mining_updates_channel_name": "the network mining channel",
-            "blockchain_name": "blockchain",
-            "Blockchain_name": "Blockchain",
             "network_mining_enabled": True,
-            "grifter_swap_id": 0,
-            "sbcoin_id": 0,
-            "auto_approve_transfer_limit": 0,
-            "aml_office_channel_id": 0,
-            "aml_office_thread_id": 0,
             "reaction_messages_enabled": True,
-            "leaderboard_holder_blocked": False,
-            "leaderboard_slots_highest_wager_blocked": False,
-            "leaderboard_slots_highest_win_blocked": False
+            "sbcoin_id": 0
         }
         attributes_set = False
         while attributes_set is False:
