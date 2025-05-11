@@ -846,7 +846,7 @@ async def insert_coins(interaction: Interaction,
 
     if last_block_error:
         bot_maintainer_mention: str = ""
-        if g.bot_maintainer_id is not 0:
+        if g.bot_maintainer_id != 0:
             bot_maintainer: User = (
                 await g.bot.fetch_user(g.bot_maintainer_id))
             bot_maintainer_mention = bot_maintainer.mention
