@@ -845,13 +845,14 @@ async def insert_coins(interaction: Interaction,
         await remove_from_active_players(interaction, user_id)
 
     if last_block_error:
-        # send message to admin
-        if g.administrator_id is not 0:
-            administrator: User = (await g.bot.fetch_user(g.administrator_id))
-            administrator_mention: str = administrator.mention
-            await interaction.followup.send(
-                "An error occurred. "
-                f"{administrator_mention} pls fix.")
+        bot_maintainer_mention: str = ""
+        if g.bot_maintainer_id is not 0:
+            bot_maintainer: User = (
+                await g.bot.fetch_user(g.bot_maintainer_id))
+            bot_maintainer_mention = bot_maintainer.mention
+        await interaction.followup.send(
+            "An error occurred. "
+            f"{bot_maintainer_mention} pls fix.")
         await terminate_bot()
     del last_block_error
 

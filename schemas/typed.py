@@ -21,7 +21,7 @@ class BotConfig(TypedDict):
     coin_emoji_id: int
     coin_emoji_name: str
     casino_house_id: int
-    administrator_id: int
+    bot_maintainer_id: int
     casino_channel_id: int
     mining_updates_channel_id: int
     mining_updates_channel_name: str

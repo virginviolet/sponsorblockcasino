@@ -43,14 +43,14 @@ class BotConfiguration:
             Coins: The capitalized plural form of the coin name from
                 the configuration.
             coin_emoji_id: The emoji ID for the coin from the configuration.
-            administrator_id: The administrator ID from the configuration.
+            bot_maintainer_id: The bot maintainer ID from the configuration.
             casino_house_id: The casino house ID from the configuration.
 
         Warnings:
             If `coin_emoji_id` is 0, a warning is printed indicating
                 that COIN_EMOJI_ID is not set.
-            If `administrator_id` is 0, a warning is printed indicating
-                that ADMINISTRATOR_ID is not set.
+            If `bot_maintainer_id` is 0, a warning is printed indicating
+                that bot_maintainer_id is not set.
         """
         print("Initializing bot configuration...")
         # TODO Do not integers as string
@@ -59,11 +59,11 @@ class BotConfiguration:
             "Blockchain_name": "Blockchain",
             "Coin": "Coin",
             "Coins": "Coins",
-            "administrator_id": 0,
             "aml_office_channel_id": 0,
             "aml_office_thread_id": 0,
             "auto_approve_transfer_limit": 0,
             "blockchain_name": "blockchain",
+            "bot_maintainer_id": 0,
             "casino_channel_id": 0,
             "casino_house_id": 0,
             "coin": "coin",
@@ -95,8 +95,8 @@ class BotConfiguration:
                     self.configuration["coin_emoji_id"])
                 self.coin_emoji_name: str = (
                     self.configuration["coin_emoji_name"])
-                self.administrator_id: int = (
-                    self.configuration["administrator_id"])
+                self.bot_maintainer_id: int = (
+                    self.configuration["bot_maintainer_id"])
                 self.casino_house_id: int = (
                     self.configuration["casino_house_id"])
                 self.casino_channel_id: int = (
@@ -228,7 +228,7 @@ class BotConfiguration:
                     letter capitalized.
         - coin_emoji_id: Placeholder for the emoji ID of the coin.
         - casino_house_id: Placeholder for the ID of the casino house.
-        - administrator_id: Placeholder for the ID of the bot administrator.
+        - bot_maintainer_id: Placeholder for the ID of the bot maintainer.
         Raises:
             OSError: If there is an error creating directories or writing
                         the configuration file.
@@ -296,7 +296,7 @@ def invoke_bot_configuration() -> None:
     g.coin_emoji_id = g.configuration.coin_emoji_id
     g.coin_emoji_name = g.configuration.coin_emoji_name
     g.casino_house_id = g.configuration.casino_house_id
-    g.administrator_id = g.configuration.administrator_id
+    g.bot_maintainer_id = g.configuration.bot_maintainer_id
     g.casino_channel_id = g.configuration.casino_channel_id
     g.mining_updates_channel_id = g.configuration.mining_updates_channel_id
     g.mining_updates_channel_name = g.configuration.mining_updates_channel_name

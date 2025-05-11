@@ -28,7 +28,8 @@ async def transfer(interaction: Interaction,
     Transfer a specified amount of coins to another user.
 
     Args:
-        interaction: The interaction object representing the command invocation.
+        interaction: The interaction object representing the command
+            invocation.
     """
     sender: User | Member = interaction.user
     sender_id: int = sender.id

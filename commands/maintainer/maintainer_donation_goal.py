@@ -44,11 +44,11 @@ async def donation_goal_add(
 ) -> None:
     """Add a donation goal for the casino."""
     # Check if the user is a maintainer
-    # TODO Use coin bot developer role or maintainer role instead of administrator id
+    # TODO Use coin bot developer role or maintainer role instead of bot_maintainer id
     # IMPROVE Make persistent; save goal to file
     assert g.bot is not None, (
         "g.bot has not been initialized.")
-    if interaction.user.id != g.administrator_id:
+    if interaction.user.id != g.bot_maintainer_id:
         await interaction.response.send_message(
             "You are not authorized to set donation goals.",
             ephemeral=True)
@@ -165,10 +165,10 @@ async def donation_goal_remove(
 ) -> None:
     """Remove the donation goal for the casino."""
     # Check if the user is a maintainer
-    # TODO Use coin bot developer role or maintainer role instead of administrator id
+    # TODO Use coin bot developer role or maintainer role instead of bot_maintainer id
     assert g.bot is not None, (
         "g.bot has not been initialized.")
-    if interaction.user.id != g.administrator_id:
+    if interaction.user.id != g.bot_maintainer_id:
         await interaction.response.send_message(
             "You are not authorized to remove donation goals.",
             ephemeral=silent)

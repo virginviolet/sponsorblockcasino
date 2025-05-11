@@ -17,6 +17,7 @@ from models.grifter_suppliers import GrifterSuppliers
 # region Message
 assert isinstance(g.bot, Bot), "bot is not initialized"
 
+
 @g.bot.event
 async def on_message(message: Message) -> None:
     """
@@ -50,10 +51,11 @@ async def on_message(message: Message) -> None:
         if guild is None:
             # TODO Ensure checkpoints work threads
             # print("ERROR: Guild is None.")
-            # administrator: str = (
-            #     (await bot.fetch_user(administrator_id)).mention)
+            # bot_maintainer: User = (
+            # await g.bot.fetch_user(g.bot_maintainer_id))
+            # bot_maintainer_mention: str = bot_maintainer.mention
             # await message.channel.send("An error occurred. "
-            #                            f"{administrator} pls fix.")
+            #                            f"{bot_maintainer_mention} pls fix.")
             raise Exception("Guild is None.")
         guild_name: str = guild.name
         guild_id: int = guild.id
@@ -65,14 +67,13 @@ async def on_message(message: Message) -> None:
                 guild_name=guild_name,
                 guild_id=guild_id,
                 channel_name=channel_name,
-                channel_id=channel_id
-            )
+                channel_id=channel_id)
         else:
             # print("ERROR: Channel is not a text channel or voice channel.")
-            # administrator: str = (
-            #     (await g.bot.fetch_user(ADMINISTRATOR_ID)).mention)
+            # bot_maintainer = await g.bot.fetch_user(g.bot_maintainer_id)
+            # bot_maintainer_mention: str = bot_maintainer.mention
             # await message.channel.send("An error occurred. "
-            #                            f"{administrator} pls fix.")
+            #                            f"{bot_maintainer_mention} pls fix.")
             return
 
     # Look for GrifterSwap messages

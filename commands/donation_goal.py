@@ -43,14 +43,16 @@ async def donation_goal(
         f"{g.donation_goal.donated_amount}/"
         f"{g.donation_goal.target_amount} {coin_label} "
         f"({fraction_reached:.0%})\n")
-    if (interaction.user.id == g.administrator_id and
+    if (interaction.user.id == g.bot_maintainer_id and
             g.donation_goal.reward_setting_key is not None):
         f"Reward: {g.donation_goal.reward_setting_key}\n"
-    if g.donation_goal.reward_setting_key is not None and ephemeral is not None:
+    if (g.donation_goal.reward_setting_key is not None and
+        ephemeral is not None):
         message_content += (
             "-# Reward setting: "
-            f"`{g.donation_goal.reward_setting_key} = {g.donation_goal.reward_setting_value}`\n")
-    if interaction.user.id == g.administrator_id and ephemeral is not None:
+            f"`{g.donation_goal.reward_setting_key} = "
+            f"{g.donation_goal.reward_setting_value}`\n")
+    if interaction.user.id == g.bot_maintainer_id and ephemeral is not None:
         message_content += (
             "-# Goal reached message: "
             f"\"{g.donation_goal.goal_reached_message_content}\"\n")

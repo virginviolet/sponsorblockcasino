@@ -48,8 +48,10 @@ def get_cybersecurity_officer_role(interaction: Interaction) -> Role | None:
     role_names: List[str] = [
         f"{g.Coin} Security Officer", f"{g.Coin} security officer",
         f"{g.Coin} security officer", f"{g.Coin}_security_officer",
-        f"{g.Coin} Casino Security Officer", f"{g.Coin} Casino security officer",
-        f"{g.Coin} Casino security officer", f"{g.Coin}_casino_security_officer",
+        f"{g.Coin} Casino Security Officer",
+        f"{g.Coin} Casino security officer",
+        f"{g.Coin} Casino security officer",
+        f"{g.Coin}_casino_security_officer",
         "Security Officer", "Security officer",
         "security officer", "security_officer",
         "Information Security Officer", "Information security officer",

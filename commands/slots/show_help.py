@@ -52,15 +52,15 @@ async def show_help(interaction: Interaction,
     jackpot_seed: int = (
         g.slot_machine.configuration.combo_events
         ["jackpot"]["fixed_amount"])
-    if g.administrator_id is 0:
+    if g.bot_maintainer_id is 0:
         raise ValueError(
-            "administrator_id is not set. Please set it in the config.")
+            "bot_maintainer_id is not set. Please set it in the config.")
     try:
-        administrator: User = (await g.bot.fetch_user(g.administrator_id))
-        administrator_mention: str = administrator.mention
+        bot_maintainer: User = await g.bot.fetch_user(g.bot_maintainer_id)
+        bot_maintainer_mention: str = bot_maintainer.mention
     except Exception as e:
         raise RuntimeError(
-            "Failed to fetch administrator user.") from e
+            "Failed to fetch bot_maintainer user.") from e
     slot_machine_technician: Role | None = (
         get_slot_machine_technician_role(interaction))
     if slot_machine_technician is None:
@@ -178,7 +178,7 @@ async def show_help(interaction: Interaction,
         f"please contact the {g.Coin} Casino staff or a Slot Machine "
         f"Technician (mention {slot_machine_technician_mention}in a "
         f"message). If you need to contact the {g.Coin} Casino CEO, "
-        f"mention {administrator_mention}.\n"
+        f"mention {bot_maintainer_mention}.\n"
         "\n"
         "-# *Not guaranteed. Actually, for legal reasons, nothing about "
         "this game is guaranteed.\n")

@@ -111,9 +111,11 @@ async def transfer_coins(sender: Member | User,
     try:
         balance = g.blockchain.get_balance(user_unhashed=sender_id)
     except Exception as e:
-        administrator: str = (
-            await g.bot.fetch_user(g.administrator_id)).mention
-        await send_message(f"Error getting balance. {administrator} pls fix.")
+        bot_maintainer: User = await g.bot.fetch_user(g.bot_maintainer_id)
+        bot_maintainer_mention: str = (
+            await g.bot.fetch_user(g.bot_maintainer_id)).mention
+        await send_message(
+            f"Error getting balance. {bot_maintainer_mention} pls fix.")
         error_message: str = ("ERROR: Error getting balance "
                               f"for user {sender} ({sender_id}): {e}")
         raise Exception(error_message)
@@ -220,10 +222,11 @@ async def transfer_coins(sender: Member | User,
                 g.log.log(log_message, request_timestamp)
                 del log_message
             except Exception as e:
-                administrator: str = (
-                    (await g.bot.fetch_user(g.administrator_id)).mention)
+                bot_maintainer: User = (
+                    await g.bot.fetch_user(g.bot_maintainer_id))
+                bot_maintainer_mention: str = bot_maintainer.mention
                 message_content = ("Error sending transfer request.\n"
-                                   f"{administrator} pls fix.")
+                                   f"{bot_maintainer} pls fix.")
                 await interaction.followup.send(message_content)
                 del message_content
                 error_message = ("ERROR: Error adding transaction request "
@@ -276,11 +279,11 @@ async def transfer_coins(sender: Member | User,
                         aml_office_message,
                         allowed_mentions=AllowedMentions.none())
             except Exception as e:
-                administrator: str = (
-                    (await g.bot.fetch_user(g.administrator_id)).mention)
+                bot_maintainer: User = await g.bot.fetch_user(g.bot_maintainer_id)
+                bot_maintainer_mention: str = bot_maintainer.mention
                 message_content = (
                     "There was an error notifying the AML office.\n"
-                    f"{administrator} pls fix.")
+                    f"{bot_maintainer_mention} pls fix.")
                 await interaction.followup.send(message_content)
                 del message_content
                 error_message = ("ERROR: Error sending transfer request "
@@ -296,10 +299,10 @@ async def transfer_coins(sender: Member | User,
     last_block: Block | None = g.blockchain.get_last_block()
     if last_block is None:
         print("ERROR: Last block is None.")
-        administrator: str = (
-            await g.bot.fetch_user(g.administrator_id)).mention
+        bot_maintainer: User = await g.bot.fetch_user(g.bot_maintainer_id)
+        bot_maintainer_mention: str = bot_maintainer.mention
         await send_message(f"Error transferring {g.coins}. "
-                           f"{administrator} pls fix.")
+                           f"{bot_maintainer} pls fix.")
         await terminate_bot()
         raise Exception("Last block is None.")
     timestamp: float = last_block.timestamp
