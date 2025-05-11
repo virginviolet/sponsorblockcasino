@@ -4,7 +4,7 @@ from _collections_abc import dict_items
 from typing import List, Dict, cast
 
 # Third party
-from discord import Interaction, Member, Role, User, app_commands, utils
+from discord import Interaction, Member, Role, User, app_commands
 from discord.app_commands import Choice
 from discord.ext.commands import (  # pyright: ignore [reportMissingTypeStubs]
     Bot)
@@ -69,8 +69,8 @@ async def reels(interaction: Interaction,
     - Expected total return.
     - Expected return.
     - RTP for different wagers.
-    Only users with the "Administrator" or "Slot Machine Technician" role
-    can utilize this command.
+    Only users with a role named "Administrator", "Admin",
+    or "Slot Machine Technician" can utilize this command.
 
     Args:
         interaction: The interaction object representing the
@@ -86,33 +86,46 @@ async def reels(interaction: Interaction,
     """
     assert isinstance(g.slot_machine, SlotMachine), (
         "slot_machine has not been initialized.")
-    await interaction.response.defer(ephemeral=close_off)
     # Check if user has the necessary role
     invoker: User | Member = interaction.user
-    invoker_roles: List[Role] = cast(Member, invoker).roles
-    administrator_role: Role | None = (
-        utils.get(invoker_roles, name="Administrator"))
-    technician_role: Role | None = (
-        utils.get(invoker_roles, name="Slot Machine Technician"))
-    if technician_role is None and administrator_role is None:
-        # TODO Maybe let other users see the reels
-        message_content: str = ("Only slot machine technicians "
-                                "may look at the reels.")
-        await interaction.followup.send(message_content, ephemeral=True)
-        del message_content
+    # IMPROVE Make a user-friendly command that just shows how many of each symbol there are (and their probabilities?)
+    access_denied_message_content: str = ("Only slot machine technicians "
+                                          "may look at the reels.")
+    if not isinstance(invoker, Member):
+        await interaction.response.send_message(
+            access_denied_message_content, ephemeral=True)
         return
+    invoker_roles: List[Role] = invoker.roles
+    invoker_is_authorized: bool = False
+    for role in invoker_roles:
+        role_name: str = role.name
+        role_name_lowercase: str = role_name.lower()
+        invoker_role_allows_access: bool = (
+            role_name_lowercase == "slot machine technician" or
+            role_name_lowercase == "administrator" or
+            role_name_lowercase == "admin")
+        if invoker_role_allows_access:
+            invoker_is_authorized = True
+            break
+    if not invoker_is_authorized:
+        await interaction.response.send_message(
+            access_denied_message_content, ephemeral=True)
+        return
+
+    await interaction.response.defer(ephemeral=close_off)
 
     # Refresh reels config from file
     print("Reloading reels...")
     g.slot_machine.reels = g.slot_machine.load_reels()
     print("Reels reloaded.")
 
-    # IMPROVE Add a set_amount parameter to change the value directly instead of adding or subtracting
+    # IMPROVE Add a set_symbol_amount parameter to change the value directly instead of adding or subtracting
     if (symbol or amount or reel) and not add_or_remove_symbol:
         print("add_or_remove_symbol is None.")
-        message_content: str = ("You must specify whether you want to add or "
-                                "remove a symbol.")
-        await interaction.followup.send(message_content, ephemeral=True)
+        message_content: str = (
+            "You must specify whether you want to add or remove a symbol.")
+        await interaction.followup.send(message_content,
+                                        ephemeral=True)
         return
     if add_or_remove_symbol and not symbol in g.slot_machine.reels['reel1']:
         print(f"Invalid symbol '{symbol}'")
