@@ -52,7 +52,7 @@ async def show_help(interaction: Interaction,
     jackpot_seed: int = (
         g.slot_machine.configuration.combo_events
         ["jackpot"]["fixed_amount"])
-    if g.bot_maintainer_id is 0:
+    if g.bot_maintainer_id == 0:
         raise ValueError(
             "bot_maintainer_id is not set. Please set it in the config.")
     try:
